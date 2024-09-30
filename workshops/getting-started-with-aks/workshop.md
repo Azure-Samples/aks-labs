@@ -3,7 +3,7 @@ published: false # Optional. Set to true to publish the workshop (default: false
 type: workshop # Required.
 title: Getting Started with Azure Kubernetes Service (AKS) # Required. Full title of the workshop
 short_title: Getting Started with AKS # Optional. Short title displayed in the header
-description: This is a workshop for getting started AKS  # Required.
+description: This is a workshop for getting started AKS # Required.
 level: beginner # Required. Can be 'beginner', 'intermediate' or 'advanced'
 authors: # Required. You can add as many authors as needed
   - "Paul Yu"
@@ -74,7 +74,7 @@ When you see these blocks of text, you should follow the instructions below.
 
 ## Setting up your environment
 
-> For basic container learning, go here: https://learn.microsoft.com/azure/aks/tutorial-kubernetes-prepare-app?tabs=azure-cli 
+> For basic container learning, go here: https://learn.microsoft.com/azure/aks/tutorial-kubernetes-prepare-app?tabs=azure-cli
 
 ---
 
@@ -138,7 +138,7 @@ Let's go ahead and create an AKS automatic cluster.
 
 In the **Basics** tab, fill out the following fields:
 
-- **Subscription:** Select your Azure subscription. 
+- **Subscription:** Select your Azure subscription.
 
   <div class="info" data-title="Note">
 
@@ -186,7 +186,7 @@ Open the Azure Cloud Shell and run the following command to set up local variabl
 
 <div class="info" data-title="Note">
 
-> If this is your first time opening Azure Cloud Shell, be sure to click the **Bash** button when asked presented with the environment selector as all command line instructions in this workshop are intended to be run in a POSIX shell. You may also be asked to create a storage account for your Cloud Shell. Go ahead and select **No storage account required**, then select your subscription and click **Apply**. 
+> If this is your first time opening Azure Cloud Shell, be sure to click the **Bash** button when asked presented with the environment selector as all command line instructions in this workshop are intended to be run in a POSIX shell. You may also be asked to create a storage account for your Cloud Shell. Go ahead and select **No storage account required**, then select your subscription and click **Apply**.
 
 ![](https://placehold.co/800x400)
 
@@ -381,7 +381,7 @@ less aks-store-quickstart.yaml
 
 </div>
 
-If we look at the YAML file, we can see that it contains a Deployment and Service resource for each of the three services: store-front, order-service, and product-service. It also contains a StatefulSet, service, and ConfigMap resource for RabbitMQ. 
+If we look at the YAML file, we can see that it contains a Deployment and Service resource for each of the three services: store-front, order-service, and product-service. It also contains a StatefulSet, service, and ConfigMap resource for RabbitMQ.
 
 Each Deployment resource specifies the container image to use, the ports to expose, environment variables, and resource requests and limits. The Deployment resource was not originally part of Kubernetes but was introduced to make it easier to manage ReplicaSets. A ReplicaSet is a resource that ensures a specified number of pod replicas are running at any given time and no longer commonly used in favor of Deployments.
 
@@ -556,11 +556,11 @@ As you can see, Kubernetes is responsible for managing the lifecycle of your app
 
 ### Voluntary Disruptions
 
-A voluntary disruption is a disruption that is initiated by the user. For example, you may want to scale down the number of replicas in a deployment or you may want to evict a pod from a node to free up resources. Kubernetes has built-in mechanisms to handle these disruptions. During a voluntary disruption, Kubernetes will not evict Pods from a node. 
+A voluntary disruption is a disruption that is initiated by the user. For example, you may want to scale down the number of replicas in a deployment or you may want to evict a pod from a node to free up resources. Kubernetes has built-in mechanisms to handle these disruptions. During a voluntary disruption, Kubernetes will not evict Pods from a node.
 
 An eviction can be harmful to your application if you are not prepared for it. When a node cordoned, no new Pods will be scheduled on the node and any existing Pod will be evicted using the Eviction API. When this happens, it doesn't matter if how many replicas you have running on a node or how many replicas will be remaining after the eviction. The Pod will be evicted and rescheduled on another node. This means you can incur downtime if you are not prepared for it.
 
-Good news is that Kubernetes has a built-in mechanism to handle these disruptions. The PodDisruptionBudget resource allows you to specify the minimum number of Pods that must be available during a voluntary disruption. When a PodDisruptionBudget is created, Kubernetes will not evict Pods that violate the budget. 
+Good news is that Kubernetes has a built-in mechanism to handle these disruptions. The PodDisruptionBudget resource allows you to specify the minimum number of Pods that must be available during a voluntary disruption. When a PodDisruptionBudget is created, Kubernetes will not evict Pods that violate the budget.
 
 Let's see this in action. But first, we should scale our store-front deployment to have more than one replica.
 
@@ -571,7 +571,7 @@ kubectl scale deployment store-front --replicas=3
 With the deployment scaled to 3 replicas, we can see which nodes the Pods are running on.
 
 ```bash
-kubectl get pod --selector app=store-front -o wide 
+kubectl get pod --selector app=store-front -o wide
 ```
 
 You can see that the Pods are running on a single node.
@@ -662,16 +662,16 @@ nano store-front-deployment.yaml
 In the `store-front-deployment.yaml` file, add the following PodAntiAffinity rule to the `spec` section of the `store-front` deployment. This rule tells the Kubernetes scheduler to spread the store-front Pods using `topologyKey: kubernetes.io/hostname` which essentially means to spread the Pods across different nodes.
 
 ```yaml
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app
+              operator: In
+              values:
                 - store-front
-            topologyKey: "kubernetes.io/hostname"
+        topologyKey: "kubernetes.io/hostname"
 ```
 
 <div class="info" data-title="Note">
@@ -704,7 +704,6 @@ kubectl get pod --selector app=store-front -o wide -w
 
 </div>
 
-
 Also note that the replacement of the Pods are considered to be an update to the Deployment resource. So the RollingUpdate strategy will be used to rollout new Pods before terminating the old Pods. So we're safe from downtime during this process!
 
 Once the Pods are rescheduled onto new nodes, you should see that the Pods are spread across multiple nodes.
@@ -716,6 +715,92 @@ kubectl get pod --selector app=store-front -o wide
 ---
 
 # Application and Cluster Scaling
+
+In a enterprise production environment, the demands and resource useage of your workloads running on Azure Kubernetes Service (AKS) can be dynamic and change frequently. If your application requires more resources from the cluster, the cluster could be impacted due to the lack of resources. One of the easiest ways to ensure your applications have enough resources from the cluster, is to scale your cluster to include more working nodes.
+
+There are two ways to accomplish adding more nodes to your AKS cluster. You can manually scale out your cluster, or you can configure cluster autoscaler to automatically adjust to the demands of your application and automatically scale the number of nodes for you. We'll look at how you can do each.
+
+## Manually scaling your cluster
+
+Manually scaling your cluster give you the ability to add or remove additional nodes to the cluster at any point in time. Using manual scaling is good for dev/test and/or small production environments where reacting to changing workload utilization is not that important. In most production environments, you will want to set policies based on conditions to scale your cluster in a more automated fashion. Manually scaling you cluster gives you the ability to scale your cluster at the exact time you want, but your applications could potentially be in a degraded and/or offline state while the cluster is scaling up.
+
+<div class="task" data-title="Task">
+
+> Open the terminal and run the following command to view and get the name of the AKS node pools
+
+```bash
+az aks show --resource-group myResourceGroup --name myAKSCluster --query agentPoolProfiles
+```
+
+The following is a condensed example output from the previous command. We're focused on getting the name property from the output. The output should look similar to:
+
+```bash
+[
+  {
+    "count": 3,
+    "maxPods": 250,
+    "name": "systempool",
+    "osDiskSizeGb": 30,
+    "osType": "Linux",
+    "vmSize": "Standard_DS2_v2"
+  }
+]
+```
+
+Using the previous output name property, we will now scale the cluster up.
+
+<div class="task" data-title="Task">
+
+> Scale the cluster up by adding one additional node
+
+```bash
+az aks scale --resource-group myResourceGroup --name myAKSCluster --node-count 4 --nodepool-name <your node pool name>
+```
+
+Scaling will take a few moments. You should see the scaling activity running in your terminal.
+
+```bash
+ | Running ..
+```
+
+Once the scaling up is complete, you should see something similar as the completion output below:
+
+```bash
+{
+  "aadProfile": null,
+  "addonProfiles": null,
+  "agentPoolProfiles": [
+    {
+      "count": 4,
+      "maxPods": 250,
+      "name": "systempool",
+      "osDiskSizeGb": 30,
+      "osType": "Linux",
+      "vmSize": "Standard_DS2_v2",
+      "vnetSubnetId": null
+    }
+  ],
+  [...]
+}
+```
+
+Notice the count property increased.
+
+We will now manually scale the cluster down by one node.
+
+<div class="task" data-title="Task">
+
+> Scale the cluster down by removing one additional node
+
+```bash
+az aks scale --resource-group myResourceGroup --name myAKSCluster --node-count 3 --nodepool-name <your node pool name>
+```
+
+### Automatically scaling your cluster
+
+The more preferred method to scaling your cluster, would be to use the cluster autoscaler component. Using the cluster autoscaler component enables Kubernetes to watch for pods in your cluster that can't be scheduled because of resource contraints. When the cluster autoscaler detects issues, it scales up the number of nodes in the node pool to meet the application demands.
+
+Another additional benefit of using the cluster autoscaler component is automatically scaling your cluster nodes down when there is a lack of activity as well. Cluster autoscaler will regularly checks nodes for a lack of running pods and scales down the number of nodes as needed.
 
 talk about scaling cluster and application
 
@@ -783,7 +868,7 @@ Container storage is ephemeral. If a pod is deleted, the data is lost. To persis
 
 ## AKS Storage classes and PVC's
 
-Create PVC that leverages AKS storage classes 
+Create PVC that leverages AKS storage classes
 
 ```bash
 kubectl get storageclasses
