@@ -1142,7 +1142,7 @@ For this section of the lab we will focus on two AKS Fleet Manager features, cre
 
 You can find and learn about additional AKS Fleet Manager concepts and functionality on the [Azure Kubernetes Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/) documentation page.
 
-> IMPORTANT: Please ensure you have enabled the Azure Fleet CLI extension for your Azure subscription. You can enable this by running `az extension add --name fleet` in your terminal. 
+> IMPORTANT: Please ensure you have enabled the Azure Fleet CLI extension for your Azure subscription. You can enable this by running `az extension add --name fleet` in your terminal.
 
 #### Create Additional AKS Cluster
 
@@ -1153,7 +1153,7 @@ To understand how AKS Fleet Manager can help manage multiple AKS clusters, we wi
 Deploy the additional AKS cluster with the following command:
 
 ```bash
-az aks create -g myResourceGroup -n <aks-fleet-member-1> --node-vm-size standard_d2_v2 --node-count 2 --enable-managed-identity 
+az aks create -g myResourceGroup -n <aks-fleet-member-1> --node-vm-size standard_d2_v2 --node-count 2 --enable-managed-identity
 ```
 
 #### Create and configure Access for a Kuberentes Fleet Resource with Hub Cluster
@@ -1185,12 +1185,11 @@ export IDENTITY=$(az ad signed-in-user show --query "id" --output tsv) \
 export ROLE="Azure Kubernetes Fleet Manager RBAC Cluster Admin"
 ```
 
-Once we have all of the terminal environment variables set, we can run the command to add the Azure account to be a "Azure Kubernetes Fleet Manager RBAC Cluster Admin" role on the Fleet resource. 
+Once we have all of the terminal environment variables set, we can run the command to add the Azure account to be a "Azure Kubernetes Fleet Manager RBAC Cluster Admin" role on the Fleet resource.
 
 ```bash
 az role assignment create --role "${ROLE}" --assignee ${IDENTITY} --scope ${FLEET_ID}
 ```
-
 
 #### Joining Existing AKS Cluster to the Fleet
 
@@ -1210,7 +1209,7 @@ Run the following command to join both AKS clusters to the Fleet.
 ```bash
 az fleet member create --resource-group ${RESOURCE_GROUP} --fleet-name ${FLEET_NAME} --name ${AKS_CLUSTER_1} --member-cluster-id ${AKS_CLUSTER_1_ID}
 
-az fleet member create --resource-group ${RESOURCE_GROUP} --fleet-name ${FLEET_NAME} --name ${AKS_CLUSTER_2} --member-cluster-id ${AKS_CLUSTER_2_ID} 
+az fleet member create --resource-group ${RESOURCE_GROUP} --fleet-name ${FLEET_NAME} --name ${AKS_CLUSTER_2} --member-cluster-id ${AKS_CLUSTER_2_ID}
 ```
 
 Once the `az fleet member create` command has completed for both AKS clusters, we can verify they have both been added and enabled for Fleet running the `kubectl get memberclusters` command.
@@ -1223,13 +1222,14 @@ kubectl get memberclusters
 
 The `ClusterResourcePlacement` API object is used to propagate resources from a hub cluster to member clusters. The `ClusterResourcePlacement` API object specifies the resources to propagate and the placement policy to use when selecting member clusters. The `ClusterResourcePlacement` API object is created in the hub cluster and is used to propagate resources to member clusters. This example demonstrates how to propagate a namespace to member clusters using the `ClusterResourcePlacement` API object with a `PickAll` placement policy.
 
-Before running the following commands, make sure your `kubectl conifg` has the Fleet hub cluster as it's current context. To check your current context, run the `kubectl config current-context` command. You should see the output as `hub`. If the output is not `hub`, please run `kubectl config set-context hub`. 
+Before running the following commands, make sure your `kubectl conifg` has the Fleet hub cluster as it's current context. To check your current context, run the `kubectl config current-context` command. You should see the output as `hub`. If the output is not `hub`, please run `kubectl config set-context hub`.
 
 Create a namespace to place onto the member clusters using the kubectl create namespace command. The following example creates a namespace named my-namespace:
 
 ```bash
 kubectl create namespace my-fleet-ns-example
 ```
+
 Create a `ClusterResourcePlacement` API object in the hub cluster to propagate the namespace to the member clusters and deploy it using the `kubectl apply -f` command. The following example `ClusterResourcePlacement` creates an object named `my-lab-crp` and uses the `my-fleet-ns-example` namespace with a `PickAll` placement policy to propagate the namespace to all member clusters:
 
 ```bash
@@ -1242,7 +1242,7 @@ spec:
   resourceSelectors:
     - group: ""
       kind: Namespace
-      version: v1          
+      version: v1
       name: my-fleet-ns-example
   policy:
     placementType: PickAll
