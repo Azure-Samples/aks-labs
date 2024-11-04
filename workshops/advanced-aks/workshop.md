@@ -44,13 +44,67 @@ After completing this workshop, you will be able to:
 
 To complete this workshop, you will need:
 
-- An [Azure subscription](https://azure.microsoft.com/) and permissions to create resources. The subscription should also have enough vCPU quota to create multiple AKS clusters in multiple regions. If you don't have enough quota, you can request an increase. Check [here](https://docs.microsoft.com/azure/azure-portal/supportability/per-vm-quota-requests) for more information.
+- An [Azure subscription](https://azure.microsoft.com/) and permissions to create resources. The subscription should also have at least 32 vCPU of Standard D series quota available to create multiple AKS clusters throughout this lab. If you don't have enough quota, you can request an increase. Check [here](https://docs.microsoft.com/azure/azure-portal/supportability/per-vm-quota-requests) for more information.
 - A [GitHub account](https://github.com/signup)
 - Azure CLI. You can install it from [here](https://docs.microsoft.com/cli/azure/install-azure-cli). You may also want to install the aks-preview extension. You can find out how to do that [here](https://learn.microsoft.com/azure/aks/draft#install-the-aks-preview-azure-cli-extension)
 - kubectl - You can see how to install kubectl [here](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
-- Helm - You can see how to install Helm [here](https://helm.sh/docs/intro/install/)
+- POSIX compliant shell (e.g. bash, zsh, or [Azure Cloud Shell](https://learn.microsoft.com/azure/cloud-shell/overview))
 
 ---
+
+## Lab environment setup
+
+This workshop will require the use of multiple Azure resources. To make it easier to manage these resources, you will create a resource group to contain all the resources and pre-deploy some monitoring resources; all of which will be deployed using Azure CLI in a POSIX compliant shell.
+
+Run the following command to create a **.env** file with local variables used throughout the workshop.
+
+```bash
+cat <<EOF > .env
+RG_NAME="myResourceGroup${RANDOM}"
+AKS_NAME="myAKSCluster${RANDOM}"
+LOCATION="australiaeast"
+EOF
+```
+
+<div class="info" data-title="Note">
+
+> Choose a region that has supports availability zones. You can find a list of regions that support availability zones [here](https://learn.microsoft.com/azure/aks/availability-zones-overview) and has enough vCPU quota to create multiple AKS clusters.
+
+Run the following command to load the local variables into the shell.
+
+```bash
+source .env
+```
+
+<div class="tip" data-title="Tip">
+
+> If you are using the Azure Cloud Shell, it may time out and you will loose your environment variables. Therefore, you will use the **.env** file to store your environment variables as you progress through the workshop to make it easier to reload them.
+
+</div>
+
+Run the following command to create a resource group.
+
+```bash
+az group create \
+--name ${RG_NAME} \
+--location ${LOCATION}
+```
+
+Run the following command to download the Bicep template file.
+
+```bash
+wget https://raw.githubusercontent.com/Azure-Samples/aks-labs/refs/heads/advanced-aks-cleanup/workshops/advanced-aks/assets/main.bicep
+```
+
+Run the following command to create an Azure Log Analytics workspace, Azure Managed Prometheus, and Azure Managed Grafana resources. You will need these resources at various points in the workshop.
+
+```bash
+az deployment group create \
+--resource-group $RG_NAME \
+--template-file main.bicep \
+--parameters userObjectId=$(az ad signed-in-user show --query id -o tsv) \
+--no-wait
+```
 
 ## Cluster Setup
 
@@ -78,63 +132,19 @@ Now that we have covered the basics of cluster sizing and topology, let's create
 
 <div class="info" data-title="Note">
 
-> In this workshop we will be creating an AKS cluster that is not intended for production use. The cluster will be created as an internet-facing cluster. For production use, it is recommended to create a private cluster. You can find more information on creating a private cluster [here](https://docs.microsoft.com/azure/aks/private-clusters).
+> In this workshop you will be creating an AKS cluster that can be accessible from the public internet. For production use, it is recommended to create a private cluster. You can find more information on creating a private cluster [here](https://docs.microsoft.com/azure/aks/private-clusters).
 
 </div>
+
+Azure CLI is the primary tool used throughout this workshop. If you are using the Azure Cloud Shell, the Azure CLI is already installed. If you are using a local machine, you will need to install the Azure CLI. You can find more information on how to install the Azure CLI [here](https://docs.microsoft.com/cli/azure/install-azure-cli). You will also need to install the aks-preview extension since some of the features used in this workshop are in preview. You can find more information on how to install Azure CLI extensions [here](https://learn.microsoft.com/cli/azure/extension?view=azure-cli-latest#az-extension-add).
+
+Run the following command to install the aks-preview extension.
 
 ```bash
 az extension add --name aks-preview
 ```
 
-Run the following command to create a **.env** file with the following local variables.
-
-```bash
-cat <<EOF > .env
-RG_NAME="myResourceGroup${RANDOM}"
-AKS_NAME="myAKSCluster${RANDOM}"
-LOCATION="australiaeast"
-EOF
-```
-
-This file will be used to easily load local variables into the shell.
-
-```bash
-source .env
-```
-
-<div class="info" data-title="Tip">
-
-> If you are using the Azure Cloud Shell, it may time out and you will loose your environment variables. Therefore, you will use the **.env** file to store your environment variables as you progress through the workshop to make it easier to reload them.
-
-</div>
-
-Run the following command to create a resource group.
-
-```bash
-az group create \
---name ${RG_NAME} \
---location ${LOCATION}
-```
-
-The workshop will also require the use of monitoring and logging services. The creation of the services can be done in the background while you continue with the workshop.
-
-Run the following command to download the Bicep template file.
-
-```bash
-wget https://raw.githubusercontent.com/Azure-Samples/aks-labs/refs/heads/advanced-aks-cleanup/workshops/advanced-aks/assets/main.bicep
-```
-
-Run the following command to create an Azure Log Analytics workspace, Azure Managed Prometheus, and Azure Managed Grafana resources.
-
-```bash
-az deployment group create \
---resource-group $RG_NAME \
---template-file main.bicep \
---parameters userObjectId=$(az ad signed-in-user show --query id -o tsv) \
---no-wait
-```
-
-While the command to create the monitoring resources is running, use the [az aks create](<https://learn.microsoft.com/cli/azure/aks?view=azure-cli-latest#az-aks-create(aks-preview)>) command to create an AKS cluster. The AKS cluster will be provisioned with features required for the rest of the workshop.
+While the command to create the monitoring resources is running, run the following the [az aks create](<https://learn.microsoft.com/cli/azure/aks?view=azure-cli-latest#az-aks-create(aks-preview)>) command to create an AKS cluster.
 
 ```bash
 az aks create \
@@ -147,12 +157,12 @@ az aks create \
 --node-vm-size Standard_D4s_v5 \
 --node-count 3 \
 --zones 1 2 3 \
+--load-balancer-sku standard \
 --node-provisioning-mode Auto \
 --network-plugin azure \
 --network-plugin-mode overlay \
 --network-dataplane cilium \
 --network-policy cilium \
---load-balancer-sku standard \
 --ssh-access disabled \
 --enable-managed-identity
 ```
@@ -162,8 +172,8 @@ The command above will deploy an AKS cluster with the following configurations:
 - Deploy Kubernetes version 1.29. This is not the latest version of Kubernetes, and is intentionally set to an older version to demonstrate cluster upgrades later in the workshop.
 - Create a "system" node pool with 3 nodes of size **Standard_D4s_v5** in availability zones 1, 2, and 3. This node pool will be used to host system workloads and to ensure datacenter resiliency, the nodes will be spread across availability zones. The VM SKU may need to be adjusted based on your subscription quota.
 - Use Azure CNI Overlay Powered By Cilium networking. This will give you the most advanced networking features available in AKS and gives great flexibility in how IP addresses are assigned to pods.
+- Use a standard load balancer to support traffic across availability zones.
 - The following features are enabled as they are best practice for production clusters:
-  - Use a standard load balancer
   - Disable SSH access to the nodes
   - Enable a managed identity
 
@@ -198,6 +208,8 @@ az aks nodepool add \
 --zones 1 2 3
 ```
 
+### Tainting the System Node Pool
+
 Now that we have created a user node pool, we need to add a taint to the system node pool to ensure that the user workloads are not scheduled on the system node pool. Run the following command to add a taint to the system node pool.
 
 ```bash
@@ -208,7 +220,11 @@ az aks nodepool update \
 --node-taints CriticalAddonsOnly=true:NoSchedule
 ```
 
-One last step in cluster setup is to enable monitoring and logging for the AKS cluster. The deployment of the monitoring resources should have completed by now. Run the following command to get the resource group name for the monitoring resources.
+### Enabling AKS Monitoring and Logging
+
+The deployment of the monitoring resources should have completed by now. All you need to do next is enable [metrics monitoring](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli) and [container insights logging](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli#enable-container-insights) on the cluster.
+
+Run the following commands to get the resource group name for the monitoring resources and reload the environment variables.
 
 ```bash
 cat <<EOF >> .env
@@ -219,13 +235,13 @@ EOF
 source .env
 ```
 
-<div class="info" data-title="Note">
+<div class="tip" data-title="Tip">
 
-> Run `cat .env` to see the environment variables that have been set.
+> Whenever you want to see the contents of the **.env **file, run the `cat .env` command.
 
 </div>
 
-To enable [Azure Monitor for Kubernetes clusters](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli), run the following command.
+Run the following command to enable monitoring.
 
 ```bash
 az aks update \
@@ -236,7 +252,7 @@ az aks update \
 --grafana-resource-id ${GRAFANA_ID}
 ```
 
-To enable [container insights](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli#enable-container-insights), run the following command.
+Run the following command to logging.
 
 ```bash
 az aks enable-addons \
@@ -244,6 +260,24 @@ az aks enable-addons \
 --name ${AKS_NAME} \
 --addon monitoring \
 --workspace-resource-id ${LOGS_ID}
+```
+
+### Deploying the AKS Store Demo Application
+
+Install the [AKS Store Demo](https://github.com/Azure-Samples/aks-store-demo) application in the `pets` namespace using the following command:
+
+```bash
+kubectl create namespace pets
+```
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/Azure-Samples/aks-store-demo/refs/heads/main/aks-store-quickstart.yaml -n pets
+```
+
+You can verify the AKS Store Demo application was installed with the following command:
+
+```bash
+kubectl get all -n pets
 ```
 
 Congratulations! You have now created an AKS cluster with system and user node pools. At this point, you can jump any section within this workshop and focus on the topics that interest you the most.
@@ -276,7 +310,7 @@ Istio is integrated with AKS as an addon and is supported alongside AKS.
 
 #### Deploy Istio service mesh add-on
 
-Before deploying the AKS Istio add-on, you may want to check the revision of Istio to ensure it is compatible with the version of Kubernetes on the cluster. To check the available revisions in the **australiaeast** region, run the following command:
+Before deploying the AKS Istio add-on, check the revision of Istio to ensure it is compatible with the version of Kubernetes on the cluster. To check the available revisions in the region that the AKS cluster is deployed in, run the following command:
 
 ```bash
 az aks mesh get-revisions \
@@ -284,7 +318,7 @@ az aks mesh get-revisions \
 --output table
 ```
 
-We can interpret the output to say that the AKS Istio revision `asm-1-22` is compatible with the Kubernetes versions `1.27` through `1.30` and Istio revision `asm-1-23` is compatible with Kubernetes versions `1.27` through `1.31`.
+You should see the available revisions for the AKS Istio add-on and the compatible versions of Kubernetes they support.
 
 Run the following command to enable the default supported revision of the AKS Istio add-on for the AKS cluster.
 
@@ -294,37 +328,19 @@ az aks mesh enable \
 --name ${AKS_NAME}
 ```
 
-In addition to the verification output, you can run the following command to view the Istio pods on the cluster.
+<div class="info" data-title="Note">
+
+> This may take several minutes to complete.
+
+</div>
+
+Once the service mesh has been enabled, run the following command to view the Istio pods on the cluster.
 
 ```bash
 kubectl get pods -n aks-istio-system
 ```
 
-#### Deploy Sample AKS Store Demo Application
-
-<div class="info" data-title="Note">
-
-> If your cluster already has a deployment of the AKS Store Demo application, you can skip this section.
-
-</div>
-
 A Service Mesh is primarily used to secure the communications between services running in a Kubernetes cluster. We will use the AKS Store Demo application to work through some of the most common tasks you will use the Istio AKS add-on service mesh for.
-
-Install the AKS Store Demo application in the `pets` namespace using the following command:
-
-```bash
-kubectl create namespace pets
-```
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/Azure-Samples/aks-store-demo/refs/heads/main/aks-store-quickstart.yaml -n pets
-```
-
-You can verify the AKS Store Demo application was installed with the following command:
-
-```bash
-kubectl get all -n pets
-```
 
 #### Enable Sidecar Injection
 
@@ -343,6 +359,12 @@ Prior to running the command to enable the Istio sidecar injection, let first vi
 ```bash
 kubectl get pods -n pets
 ```
+
+<div class="info" data-title="Note">
+
+> If your cluster does not already have a deployment of the AKS Store Demo application, please check the [Deploying the AKS Store Demo Application](#deploying-the-aks-store-demo-application) section to deploy the application.
+
+</div>
 
 The following command will enable the AKS Istio add-on sidecar injection for the `pets` namespace for the Istio revision `1.22`.
 
@@ -384,7 +406,7 @@ kubectl get pods -n pets
 
 We will walk through some common configurations to ensure the communications for the AKS Store application are secured. To begin we will deploy a Curl utility container to the cluster, so we can execute traffic commands from it to test out the Istio mesh policy.
 
-Use the following command to deploy the Curl image to the `default` namespace of the cluster.
+Use the following command to deploy a test pod that will run the **curl** image to the **default** namespace of the cluster.
 
 ```bash
 kubectl apply -f - <<EOF
@@ -409,19 +431,21 @@ spec:
 EOF
 ```
 
-We can verify the deployment of BusyBox using the following command:
+We can verify the deployment of the test pod in the **default** namespace using following command:
 
 ```bash
 kubectl get pods -n default
 ```
 
-Wait for the `curl-deployment` pod to be in a `Running` state.
+Wait for the test pod to be in a **Running** state.
 
 ##### Configure mTLS Strict Mode for AKS Store Namespace
 
 Currently Istio configures workloads to use mTLS when calling other workloads, but the default permissive mode allows a service to accept traffic in plaintext or mTLS traffic. To ensure that the workloads we manage with the Istio add-on only accept mTLS communication, we will deploy a Peer Authentication policy to enforce only mTLS traffic for the workloads in the `pets` namespace.
 
-Prior to deploying the mTLS strict mode, let's verify that the `store-front` service will respond to a client not using mTLS. We will invoke a call from the `curl` pod to the `store-front` service and see if we get a response. Run the following command to curl to the `store-front` service.
+Prior to deploying the mTLS strict mode, let's verify that the **store-front** service will respond to a client not using mTLS. We will invoke a call from the test pod to the **store-front** service and see if we get a response.
+
+Run the following command to get the name of the test pod, add it to the **.env** file and source the file.
 
 ```bash
 cat <<EOF >> .env
@@ -430,11 +454,15 @@ EOF
 source .env
 ```
 
+Run the following command to run a curl command from the test pod to the **store-front** service.
+
 ```bash
 kubectl exec -it ${CURL_POD_NAME} -- curl -IL store-front.pets.svc.cluster.local:80
 ```
 
-As you can see, HTML was returned to the client meaning that the `store-front` service successfully responded to the client in plaintext. Let's now apply the Peer Authentication policy that will enforce all services in the `pets` namespace to only use mTLS communication. Run the following command to configure the mTLS Peer Authentication policy.
+You should see a response with a status of **HTTP/1.1 200 OK** indicating that the **store-front** service successfully responded to the client Let's now apply the Peer Authentication policy that will enforce all services in the `pets` namespace to only use mTLS communication.
+
+Run the following command to configure the mTLS Peer Authentication policy.
 
 ```bash
 kubectl apply -n pets -f - <<EOF
@@ -448,21 +476,21 @@ spec:
 EOF
 ```
 
-Once the mTLS strict mode peer authentication policy has been applied, we will now see if we can again get a response back from the `store-front` service from a client not using mTLS. Run the following command to curl to the `store-front` service again.
+Once the mTLS strict mode peer authentication policy has been applied, we will now see if we can again get a response back from the `store-front` service from a client not using mTLS. Run the following command to curl to the **store-front** service again.
 
 ```bash
 kubectl exec -it ${CURL_POD_NAME} -- curl -IL store-front.pets.svc.cluster.local:80
 ```
 
-Notice that the curl client did not receive the HTML from the prior attempt. The error returned is the indication that the mTLS policy has been enforced, and that the `store-front` service has rejected the non mTLS communication from the curl client.
+Notice that the curl client failed to get a response from the **store-front** service. The error returned is the indication that the mTLS policy has been enforced, and that the **store-front** service has rejected the non mTLS communication from the test pod.
 
 #### Deploying External Istio Ingress
 
 By default, services are not accessible from outside the cluster. When managing your workloads with the Istio service mesh, you want to ensure that if you expose a service for communications outside the cluster, mesh policy configurations can still be preserved.
 
-The AKS Istio AKS add-on comes with both a external and internal ingress gateway that you can utilize to expose your services in the service mesh. In the following steps, we will show how to enable an external ingress gateway to allow the `store-front` service to be reached from outside the cluster.
+The AKS Istio AKS add-on comes with both a external and internal ingress gateway that you can utilize to expose your services in the service mesh. In the following steps, we will show how to enable an external ingress gateway to allow the **store-front** service to be reached from outside the cluster.
 
-The following command will enable the Istio ingress gateway on the AKS cluster. This may take several moments.
+The following command will enable the Istio ingress gateway on the AKS cluster.
 
 ```bash
 az aks mesh enable-ingress-gateway \
@@ -471,28 +499,29 @@ az aks mesh enable-ingress-gateway \
 --ingress-gateway-type external
 ```
 
-Once the Istio ingress gateway has been enabled on the AKS cluster, you will see the following output.
+<div class="info" data-title="Note">
 
-Use `kubectl get svc` to check the service mapped to the ingress gateway:
+> This may take several minutes to complete.
+
+</div>
+
+The deployment of the Istio ingress gateway will include a new service in the **aks-istio-ingress** namespace. Run the following command to verify the service has been created.
 
 ```bash
 kubectl get svc aks-istio-ingressgateway-external -n aks-istio-ingress
 ```
 
-<div class="info" data-title="Note">
+Make note of your cluster **EXTERNAL-IP** address. That will be the public endpoint to reach the service we configure for using the external ingress.
 
-> It is important to make note of your cluster `EXTERNAL-IP` address. That will be the public endpoint to reach the service we configure for using the external ingress
-
-</div>
-
-Next we will create both the `Gateway` and `VirtualService` for the `store-front` service.
+Next run the following command to create both the Gateway and VirtualService for the **store-front** service.
 
 ```bash
-kubectl apply -f - <<EOF
-apiVersion: networking.istio.io/v1beta1
+kubectl apply -n pets -f - <<EOF
+apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: pets-gateway-external
+  namespace: pets
 spec:
   selector:
     istio: aks-istio-ingressgateway-external
@@ -504,20 +533,20 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: store-front-external
   namespace: pets
 spec:
   hosts:
-  - store-front.pets.svc.cluster.local
+  - "*"
   gateways:
   - pets-gateway-external
   http:
   - match:
     - uri:
-        prefix: /
+        prefix: ''
     route:
     - destination:
         host: store-front.pets.svc.cluster.local
@@ -539,11 +568,11 @@ source .env
 
 Retrieve the external address of the AKS Store application:
 
-TODO: FIX THIS
-
 ```bash
-echo "http://${GATEWAY_URL_EXTERNAL}/productpage"
+echo "http://${GATEWAY_URL_EXTERNAL}/"
 ```
+
+Click on the link to access the AKS Store application.
 
 ---
 
@@ -1063,13 +1092,7 @@ aks-systempool-14753261-vmss000002   Ready    <none>   123m   v1.29.9
 aks-userpool-27827974-vmss000000     Ready    <none>   95m    v1.29.9
 ```
 
-We will upgrade the current cluster API server, and the Kubernetes version running on the nodes, from version `1.29.9` to version `1.30.5`. Run the following command to upgrade the AKS API server version.
-
-<div class="info" data-title="Note">
-
-> The az aks upgrade command has the ability to separate the upgrade operation to specify just the control plane and/or the node version. In this lab we will run the command that will upgrade both the control plan and nodes at the same time.
-
-</div>
+Run the following command to upgrade the current cluster API server, and the Kubernetes version running on the nodes, from version `1.29.9` to version `1.30.5`.
 
 ```bash
 az aks upgrade \
@@ -1078,21 +1101,23 @@ az aks upgrade \
 --kubernetes-version "1.30.5"
 ```
 
-You will be prompted to confirm you will be upgrading your cluster and the cluster will be unavailable during the upgrade. Type `y` to proceed with the upgrade.
+<div class="info" data-title="Note">
 
-Additionally, if we did not specify the `control-plane-only` argument, the upgrade will upgrade both the control plan and the all the nodepool versions to `1.30.5`. Type `y` to continue the operation.
+> The az aks upgrade command has the ability to separate the upgrade operation to specify just the control plane and/or the node version. In this lab we will run the command that will upgrade both the control plan and nodes at the same time.
 
-Once the AKS API version has been completed on both the control plane and nodes, you will see the following completion message with the updated Kubernetes version shown.
+</div>
+
+Follow the prompts to confirm the upgrade operation. Once the AKS API version has been completed on both the control plane and nodes, you will see a completion message with the updated Kubernetes version shown.
 
 #### Setting up the auto-upgrade channel for the API Server and Nodes
 
-A more preferred method for upgrading your AKS API server and nodes is to configure the cluster auto-upgrade channel for your AKS cluster. This feature allow you a "set once and forget" mechanism that yields tangible time and operational cost benefits. You don't need to stop your workloads, redeploy your workloads, or create a new AKS cluster. By enabling auto-upgrade, you can ensure your clusters are up to date and don't miss the latest features or patches from AKS and upstream Kubernetes.
+A more preferred method for upgrading your AKS API server and nodes is to configure the cluster auto-upgrade channel for your AKS cluster. This feature allow you a "set it and forget it" mechanism that yields tangible time and operational cost benefits. By enabling auto-upgrade, you can ensure your clusters are up to date and don't miss the latest features or patches from AKS and upstream Kubernetes.
 
-There are several auto-upgrade channels you can subscribe your AKS cluster to. Those channels include `none`, `patch`, `stable`, and `rapid`. Each channel provides a different upgrade experience depending on how you would like to keep your AKS clusters upgraded. For a more detailed explanation of each channel, please view the [Cluster auto-upgrade channels](https://learn.microsoft.com/azure/aks/auto-upgrade-cluster?tabs=azure-cli#cluster-auto-upgrade-channels) table.
+There are several auto-upgrade channels you can subscribe your AKS cluster to. Those channels include **none**, **patch**, **stable**, and **rapid**. Each channel provides a different upgrade experience depending on how you would like to keep your AKS clusters upgraded. For a more detailed explanation of each channel, please view the [cluster auto-upgrade channels](https://learn.microsoft.com/azure/aks/auto-upgrade-cluster?tabs=azure-cli#cluster-auto-upgrade-channels) table.
 
-For this lab demonstration, we will configure the AKS cluster to subscribe to the `patch` channel. Patch "automatically upgrades the cluster to the latest supported patch version when it becomes available while keeping the minor version the same."
+For this lab demonstration, we will configure the AKS cluster to subscribe to the **patch** channel. The patch channel will automatically upgrades the cluster to the latest supported patch version when it becomes available while keeping the minor version the same.
 
-Run the following command to setup the AKS cluster on the `patch` auto-upgrade channel:
+Run the following command to set the auto-upgrade channel.
 
 ```bash
 az aks update \
@@ -1101,9 +1126,9 @@ az aks update \
 --auto-upgrade-channel patch
 ```
 
-Once the auto-upgrade channel subscription has been enabled for your cluster, you will see the `upgradeChannel` property updated to the chosen channel on the completion output.
+Once the auto-upgrade channel subscription has been enabled for your cluster, you will see the `upgradeChannel` property updated to the chosen channel in the output.
 
-<div class="info" data-title="Note">
+<div class="important" data-title="Important">
 
 > Configuring your AKS cluster to an auto-upgrade channel can have impact on the availability of workloads running on your cluster. Please review the additional options available to [Customize node surge upgrade](https://learn.microsoft.com/azure/aks/upgrade-aks-cluster?tabs=azure-cli#customize-node-surge-upgrade).
 
@@ -1117,7 +1142,9 @@ Upgrading node images is critical to not only ensuring the latest Kubernetes API
 
 #### Manually Upgrading AKS Node Image
 
-When planning to manually upgrade your AKS cluster, it's good practice to view the available images. We can view the available images for your AKS cluster node pull using the following command:
+When planning to manually upgrade your AKS cluster, it's good practice to view the available images.
+
+Run the following command to view the available images for your the system node pool.
 
 ```bash
 az aks nodepool get-upgrades \
@@ -1128,7 +1155,7 @@ az aks nodepool get-upgrades \
 
 The command output shows the `latestNodeImageVersion` available for the nodepool.
 
-Let's view the current utilized image of the AKS cluster node pool.
+Check the current node image version for the system node pool by running the following command.
 
 ```bash
 az aks nodepool show \
@@ -1138,13 +1165,7 @@ az aks nodepool show \
 --query "nodeImageVersion"
 ```
 
-The command output show:
-
-```bash
-"AKSUbuntu-2204gen2containerd-202410.15.0"
-```
-
-In this particular case, the AKS lab cluster nodepool image is the most recent image available, so there is no need to do an upgrade operation for the node image. If you needed to upgrade your node image, you can run the following command which will update all the node images for all node pools connected to your cluster.
+In this particular case, the system node pool image is the most recent image available as it matches the latest image version available, so there is no need to do an upgrade operation for the node image. If you needed to upgrade your node image, you can run the following command which will update all the node images for all node pools connected to your cluster.
 
 ```bash
 az aks upgrade \
@@ -1157,13 +1178,13 @@ az aks upgrade \
 
 Maintenance windows provides you with the predictability to know when maintenance from Kubernetes API updates and/or node OS image updates will occur. The use of maintenance windows can help align to your current organizational operational policies concerning when services are expected to not be available.
 
-There are currently three configuration schedules for maintenance windows, `default`, `aksManagedAutoUpgradeSchedule`, and `aksManagedNodeOSUpgradeSchedule`. For more specific information on these configurations, please see [Schedule configuration types for planned maintenance](https://learn.microsoft.com/azure/aks/planned-maintenance?tabs=azure-cli#schedule-configuration-types-for-planned-maintenance).
+There are currently three configuration schedules for maintenance windows, **default**, **aksManagedAutoUpgradeSchedule**, and **aksManagedNodeOSUpgradeSchedule**. For more specific information on these configurations, please see [Schedule configuration types for planned maintenance](https://learn.microsoft.com/azure/aks/planned-maintenance?tabs=azure-cli#schedule-configuration-types-for-planned-maintenance).
 
-It is recommended to use aksManagedAutoUpgradeSchedule for all cluster upgrade scenarios and aksManagedNodeOSUpgradeSchedule for all node OS security patching scenarios.
+It is recommended to use **aksManagedAutoUpgradeSchedule** for all cluster upgrade scenarios and aksManagedNodeOSUpgradeSchedule for all node OS security patching scenarios.
 
 <div class="info" data-title="Note">
 
-> The default option is meant exclusively for AKS weekly releases. You can switch the default configuration to the aksManagedAutoUpgradeSchedule or aksManagedNodeOSUpgradeSchedule configuration by using the az aks maintenanceconfiguration update command.
+> The default option is meant exclusively for AKS weekly releases. You can switch the default configuration to the **aksManagedAutoUpgradeSchedule** or **aksManagedNodeOSUpgradeSchedule** configuration by using the `az aks maintenanceconfiguration update` command.
 
 </div>
 
@@ -1216,7 +1237,7 @@ You can find and learn about additional AKS Fleet Manager concepts and functiona
 
 To understand how AKS Fleet Manager can help manage multiple AKS clusters, we will need to create an additional AKS cluster to join as a member cluster. The following commands and instructions will deploy an additional AKS cluster into the same Azure resource group as your existing AKS cluster. For this lab purposes, it is not necessary to deploy the additional cluster in a region and/or subscription to show the benefits of AKS Fleet Manager.
 
-Set the following environment variables to create the additional AKS cluster.
+Run the following command to save the new AKS cluster name to the `.env` file and reload the environment variables.
 
 ```bash
 cat <<EOF >> .env
@@ -1225,29 +1246,43 @@ EOF
 source .env
 ```
 
-````bash
-
-Deploy the additional AKS cluster with the following command:
+Run the following command to create a new AKS cluster.
 
 ```bash
 az aks create \
--g ${RG_NAME} \
--n ${AKS_NAME_2}
-````
+--resource-group ${RG_NAME} \
+--name ${AKS_NAME_2} \
+--no-wait
+```
+
+<div class="info" data-title="Note">
+
+> This command will take a few minutes to complete. You can proceed with the next steps while the command is running.
+
+</div>
 
 #### Create and configure Access for a Kubernetes Fleet Resource with Hub Cluster
 
 Since this lab will be using AKS Fleet Manager for Kubernetes object propagation, you will need to create the Fleet resource with the hub cluster enabled by specifying the --enable-hub parameter with the az fleet create command. The hub cluster will orchestrate and manage the Fleet member clusters. We will add the lab's original AKS cluster and the newly created additional cluster as a member of the Fleet group in a later step.
 
+In order to use the AKS Fleet Manager extension, you will need to install the extension. Run the following command to install the AKS Fleet Manager extension.
+
 ```bash
 az extension add --name fleet
 ```
 
-Run the following command to create the Kubernetes AKS Fleet Manager hub cluster.
+Run the following command to create new environment variables for the Fleet resource name and reload the environment variables.
 
 ```bash
 cat <<EOF >> .env
 FLEET_NAME="myfleet${RANDOM}"
+EOF
+source .env
+```
+
+Next run the following command to create the Fleet resource with the hub cluster enabled.
+
+```bash
 FLEET_ID="$(az fleet create \
 --resource-group ${RG_NAME} \
 --name ${FLEET_NAME} \
@@ -1255,7 +1290,12 @@ FLEET_ID="$(az fleet create \
 --enable-hub \
 --query id \
 --output tsv)"
-EOF
+```
+
+Add the `FLEET_ID` to the `.env` file and reload the environment variables.
+
+```bash
+echo "FLEET_ID=${FLEET_ID}" >> .env
 source .env
 ```
 
@@ -1301,14 +1341,14 @@ source .env
 Run the following command to join both AKS clusters to the Fleet.
 
 ```bash
+# add first AKS cluster to the Fleet
 az fleet member create \
 --resource-group ${RG_NAME} \
 --fleet-name ${FLEET_NAME} \
 --name ${AKS_FLEET_CLUSTER_1_NAME} \
 --member-cluster-id ${AKS_FLEET_CLUSTER_2_ID}
-```
 
-```bash
+# add the second AKS cluster to the Fleet
 az fleet member create \
 --resource-group ${RG_NAME} \
 --fleet-name ${FLEET_NAME} \
@@ -1316,7 +1356,7 @@ az fleet member create \
 --member-cluster-id ${AKS_FLEET_CLUSTER_2_ID}
 ```
 
-Once the `az fleet member create` command has completed for both AKS clusters, we can verify they have both been added and enabled for Fleet running the `kubectl get memberclusters` command.
+Once the `az fleet member create` command has completed for both AKS clusters, we can verify they have both been added and enabled for Fleet running the following command.
 
 ```bash
 kubectl get memberclusters
@@ -1324,17 +1364,21 @@ kubectl get memberclusters
 
 #### Propagate Resources from a Hub Cluster to Member Clusters
 
-The `ClusterResourcePlacement` API object is used to propagate resources from a hub cluster to member clusters. The `ClusterResourcePlacement` API object specifies the resources to propagate and the placement policy to use when selecting member clusters. The `ClusterResourcePlacement` API object is created in the hub cluster and is used to propagate resources to member clusters. This example demonstrates how to propagate a namespace to member clusters using the `ClusterResourcePlacement` API object with a `PickAll` placement policy.
+The ClusterResourcePlacement API object is used to propagate resources from a hub cluster to member clusters. The ClusterResourcePlacement API object specifies the resources to propagate and the placement policy to use when selecting member clusters. The ClusterResourcePlacement API object is created in the hub cluster and is used to propagate resources to member clusters. This example demonstrates how to propagate a namespace to member clusters using the ClusterResourcePlacement API object with a PickAll placement policy.
 
-Before running the following commands, make sure your `kubectl conifg` has the Fleet hub cluster as it's current context. To check your current context, run the `kubectl config current-context` command. You should see the output as `hub`. If the output is not `hub`, please run `kubectl config set-context hub`.
+<div class="important" data-title="Important">
 
-Create a namespace to place onto the member clusters using the kubectl create namespace command. The following example creates a namespace named my-namespace:
+> Before running the following commands, make sure your `kubectl conifg` has the Fleet hub cluster as it's current context. To check your current context, run the `kubectl config current-context` command. You should see the output as `hub`. If the output is not `hub`, please run `kubectl config set-context hub`.
+
+</div>
+
+Run the following command to create a namespace to place onto the member clusters.
 
 ```bash
 kubectl create namespace my-fleet-ns
 ```
 
-Create a `ClusterResourcePlacement` API object in the hub cluster to propagate the namespace to the member clusters and deploy it using the `kubectl apply -f` command. The following example `ClusterResourcePlacement` creates an object named `my-lab-crp` and uses the `my-fleet-ns` namespace with a `PickAll` placement policy to propagate the namespace to all member clusters:
+Run the following command to create a ClusterResourcePlacement API object in the hub cluster to propagate the namespace to the member clusters.
 
 ```bash
 kubectl apply -f - <<EOF
@@ -1353,13 +1397,13 @@ spec:
 EOF
 ```
 
-Check the progress of the resource propagation using the `kubectl get clusterresourceplacement` command. The following example checks the status of the `ClusterResourcePlacement` object named `my-lab-crp`:
+Check the progress of the resource propagation using the following command.
 
 ```bash
 kubectl get clusterresourceplacement my-lab-crp
 ```
 
-View the details of the `my-lab-crp` object using the `kubectl describe my-lab-crp` command. The following example describes the `ClusterResourcePlacement` object named `my-lab-crp`:
+View the details of the ClusterResourcePlacement object using the following command.
 
 ```bash
 kubectl describe clusterresourceplacement my-lab-crp
@@ -1368,3 +1412,7 @@ kubectl describe clusterresourceplacement my-lab-crp
 ---
 
 ## Summary
+
+### Resources
+
+- [Set up Advanced Network Observability for Azure Kubernetes Service (AKS)](https://learn.microsoft.com/azure/aks/advanced-network-observability-cli?tabs=cilium)
