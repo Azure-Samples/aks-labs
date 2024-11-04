@@ -62,7 +62,7 @@ Run the following command to create a **.env** file with local variables used th
 cat <<EOF > .env
 RG_NAME="myResourceGroup${RANDOM}"
 AKS_NAME="myAKSCluster${RANDOM}"
-LOCATION="australiaeast"
+LOCATION="eastus"
 EOF
 ```
 
@@ -154,11 +154,9 @@ az aks create \
 --tier standard \
 --kubernetes-version 1.29 \
 --nodepool-name systempool \
---node-vm-size Standard_D4s_v5 \
 --node-count 3 \
 --zones 1 2 3 \
 --load-balancer-sku standard \
---node-provisioning-mode Auto \
 --network-plugin azure \
 --network-plugin-mode overlay \
 --network-dataplane cilium \
@@ -170,7 +168,7 @@ az aks create \
 The command above will deploy an AKS cluster with the following configurations:
 
 - Deploy Kubernetes version 1.29. This is not the latest version of Kubernetes, and is intentionally set to an older version to demonstrate cluster upgrades later in the workshop.
-- Create a "system" node pool with 3 nodes of size **Standard_D4s_v5** in availability zones 1, 2, and 3. This node pool will be used to host system workloads and to ensure datacenter resiliency, the nodes will be spread across availability zones. The VM SKU may need to be adjusted based on your subscription quota.
+- Create a "system" node pool with 3 nodes in availability zones 1, 2, and 3. This node pool will be used to host system workloads and to ensure datacenter resiliency, the nodes will be spread across availability zones. The VM SKU may need to be adjusted based on your subscription quota.
 - Use Azure CNI Overlay Powered By Cilium networking. This will give you the most advanced networking features available in AKS and gives great flexibility in how IP addresses are assigned to pods.
 - Use a standard load balancer to support traffic across availability zones.
 - The following features are enabled as they are best practice for production clusters:
@@ -249,7 +247,8 @@ az aks update \
 --name ${AKS_NAME} \
 --enable-azure-monitor-metrics \
 --azure-monitor-workspace-resource-id ${MONITOR_ID} \
---grafana-resource-id ${GRAFANA_ID}
+--grafana-resource-id ${GRAFANA_ID} \
+--no-wait
 ```
 
 Run the following command to logging.
@@ -260,17 +259,15 @@ az aks enable-addons \
 --name ${AKS_NAME} \
 --addon monitoring \
 --workspace-resource-id ${LOGS_ID}
+--no-wait
 ```
 
 ### Deploying the AKS Store Demo Application
 
-Install the [AKS Store Demo](https://github.com/Azure-Samples/aks-store-demo) application in the `pets` namespace using the following command:
+Install the [AKS Store Demo](https://github.com/Azure-Samples/aks-store-demo) application in the `pets` namespace using the following commands.
 
 ```bash
 kubectl create namespace pets
-```
-
-```bash
 kubectl apply -f https://raw.githubusercontent.com/Azure-Samples/aks-store-demo/refs/heads/main/aks-store-quickstart.yaml -n pets
 ```
 
@@ -280,9 +277,13 @@ You can verify the AKS Store Demo application was installed with the following c
 kubectl get all -n pets
 ```
 
-Congratulations! You have now created an AKS cluster with system and user node pools. At this point, you can jump any section within this workshop and focus on the topics that interest you the most.
+<div class="info" data-title="Info">
 
-Feel free to click **Next** at the bottom of the page to continue with the workshop or jump to any of the sections in the left-hand navigation.
+> Congratulations! You have now created an AKS cluster with system and user node pools. At this point, you can jump any section within this workshop and focus on the topics that interest you the most.
+>
+> Feel free to click **Next** at the bottom of the page to continue with the workshop or jump to any of the sections in the left-hand navigation.
+
+</div>
 
 ---
 
