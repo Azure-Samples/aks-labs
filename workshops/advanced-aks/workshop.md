@@ -24,7 +24,7 @@ wt_id: WT.mc_id=containers-147656-pauyu
 
 ## Overview
 
-This workshop will guide you through advanced scenarios and day 2 operations for Azure Kubernetes Service (AKS). We will cover topics such as cluster sizing and topology, advanced networking and storage concepts, security concepts, monitoring concepts, and cluster update management.
+This workshop is designed to help you understand advanced Azure Kubernetes Service (AKS) concepts and day 2 operations. The workshop will cover topics such as cluster sizing and topology, advanced networking concepts, advanced storage concepts, advanced security concepts, and advanced monitoring concepts.
 
 ---
 
@@ -52,15 +52,19 @@ To complete this workshop, you will need:
 
 ---
 
-## Cluster Sizing and Topology
+## Cluster Setup
+
+In this section, you will create an AKS cluster implementing some of the best practices for production clusters. The AKS cluster will be created with multiple node pools and availability zones. The AKS cluster will also be created with monitoring and logging services enabled.
 
 ### Cluster Sizing
 
-When creating an AKS cluster, you need to consider the size of the cluster. The size of the cluster is determined by the number of nodes and the size of the nodes. The number of nodes is determined by the number of pods you want to run on the cluster. The size of the nodes is determined by the amount of CPU and memory you need for your pods.
+When creating an AKS cluster, it's essential to consider its size based on your workload requirements. The number of nodes needed depends on the number of pods you plan to run, while node configuration is determined by the amount of CPU and memory required for each pod.
 
 ### System and User Node Pools
 
-When an AKS cluster is created, a system node pool is created. System node pools serve the primary purpose of hosting pods implementing the Kubernetes control plane (such as `coredns` and `metrics-server`). User node pools are additional node pools that can be created to host user workloads. User node pools can be created with different configurations than the system node pool, such as different VM sizes, node counts, and availability zones and are added after the cluster is created.
+When an AKS cluster is created, a single node pool is created. The single node pool will run Kubernetes system components required to run the Kubernetes control plane. It is recommended to create a separate node pool for user workloads. This separation allows you to manage system and user workloads independently.
+
+System node pools serve the primary purpose of hosting pods implementing the Kubernetes control plane (such as `coredns` and `metrics-server`). User node pools are additional node pools that can be created to host user workloads. User node pools can be created with different configurations than the system node pool, such as different VM sizes, node counts, and availability zones and are added after the cluster is created.
 
 When creating an AKS cluster, you can specify the number of nodes and the size of the nodes. The number of nodes is determined by the `--node-count` parameter. The size of the nodes is determined by the `--node-vm-size` parameter.
 
@@ -82,7 +86,7 @@ Now that we have covered the basics of cluster sizing and topology, let's create
 az extension add --name aks-preview
 ```
 
-Create a **.env** file with the following content:
+Run the following command to create a **.env** file with the following local variables.
 
 ```bash
 cat <<EOF > .env
@@ -100,7 +104,7 @@ source .env
 
 <div class="info" data-title="Tip">
 
-> If your shell times out, just run `source .env` command from wherever the `.env` file is located.
+> If you are using the Azure Cloud Shell, it may time out and you will loose your environment variables. Therefore, you will use the **.env** file to store your environment variables as you progress through the workshop to make it easier to reload them.
 
 </div>
 
@@ -112,17 +116,25 @@ az group create \
 --location ${LOCATION}
 ```
 
+The workshop will also require the use of monitoring and logging services. The creation of the services can be done in the background while you continue with the workshop.
+
+Run the following command to download the Bicep template file.
+
+```bash
+wget https://raw.githubusercontent.com/Azure-Samples/aks-labs/refs/heads/advanced-aks-cleanup/workshops/advanced-aks/assets/main.bicep
+```
+
+Run the following command to create an Azure Log Analytics workspace, Azure Managed Prometheus, and Azure Managed Grafana resources.
+
 ```bash
 az deployment group create \
 --resource-group $RG_NAME \
---template-file https://raw.githubusercontent.com/Azure-Samples/aks-labs/refs/heads/advanced-aks/workshops/advanced-aks/assets/main.bicep \
+--template-file main.bicep \
 --parameters userObjectId=$(az ad signed-in-user show --query id -o tsv) \
 --no-wait
 ```
 
-Use the [az aks create](<https://learn.microsoft.com/cli/azure/aks?view=azure-cli-latest#az-aks-create(aks-preview)>) command to create an AKS cluster. The AKS cluster will be provisioned with features that will be useful for the rest of the workshop.
-
-TODO: THERE WERE SOME CONFLICTING ARGUMENTS HERE, DO WE NEED A PRIVATE CLUSTER?
+While the command to create the monitoring resources is running, use the [az aks create](<https://learn.microsoft.com/cli/azure/aks?view=azure-cli-latest#az-aks-create(aks-preview)>) command to create an AKS cluster. The AKS cluster will be provisioned with features required for the rest of the workshop.
 
 ```bash
 az aks create \
@@ -134,31 +146,32 @@ az aks create \
 --nodepool-name systempool \
 --node-vm-size Standard_D4s_v5 \
 --node-count 3 \
---node-provisioning-mode Auto \
 --zones 1 2 3 \
+--node-provisioning-mode Auto \
 --network-plugin azure \
 --network-plugin-mode overlay \
 --network-dataplane cilium \
 --network-policy cilium \
---dns-service-ip 10.2.0.10 \
---service-cidr 10.2.0.0/24 \
 --load-balancer-sku standard \
---enable-app-routing \
 --ssh-access disabled \
 --enable-managed-identity
 ```
 
-This command will create an AKS cluster with these salient features enabled:
+The command above will deploy an AKS cluster with the following configurations:
 
-- Setting the `node-provisioning-mode` parameter to `Auto` enables the cluster to automatically scale the number of nodes in the node pool using the Karpenter autoscaler.
+- Deploy Kubernetes version 1.29. This is not the latest version of Kubernetes, and is intentionally set to an older version to demonstrate cluster upgrades later in the workshop.
+- Create a "system" node pool with 3 nodes of size **Standard_D4s_v5** in availability zones 1, 2, and 3. This node pool will be used to host system workloads and to ensure datacenter resiliency, the nodes will be spread across availability zones. The VM SKU may need to be adjusted based on your subscription quota.
+- Use Azure CNI Overlay Powered By Cilium networking. This will give you the most advanced networking features available in AKS and gives great flexibility in how IP addresses are assigned to pods.
+- The following features are enabled as they are best practice for production clusters:
+  - Use a standard load balancer
+  - Disable SSH access to the nodes
+  - Enable a managed identity
 
-- Setting the `enable-app-routing` parameter to `true` enables the Azure Application Gateway Ingress Controller for AKS.
+<div class="info" data-title="Note">
 
-- Setting the `network-plugin`, `network-plugin` and `network-dataplane` parameters to enable Azure CNI Overlay Powered By Cilium networking. You can find more information on Azure CNI Overlay Powered By Cilium networking [here](https://learn.microsoft.com/azure/aks/azure-cni-powered-by-cilium).
+> A few other best practice features will be enabled later in the workshop.
 
-- The name of the default (system) node pool name is set to `systempool`. Setting the `node-count` parameter to 2 set the initial size of the system node pool to 2 nodes
-
-- The `enable-managed-identity` parameter is set to true to enable the managed identity for the AKS cluster. We will use the managed identity feature later in the workshop.
+</div>
 
 Once the AKS cluster has been created, run the following command to connect to the cluster.
 
@@ -170,16 +183,9 @@ az aks get-credentials \
 
 ### Adding a User Node Pool
 
-<!-- Before adding a user node pool, we need to confirm that the cluster has been provisioned successfully. Run the following command to check the status of the AKS cluster.
+The AKS cluster has been created with a system node pool that is used to host system workloads. It is best to create a user node pool to host user workloads. User node pools can be created with different configurations than the system node pool, such as different VM sizes, node counts, and availability zones.
 
-TODO: CAN WE REMOVE THIS?
-
-```bash
-
-state=$(az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query 'provisioningState' -o tsv) && while [ $state != "Succeeded" ]; do echo "Waiting for cluster to be provisioned."; sleep 5; state=$(az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query 'provisioningState' -o tsv); done
-``` -->
-
-Once the cluster has been provisioned successfully, we can add a user node pool to the cluster. Run the following command to add a user node pool to the AKS cluster.
+Run the following command to add a user node pool to the AKS cluster.
 
 ```bash
 az aks nodepool add \
@@ -202,18 +208,47 @@ az aks nodepool update \
 --node-taints CriticalAddonsOnly=true:NoSchedule
 ```
 
-You have now created an AKS cluster with a system node pool and a user node pool. The user node pool has been configured to run user workloads and the system node pool has been configured to run system workloads. In addition, the AKS cluster has also been configured to:
+One last step in cluster setup is to enable monitoring and logging for the AKS cluster. The deployment of the monitoring resources should have completed by now. Run the following command to get the resource group name for the monitoring resources.
 
-- Use Azure CNI Overlay Powered By Cilium networking.
-- Use Azure Application Gateway Ingress Controller for AKS.
-- Have a managed identity assigned (which you will do in a later section).
-- Use the Node Auto Provisioning (NAP) feature to automatically scale the number of nodes in a node pool using the Karpenter autoscaler.
+```bash
+cat <<EOF >> .env
+MONITOR_ID="$(az monitor account list -g $RG_NAME --query "[0].id" -o tsv)"
+GRAFANA_ID="$(az grafana list -g $RG_NAME --query "[0].id" -o tsv)"
+LOGS_ID="$(az monitor log-analytics workspace list -g $RG_NAME --query "[0].id" -o tsv)"
+EOF
+source .env
+```
 
 <div class="info" data-title="Note">
 
-> At this point, you should be able to jump to any section from this point forward.
+> Run `cat .env` to see the environment variables that have been set.
 
 </div>
+
+To enable [Azure Monitor for Kubernetes clusters](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli), run the following command.
+
+```bash
+az aks update \
+--resource-group ${RG_NAME} \
+--name ${AKS_NAME} \
+--enable-azure-monitor-metrics \
+--azure-monitor-workspace-resource-id ${MONITOR_ID} \
+--grafana-resource-id ${GRAFANA_ID}
+```
+
+To enable [container insights](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli#enable-container-insights), run the following command.
+
+```bash
+az aks enable-addons \
+--resource-group ${RG_NAME} \
+--name ${AKS_NAME} \
+--addon monitoring \
+--workspace-resource-id ${LOGS_ID}
+```
+
+Congratulations! You have now created an AKS cluster with system and user node pools. At this point, you can jump any section within this workshop and focus on the topics that interest you the most.
+
+Feel free to click **Next** at the bottom of the page to continue with the workshop or jump to any of the sections in the left-hand navigation.
 
 ---
 
@@ -806,35 +841,7 @@ kubectl logs sample-workload-identity-key-vault
 
 Monitoring your AKS cluster has never been easier. Services like Azure Managed Prometheus and Azure Managed Grafana provide a fully managed monitoring solution for your AKS cluster all while using industry standard cloud-native tools. You can always deploy the open-source Prometheus and Grafana to your AKS cluster, but with Azure Managed Prometheus and Azure Managed Grafana, you can save time and resources by letting Azure manage the infrastructure for you.
 
-To onboard your AKS cluster for monitoring, you can head over to the **Insights** under the **Monitoring** section in the Azure portal. From there, you can click on the **Monitor Settings** button and select the appropriate options. More information can be found [here](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli#enable-full-monitoring-with-azure-portal).
-
-```bash
-cat <<EOF >> .env
-MONITOR_ID="$(az monitor account list -g $RG_NAME --query "[0].id" -o tsv)"
-GRAFANA_ID="$(az grafana list -g $RG_NAME --query "[0].id" -o tsv)"
-LOGS_ID="$(az monitor log-analytics workspace list -g $RG_NAME --query "[0].id" -o tsv)"
-EOF
-source .env
-```
-
-```bash
-az aks update \
---resource-group ${RG_NAME} \
---name ${AKS_NAME} \
---enable-azure-monitor-metrics \
---azure-monitor-workspace-resource-id ${MONITOR_ID} \
---grafana-resource-id ${GRAFANA_ID}
-```
-
-To enable [container insights](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli#enable-container-insights), run the following command.
-
-```bash
-az aks enable-addons \
---resource-group ${RG_NAME} \
---name ${AKS_NAME} \
---addon monitoring \
---workspace-resource-id ${LOGS_ID}
-```
+The cluster should already be onboarded for monitoring; however, if you want to review the monitoring configuration, you can head over to the **Insights** under the **Monitoring** section in the Azure portal. From there, you can click on the **Monitor Settings** button and review/select the appropriate options. More information can be found [here](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli#enable-full-monitoring-with-azure-portal).
 
 ### AKS control plane metrics
 
