@@ -62,6 +62,9 @@ Run the following command to create a **.env** file with local variables used th
 cat <<EOF > .env
 RG_NAME="myResourceGroup${RANDOM}"
 AKS_NAME="myAKSCluster${RANDOM}"
+ACR_NAME="myACR${RANDOM}"
+REGISTRY=${ACR_NAME}.azurecr.io
+AKV_NAME="myKeyVault${RANDOM}"
 LOCATION="eastus"
 EOF
 ```
@@ -69,6 +72,8 @@ EOF
 <div class="info" data-title="Note">
 
 > Choose a region that has supports availability zones. You can find a list of regions that support availability zones [here](https://learn.microsoft.com/azure/aks/availability-zones-overview) and has enough vCPU quota to create multiple AKS clusters.
+
+</div>
 
 Run the following command to load the local variables into the shell.
 
@@ -81,6 +86,12 @@ source .env
 > If you are using the Azure Cloud Shell, it may time out and you will loose your environment variables. Therefore, you will use the **.env** file to store your environment variables as you progress through the workshop to make it easier to reload them.
 
 </div>
+
+Make sure you are logged into your Azure account by running the following command.
+
+```bash
+az login
+```
 
 Run the following command to create a resource group.
 
@@ -862,7 +873,274 @@ kubectl logs sample-workload-identity-key-vault
 
 ### Secure Supply Chain
 
-- Image Integrity
+Containers Secure Supply Chain (CSSC) framework is a seamless, agile ecosystem of tools and processes built to integrate and execute security controls throughout the lifecycle of containers. The container secure supply chain strategy is built considering all the security needs of the container applications. To find out more about the CSSC framework, visit the [Azure Container Secure Supply Chain](https://learn.microsoft.com/en-us/azure/security/container-secure-supply-chain/articles/container-secure-supply-chain-implementation/containers-secure-supply-chain-overview) page.
+
+As a quick overview, a container supply chain is built in stages to ensure that the container is secure at every stage of the lifecycle. Microsoft identifies these stages in the container supply chain:
+
+![secure supply chain](./assets/secure-supply-chain.png)
+
+Container images are signed as part of the Acquire stage of the platform. Once a container image acquired from an external source or third-party vendor is verified for functionality and security, it is signed before being added to a catalog of approved container images. In this exercise, we will sign a container image using [Notation](https://github.com/notaryproject/notation), an open source supply chain security tool developed by the [Notary Project community](https://notaryproject.dev/).
+
+##### Install Notation
+
+Install Notation v1.2.0 on a Linux amd64 environment. Use the following commands to download and install Notation.
+
+```bash
+# Download, extract and install
+curl -Lo notation.tar.gz https://github.com/notaryproject/notation/releases/download/v1.2.0/notation_1.2.0_linux_amd64.tar.gz
+tar xvzf notation.tar.gz
+
+# Copy the Notation binary to the desired bin directory in your $PATH, for example
+cp ./notation /usr/local/bin
+```
+
+After installing Notation, install the Notation Azure Key Vault plugin. You can find the URL and the SHA256 checksum for the Notation Azure Key Vault plugin on the [release page](https://github.com/Azure/notation-azure-kv/releases).
+
+```bash
+notation plugin install --url https://github.com/Azure/notation-azure-kv/releases/download/v1.2.0/notation-azure-kv_1.2.0_linux_amd64.tar.gz --sha256sum 06bb5198af31ce11b08c4557ae4c2cbfb09878dfa6b637b7407ebc2d57b87b34
+```
+
+Once the plugin is installed, confirm the `azure-kv` plugin is installed by running the following command:
+
+```bash
+notation plugin ls
+```
+
+#### Create Azure Container Registry and Azure Key Vault
+
+<div class="info" data-title="Note">
+If you have already created an Azure Container Registry and Azure Key Vault, you can skip this section. Make sure the environment variables `AKV_NAME` and `ACR_NAME` are set correctly.
+</div>
+
+Before beginning this exercise, ensure you have an Azure Container Registry (ACR) instance  provisioned. You can check to see if you have an ACR instance provisioned by running the following command:
+
+```bash
+az acr list --query "[].{name: name}" -o tsv
+```
+
+If you do not have an ACR instance provisioned, you will have to create one. You can create an ACR instance by running the following command:
+
+```bash
+az acr create \
+--name ${ACR_NAME} \
+--resource-group ${RG_NAME} \
+--sku Standard \
+--location ${LOCATION}
+--identity
+```
+
+Next, check to see if you have a Key Vault instance provisioned. You can check to see if you have a Key Vault instance provisioned by running the following command:
+
+```bash
+az keyvault list --query "[].{name: name}" -o tsv
+```
+
+If you do not have a Key Vault instance provisioned, you will have to create one. You can create an Azure Key Vault instance by running the following command (which also saves the resource ID in a local variable for later use):
+
+```bash
+AKV_RESOURCE_ID="$(az keyvault create \
+--name ${AKV_NAME} \
+--resource-group ${RG_NAME} \
+--location "${LOCATION}" \
+--enable-purge-protection \
+--enable-rbac-authorization \
+--query "id" \
+--output tsv)"
+```
+
+Once you confirmed that you have an ACR and Azure Key Vault instances provisioned, set the local variables containing information about the certificate to be used for signing the container image.
+
+```bash
+CERT_NAME=wabbit-networks-io
+CERT_SUBJECT="CN=wabbit-networks.io,O=Notation,L=Seattle,ST=WA,C=US"
+CERT_PATH=./${CERT_NAME}.pem
+```
+
+Now set the local variables containing information about the container registry and the image source code directory containing the Dockerfile to build.
+
+```bash
+REPO=net-monitor
+TAG=v1
+IMAGE=$REGISTRY/${REPO}:$TAG
+IMAGE_SOURCE=https://github.com/wabbit-networks/net-monitor.git#main
+```
+
+Use the following command to set a local variable containing the subscription id.
+
+```bash
+SUB_ID=$(az account show --query id -o tsv)
+```
+
+#### Authorize access to the container registry
+
+The `AcrPush` and `AcrPull` roles are required to push and pull images from the Azure Container Registry. Run the following command to save your Azure user id in a local variable and assign the AcrPush and AcrPull roles to it.
+
+```bash
+USER_ID=$(az ad signed-in-user show --query id -o tsv)
+az role assignment create \
+--role "AcrPull" \
+--role "AcrPush" \
+--assignee $USER_ID \
+--scope "/subscriptions/${SUB_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.ContainerRegistry/registries/$ACR_NAME"
+```
+
+#### Authorize access to the key vault
+
+The Azure Key Vault instance you created earlier should have Azure RBAC authorization enabled. The following roles will be required for signing and using self-signed certificates:
+
+- `Key Vault Certificates Officer` to create and read certificates.
+- `Key Vault Crypto User` to sign and verify certificates.
+
+Assign the roles using the following commands:
+
+```bash
+az role assignment create \
+--role "Key Vault Certificates Officer" \
+--role "Key Vault Crypto User" \
+--assignee $USER_ID \
+--scope $(az keyvault show --name $AKV_NAME --query "id" -o tsv)
+```
+
+#### Create a self-signed certificate in Azure Key Vault
+
+Use the following command to create a certificate policy file named `my_policy.json` which will be used the create the self-signed certificate in Azure Key Vault. The subject value will be used as the trust indentity during verification.
+
+```bash
+cat <<EOF > ./my_policy.json
+{
+    "issuerParameters": {
+    "certificateTransparency": null,
+    "name": "Self"
+    },
+    "keyProperties": {
+      "exportable": false,
+      "keySize": 2048,
+      "keyType": "RSA",
+      "reuseKey": true
+    },
+    "secretProperties": {
+      "contentType": "application/x-pem-file"
+    },
+    "x509CertificateProperties": {
+    "ekus": [
+        "1.3.6.1.5.5.7.3.3"
+    ],
+    "keyUsage": [
+        "digitalSignature"
+    ],
+    "subject": "$CERT_SUBJECT",
+    "validityInMonths": 12
+    }
+}
+EOF
+```
+
+Use the following command to create a certificate compatible with [Notary Project certificate requirement](https://github.com/notaryproject/specifications/blob/v1.0.0/specs/signature-specification.md#certificate-requirements) in the Azure Key Vault instance.
+
+```bash
+az keyvault certificate create \
+--vault-name $AKV_NAME \
+--name $CERT_NAME \
+--policy @my_policy.json \
+```
+
+#### Signing a Container Image using Notation and Azure Key Vault Plugin
+
+1. To sign a container image usign Notation and Azure Key Vault, you first need to authenticate to your Azure Container Registry using the following command:
+
+```bash
+az acr login --name $ACR_NAME
+```
+
+2. Build and push a new image with ACR Tasks. Use the digest value to identify the image to sign.
+
+```bash
+DIGEST=$(az acr build -r $ACR_NAME -t $REGISTRY/${REPO}:$TAG $IMAGE_SOURCE --no-logs --query "outputImages[0].digest" -o tsv)
+IMAGE=$REGISTRY/${REPO}@$DIGEST
+```
+
+If the image is built and stored in the registry, the tag serves as an identifier for the image.
+
+```bash
+IMAGE=$REGISTRY/${REPO}:$TAG
+```
+
+3. Get the ID of the signing key. The following command will get the Key ID of the latest version of the certificate.
+
+```bash
+KEY_ID=$(az keyvault certificate show -n $CERT_NAME --vault-name $AKV_NAME --query 'kid' -o tsv)
+```
+
+4. Sign the image with the [COSE](https://datatracker.ietf.org/doc/html/rfc9052) format using the Notation Azure Key Vault plugin and the key retrieved in the previous step with the following command:
+
+```bash
+notation sign \
+--signature-format cose \
+--id $KEY_ID \
+--plugin azure-kv \
+--plugin-config self_signed=true $IMAGE
+```
+
+#### Verify the image using Notation
+
+1. To verify the signed container image, add the root certificate that signs the leaf certificate to the trust store. The following command will download the root certificate and add it to the trust store. In the case of a self-signed certificate, the root certificate *is* the self-signed certificate. Use the following command to download the root certificate:
+
+```bash
+az keyvault certificate download --name $CERT_NAME --vault-name $AKV_NAME --file $CERT_PATH
+```
+
+2. Add the root certificate to the trust store using the following command:
+
+```bash
+STORE_TYPE="ca"
+STORE_NAME="wabbit-networks.io"
+notation cert add --type $STORE_TYPE --store $STORE_NAME $CERT_PATH
+```
+
+3. Verify the image using the following command:
+
+```bash
+notation cert ls
+```
+
+4. Configure the trust policy before verification. The trust policy is a JSON file that specifies the trust policy for the image. The trust policy is used to verify the signature of the image. For more information on trust policies and trust stores, see [Trust store and trust policy specification](https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md) Use the following command to create a trust policy file named `trust_policy.json`:
+
+```bash
+cat <<EOF > ./trust_policy.json
+{
+    "version": "1.0",
+    "trustPolicies": [
+        {
+            "name": "wabbit-networks-images",
+            "registryScopes": [ "$REGISTRY/$REPO" ],
+            "signatureVerification": {
+                "level" : "strict" 
+            },
+            "trustStores": [ "$STORE_TYPE:$STORE_NAME" ],
+            "trustedIdentities": [
+                "x509.subject: $CERT_SUBJECT"
+            ]
+        }
+    ]
+}
+EOF
+```
+
+5. Import and verify the trust policy from the `trust_poilicy.json` file using the following Notation CLI commands:
+
+```bash
+notation policy import ./trustpolicy.json
+notation policy show
+```
+
+6. Verify the image using the following command:
+
+```bash
+notation verify $IMAGE
+```
+
+Upon successful verification of the image using the trust policy, the sha256 digest of the verified image is returned in a successful output message.
+
 - Image Cleaner
 
 ---
@@ -1129,7 +1407,7 @@ az aks update \
 
 Once the auto-upgrade channel subscription has been enabled for your cluster, you will see the `upgradeChannel` property updated to the chosen channel in the output.
 
-<div class="important" data-title="Important">
+<div class="info" data-title="Important">
 
 > Configuring your AKS cluster to an auto-upgrade channel can have impact on the availability of workloads running on your cluster. Please review the additional options available to [Customize node surge upgrade](https://learn.microsoft.com/azure/aks/upgrade-aks-cluster?tabs=azure-cli#customize-node-surge-upgrade).
 
@@ -1367,7 +1645,7 @@ kubectl get memberclusters
 
 The ClusterResourcePlacement API object is used to propagate resources from a hub cluster to member clusters. The ClusterResourcePlacement API object specifies the resources to propagate and the placement policy to use when selecting member clusters. The ClusterResourcePlacement API object is created in the hub cluster and is used to propagate resources to member clusters. This example demonstrates how to propagate a namespace to member clusters using the ClusterResourcePlacement API object with a PickAll placement policy.
 
-<div class="important" data-title="Important">
+<div class="info" data-title="Important">
 
 > Before running the following commands, make sure your `kubectl conifg` has the Fleet hub cluster as it's current context. To check your current context, run the `kubectl config current-context` command. You should see the output as `hub`. If the output is not `hub`, please run `kubectl config set-context hub`.
 
