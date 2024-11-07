@@ -309,7 +309,87 @@ Istio is integrated with AKS as an addon and is supported alongside AKS.
 
 </div>
 
-#### Deploy Istio service mesh add-on
+#### Configure CA certificates
+
+In the Istio-based service mesh addon for Azure Kubernetes Service, by default the Istio certificate authority (CA) generates a self-signed root certificate and key and uses them to sign the workload certificates. To protect the root CA key, you should use a root CA, which runs on a secure machine offline.
+
+In this lab, we will create our on root CA, along with an intermediate CA, and configure the Istio addon to issue intermediate certificates to the Istio CAs that run in each cluster. An Istio CA can sign workload certificates using the administrator-specified certificate and key, and distribute an administrator-specified root certificate to the workloads as the root of trust.
+
+##### Clone the Istio Repo 
+
+To expedite the process of create the necessary certificates needed, we will leverage the certificate tooling provided by the Istio open-source project.
+
+In your terminal, run the following command to clone the Istio repository.
+
+```bash
+git clone https://github.com/istio/istio.git
+```
+
+##### Generate the Root and Intermediate CA certificates
+
+Navigate into the recently cloned Istio directory.
+
+```bash
+cd istio
+```
+
+Once in the `istio` directory, create the `akslab-certs` directory and navigate into it.
+
+```bash
+mkdir -p akslab-certs
+pushd certs
+```
+
+Generate the root certificate and key.
+
+```bash
+make -f ../tools/certs/Makefile.selfsigned.mk root-ca
+```
+
+Generate the intermediate certificate and key
+
+```bash
+make -f ../tools/certs/Makefile.selfsigned.mk intermediate-cacerts
+```
+
+This will create a directory called `intermediate` which will contain the intermediate CA certificate information.
+
+#### Add the CA Certificates to Azure Key Vault
+
+We will utilize Azure KeyVault to store the root and intermediate CA certificate information. 
+
+In the `akslab-certs` directory, run the following commands.
+
+```bash
+az keyvault secret set --vault-name ${AKV_NAME} --name istio-root-cert --file root-cert.pem
+az keyvault secret set --vault-name ${AKV_NAME} --name istio-intermediat-cert --file ./intermediate/ca-cert.pem
+az keyvault secret set --vault-name ${AKV_NAME} --name isito-intermediat-key --file ./intermediate/ca-key.pem
+az keyvault secret set --vault-name ${AKV_NAME} --name istio-cert-chain --file ./intermediate/cert-chain.pem
+```
+
+#### Enable Azure Key Vault provider for Secret Store CSI Driver for your cluster
+
+The Azure Key Vault provider for Secrets Store CSI Driver allows for the integration of an Azure Key Vault as a secret store with an Azure Kubernetes Service (AKS) cluster via a [CSI volume](https://kubernetes-csi.github.io/docs/).
+
+This integration will allow AKS to create, store, and retrieve Kubernetes secrets from Azure Key Vault.
+
+Run the following command to enable the AKS Azure Key Vault secrets provider.
+```bash
+az aks enable-addons --addons azure-keyvault-secrets-provider --resource-group ${RG_NAME} --name ${AKS_NAME}
+```
+#### Authorize the user-assigned managed identity of the AKS Azure Key Vault provider add-on to have access to Azure Key Vault
+
+When you enable the Azure Key Vault provider for the AKS cluster, a user-assigned managed identity is created for the cluster. We will provide the managed identity with access to Azure Key Vault to retrieve the CA certificate information needed when we deploy the AKS Istio addon.
+
+Run the following commands to add an Azure role assignment for Key Vault administrator for the add-on's user-assigned managed identity.
+
+```bash
+OBJECT_ID=$(az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query 'addonProfiles.azureKeyvaultSecretsProvider.identity.objectId' -o tsv)
+
+az role assignment create --role "Key Vault Administrator" --assignee-object-id ${OBJECT_ID} --assignee-principal-type ServicePrincipal --scope ${AKV_ID}
+```
+
+#### Deploy Istio service mesh add-on with plug-in CA certificates
 
 Before deploying the AKS Istio add-on, check the revision of Istio to ensure it is compatible with the version of Kubernetes on the cluster. To check the available revisions in the region that the AKS cluster is deployed in, run the following command:
 
@@ -324,9 +404,12 @@ You should see the available revisions for the AKS Istio add-on and the compatib
 Run the following command to enable the default supported revision of the AKS Istio add-on for the AKS cluster.
 
 ```bash
-az aks mesh enable \
---resource-group ${RG_NAME} \
---name ${AKS_NAME}
+az aks mesh enable --resource-group ${RG_NAME} --name ${AKS_NAME} \
+--root-cert-object-name istio-root-cert \
+--ca-cert-object-name istio-intermediat-cert \
+--ca-key-object-name isito-intermediat-key \
+--cert-chain-object-name istio-cert-chain \
+--key-vault-id ${AKV_ID}
 ```
 
 <div class="info" data-title="Note">
@@ -341,11 +424,9 @@ Once the service mesh has been enabled, run the following command to view the Is
 kubectl get pods -n aks-istio-system
 ```
 
-A Service Mesh is primarily used to secure the communications between services running in a Kubernetes cluster. We will use the AKS Store Demo application to work through some of the most common tasks you will use the Istio AKS add-on service mesh for.
-
 #### Enable Sidecar Injection
 
-Service meshes traditionally work by deploying an additional container within the same pod as your application container. These additional containers are referred to as a sidecar or a sidecar proxy. These sidecar proxy receive policy and configuration from the service mesh control plane and insert themselves in the communication path of your application, to control the traffic to and from your application pod.
+Service meshes traditionally work by deploying an additional container within the same pod as your application container. These additional containers are referred to as a sidecar or a sidecar proxy. These sidecar proxies receive policy and configuration from the service mesh control plane and insert themselves in the communication path of your application, to control the traffic to and from your application container.
 
 The first step to onboarding your application into a service mesh, is to enable sidecar injection for your application pods. To control which applications are onboarded to the service mesh, we can target specific Kubernetes namespaces where applications are deployed.
 
@@ -373,13 +454,15 @@ The following command will enable the AKS Istio add-on sidecar injection for the
 kubectl label namespace pets istio.io/rev=asm-1-22
 ```
 
-At this point, we have just simply labeled the namespace, instructing the Istio control plane to enable sidecar injection on new deployments into the namespace. Since we have existing deployments in the namespace already, we will need to restart teh deployments to trigger the sidecar inject.
+At this point, we have simply just labeled the namespace, instructing the Istio control plane to enable sidecar injection on new deployments into the namespace. Since we have existing deployments in the namespace already, we will need to restart the deployments to trigger the sidecar inject.
 
-Get a list of all the current deployment names in the `pets` namespace.
+Get a list of all the current pods running in the `pets` namespace.
 
 ```bash
-kubectl get deploy -n pets
+kubectl get pods -n pets
 ```
+
+You'll notice that each pod listed has a `READY` state of `1/1`. This means there is one container (the application container) per pod. We will restart the deployments to have the Istio sidecar proxies injected into each pod.
 
 Restart the deployments for the `order-service`, `product-service`, and `store-front`.
 
@@ -389,9 +472,7 @@ kubectl rollout restart deployment product-service -n pets
 kubectl rollout restart deployment store-front -n pets
 ```
 
-If we re-run the get pods command for the `pets` namespace, we'll see the following output showing the additional sidecar for the deployments we restarted.
-
-You will notice all of the deployments now have a `READY` state of `2/2`, meaning the pods now include the sidecar proxy for Istio. The RabbitMQ for the AKS Store application is actually a stateful set and we will need to redeploy the stateful set.
+If we re-run the get pods command for the `pets` namespace, you will notice all of the pods now have a `READY` state of `2/2`, meaning the pods now include the sidecar proxy for Istio. The RabbitMQ for the AKS Store application is actually a stateful set and we will need to redeploy the stateful set to get the sidecar proxy injection.
 
 ```bash
 kubectl rollout restart statefulset rabbitmq -n pets
@@ -440,7 +521,7 @@ kubectl get pods -n default
 
 Wait for the test pod to be in a **Running** state.
 
-##### Configure mTLS Strict Mode for AKS Store Namespace
+##### Configure mTLS Strict Mode for the pets namespace
 
 Currently Istio configures workloads to use mTLS when calling other workloads, but the default permissive mode allows a service to accept traffic in plaintext or mTLS traffic. To ensure that the workloads we manage with the Istio add-on only accept mTLS communication, we will deploy a Peer Authentication policy to enforce only mTLS traffic for the workloads in the `pets` namespace.
 
@@ -471,6 +552,7 @@ apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: pets-default
+  namespace: pets
 spec:
   mtls:
     mode: STRICT
@@ -485,95 +567,8 @@ kubectl exec -it ${CURL_POD_NAME} -- curl -IL store-front.pets.svc.cluster.local
 
 Notice that the curl client failed to get a response from the **store-front** service. The error returned is the indication that the mTLS policy has been enforced, and that the **store-front** service has rejected the non mTLS communication from the test pod.
 
-#### Deploying External Istio Ingress
 
-By default, services are not accessible from outside the cluster. When managing your workloads with the Istio service mesh, you want to ensure that if you expose a service for communications outside the cluster, mesh policy configurations can still be preserved.
 
-The AKS Istio AKS add-on comes with both a external and internal ingress gateway that you can utilize to expose your services in the service mesh. In the following steps, we will show how to enable an external ingress gateway to allow the **store-front** service to be reached from outside the cluster.
-
-The following command will enable the Istio ingress gateway on the AKS cluster.
-
-```bash
-az aks mesh enable-ingress-gateway \
---resource-group ${RG_NAME} \
---name ${AKS_NAME} \
---ingress-gateway-type external
-```
-
-<div class="info" data-title="Note">
-
-> This may take several minutes to complete.
-
-</div>
-
-The deployment of the Istio ingress gateway will include a new service in the **aks-istio-ingress** namespace. Run the following command to verify the service has been created.
-
-```bash
-kubectl get svc aks-istio-ingressgateway-external -n aks-istio-ingress
-```
-
-Make note of your cluster **EXTERNAL-IP** address. That will be the public endpoint to reach the service we configure for using the external ingress.
-
-Next run the following command to create both the Gateway and VirtualService for the **store-front** service.
-
-```bash
-kubectl apply -n pets -f - <<EOF
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: pets-gateway-external
-  namespace: pets
-spec:
-  selector:
-    istio: aks-istio-ingressgateway-external
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "*"
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: store-front-external
-  namespace: pets
-spec:
-  hosts:
-  - "*"
-  gateways:
-  - pets-gateway-external
-  http:
-  - match:
-    - uri:
-        prefix: ''
-    route:
-    - destination:
-        host: store-front.pets.svc.cluster.local
-        port:
-          number: 80
-EOF
-```
-
-Set environment variables for external ingress host and ports:
-
-```bash
-cat <<EOF >> .env
-INGRESS_HOST_EXTERNAL="$(kubectl -n aks-istio-ingress get service aks-istio-ingressgateway-external -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
-INGRESS_PORT_EXTERNAL="$(kubectl -n aks-istio-ingress get service aks-istio-ingressgateway-external -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')"
-GATEWAY_URL_EXTERNAL="${INGRESS_HOST_EXTERNAL}:${INGRESS_PORT_EXTERNAL}"
-EOF
-source .env
-```
-
-Retrieve the external address of the AKS Store application:
-
-```bash
-echo "http://${GATEWAY_URL_EXTERNAL}/"
-```
-
-Click on the link to access the AKS Store application.
 
 ---
 
