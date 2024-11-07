@@ -1046,13 +1046,13 @@ az keyvault certificate create \
 
 #### Signing a Container Image using Notation and Azure Key Vault Plugin
 
-1. To sign a container image usign Notation and Azure Key Vault, you first need to authenticate to your Azure Container Registry using the following command:
+To sign a container image usign Notation and Azure Key Vault, you first need to authenticate to your Azure Container Registry using the following command:
 
 ```bash
 az acr login --name $ACR_NAME
 ```
 
-2. Build and push a new image with ACR Tasks. Use the digest value to identify the image to sign.
+Build and push a new image with ACR Tasks. Use the digest value to identify the image to sign.
 
 ```bash
 DIGEST=$(az acr build -r $ACR_NAME -t $REGISTRY/${REPO}:$TAG $IMAGE_SOURCE --no-logs --query "outputImages[0].digest" -o tsv)
@@ -1065,13 +1065,13 @@ If the image is built and stored in the registry, the tag serves as an identifie
 IMAGE=$REGISTRY/${REPO}:$TAG
 ```
 
-3. Get the ID of the signing key. The following command will get the Key ID of the latest version of the certificate.
+Get the ID of the signing key. The following command will get the Key ID of the latest version of the certificate.
 
 ```bash
 KEY_ID=$(az keyvault certificate show -n $CERT_NAME --vault-name $AKV_NAME --query 'kid' -o tsv)
 ```
 
-4. Sign the image with the [COSE](https://datatracker.ietf.org/doc/html/rfc9052) format using the Notation Azure Key Vault plugin and the key retrieved in the previous step with the following command:
+Sign the image with the [COSE](https://datatracker.ietf.org/doc/html/rfc9052) format using the Notation Azure Key Vault plugin and the key retrieved in the previous step with the following command:
 
 ```bash
 notation sign \
@@ -1083,13 +1083,13 @@ notation sign \
 
 #### Verify the image using Notation
 
-1. To verify the signed container image, add the root certificate that signs the leaf certificate to the trust store. The following command will download the root certificate and add it to the trust store. In the case of a self-signed certificate, the root certificate *is* the self-signed certificate. Use the following command to download the root certificate:
+To verify the signed container image, add the root certificate that signs the leaf certificate to the trust store. The following command will download the root certificate and add it to the trust store. In the case of a self-signed certificate, the root certificate *is* the self-signed certificate. Use the following command to download the root certificate:
 
 ```bash
 az keyvault certificate download --name $CERT_NAME --vault-name $AKV_NAME --file $CERT_PATH
 ```
 
-2. Add the root certificate to the trust store using the following command:
+Add the root certificate to the trust store using the following command:
 
 ```bash
 STORE_TYPE="ca"
@@ -1097,13 +1097,13 @@ STORE_NAME="wabbit-networks.io"
 notation cert add --type $STORE_TYPE --store $STORE_NAME $CERT_PATH
 ```
 
-3. Verify the image using the following command:
+Verify the image using the following command:
 
 ```bash
 notation cert ls
 ```
 
-4. Configure the trust policy before verification. The trust policy is a JSON file that specifies the trust policy for the image. The trust policy is used to verify the signature of the image. For more information on trust policies and trust stores, see [Trust store and trust policy specification](https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md) Use the following command to create a trust policy file named `trust_policy.json`:
+Configure the trust policy before verification. The trust policy is a JSON file that specifies the trust policy for the image. The trust policy is used to verify the signature of the image. For more information on trust policies and trust stores, see [Trust store and trust policy specification](https://github.com/notaryproject/notaryproject/blob/v1.0.0/specs/trust-store-trust-policy.md) Use the following command to create a trust policy file named `trust_policy.json`:
 
 ```bash
 cat <<EOF > ./trust_policy.json
@@ -1126,14 +1126,14 @@ cat <<EOF > ./trust_policy.json
 EOF
 ```
 
-5. Import and verify the trust policy from the `trust_poilicy.json` file using the following Notation CLI commands:
+Import and verify the trust policy from the `trust_poilicy.json` file using the following Notation CLI commands:
 
 ```bash
 notation policy import ./trustpolicy.json
 notation policy show
 ```
 
-6. Verify the image using the following command:
+Verify the image using the following command:
 
 ```bash
 notation verify $IMAGE
