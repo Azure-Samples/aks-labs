@@ -1141,8 +1141,6 @@ notation verify $IMAGE
 
 Upon successful verification of the image using the trust policy, the sha256 digest of the verified image is returned in a successful output message.
 
-- Image Cleaner
-
 ---
 
 ## Advanced Monitoring Concepts
