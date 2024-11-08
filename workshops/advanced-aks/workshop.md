@@ -589,13 +589,13 @@ Istio is integrated with AKS as an addon and is supported alongside AKS.
 
 #### Configure CA certificates
 
-In the Istio-based service mesh addon for Azure Kubernetes Service, by default the Istio certificate authority (CA) generates a self-signed root certificate and key and uses them to sign the workload certificates. To protect the root CA key, you should use a root CA, which runs on a secure machine offline.
+In the Istio-based service mesh addon for Azure Kubernetes Service, by default the Istio certificate authority (CA) generates a self-signed root certificate and key and uses them to sign the workload certificates. To protect the root CA key, you should use a root CA which runs on a secure machine offline.
 
-In this lab, we will create our on root CA, along with an intermediate CA, and configure the Istio addon to issue intermediate certificates to the Istio CAs that run in each cluster. An Istio CA can sign workload certificates using the administrator-specified certificate and key, and distribute an administrator-specified root certificate to the workloads as the root of trust.
+In this lab, we will create our own root CA, along with an intermediate CA, and configure the Istio addon to issue intermediate certificates to the Istio CAs that run in each cluster. An Istio CA can sign workload certificates using the administrator-specified certificate and key, and distribute an administrator-specified root certificate to the workloads as the root of trust.
 
 ##### Clone the Istio Repo
 
-To expedite the process of create the necessary certificates needed, we will leverage the certificate tooling provided by the Istio open-source project.
+To expedite the process of creating the necessary certificates needed, we will leverage the certificate tooling provided by the Istio open-source project.
 
 In your terminal, run the following command to clone the Istio repository.
 
@@ -662,6 +662,12 @@ az aks enable-addons \
 
 #### Authorize the user-assigned managed identity of the AKS Azure Key Vault provider add-on to have access to Azure Key Vault
 
+<div class="info" data-title="Note">
+
+> For the purposes of this lab, we are using the `Key Vault Administrator` role. Please consider a role with lesser privileges for accessing Azure Key Vault in a production environment.
+
+</div>
+
 When you enable the Azure Key Vault provider for the AKS cluster, a user-assigned managed identity is created for the cluster. We will provide the managed identity with access to Azure Key Vault to retrieve the CA certificate information needed when we deploy the AKS Istio addon.
 
 Run the following commands to add an Azure role assignment for Key Vault administrator for the add-on's user-assigned managed identity.
@@ -692,7 +698,7 @@ az aks mesh get-revisions \
 
 You should see the available revisions for the AKS Istio add-on and the compatible versions of Kubernetes they support.
 
-Run the following command to enable the default supported revision of the AKS Istio add-on for the AKS cluster.
+Run the following command to enable the default supported revision of the AKS Istio add-on for the AKS cluster, using the CA certficate infromation creted earlier.
 
 ```bash
 az aks mesh enable --resource-group ${RG_NAME} --name ${AKS_NAME} \
@@ -717,7 +723,7 @@ kubectl get pods -n aks-istio-system
 
 #### Enable Sidecar Injection
 
-Service meshes traditionally work by deploying an additional container within the same pod as your application container. These additional containers are referred to as a sidecar or a sidecar proxy. These sidecar proxies receive policy and configuration from the service mesh control plane and insert themselves in the communication path of your application, to control the traffic to and from your application container.
+Service meshes traditionally work by deploying an additional container within the same pod as your application container. These additional containers are referred to as a sidecar or a sidecar proxy. These sidecar proxies receive policy and configuration from the service mesh control plane, and insert themselves in the communication path of your application to control the traffic to and from your application container.
 
 The first step to onboarding your application into a service mesh, is to enable sidecar injection for your application pods. To control which applications are onboarded to the service mesh, we can target specific Kubernetes namespaces where applications are deployed.
 
@@ -727,7 +733,7 @@ The first step to onboarding your application into a service mesh, is to enable 
 
 </div>
 
-Prior to running the command to enable the Istio sidecar injection, let first view the existing pods in the `pets` namespace.
+Prior to running the command to enable the Istio sidecar injection, let's first view the existing pods in the `pets` namespace.
 
 ```bash
 kubectl get pods -n pets
@@ -745,7 +751,7 @@ The following command will enable the AKS Istio add-on sidecar injection for the
 kubectl label namespace pets istio.io/rev=asm-1-22
 ```
 
-At this point, we have simply just labeled the namespace, instructing the Istio control plane to enable sidecar injection on new deployments into the namespace. Since we have existing deployments in the namespace already, we will need to restart the deployments to trigger the sidecar inject.
+At this point, we have simply just labeled the namespace, instructing the Istio control plane to enable sidecar injection on new deployments into the namespace. Since we have existing deployments in the namespace already, we will need to restart the deployments to trigger the sidecar injection.
 
 Get a list of all the current pods running in the `pets` namespace.
 
@@ -763,7 +769,7 @@ kubectl rollout restart deployment product-service -n pets
 kubectl rollout restart deployment store-front -n pets
 ```
 
-If we re-run the get pods command for the `pets` namespace, you will notice all of the pods now have a `READY` state of `2/2`, meaning the pods now include the sidecar proxy for Istio. The RabbitMQ for the AKS Store application is actually a stateful set and we will need to redeploy the stateful set to get the sidecar proxy injection.
+If we re-run the get pods command for the `pets` namespace, you will notice all of the pods now have a `READY` state of `2/2`, meaning the pods now include the sidecar proxy for Istio. The RabbitMQ for the AKS Store application is not a Kubernetes deployment, but is a stateful set.  We will need to redeploy the RabbitMQ stateful set to get the sidecar proxy injection.
 
 ```bash
 kubectl rollout restart statefulset rabbitmq -n pets
@@ -814,7 +820,7 @@ Wait for the test pod to be in a **Running** state.
 
 ##### Configure mTLS Strict Mode for the pets namespace
 
-Currently Istio configures workloads to use mTLS when calling other workloads, but the default permissive mode allows a service to accept traffic in plaintext or mTLS traffic. To ensure that the workloads we manage with the Istio add-on only accept mTLS communication, we will deploy a Peer Authentication policy to enforce only mTLS traffic for the workloads in the `pets` namespace.
+Currently Istio configures managed workloads to use mTLS when calling other workloads, but the default permissive mode allows a service to accept traffic in both plaintext or mTLS traffic. To ensure that the workloads we manage with the Istio add-on only accept mTLS communication, we will deploy a Peer Authentication policy to enforce only mTLS traffic for the workloads in the `pets` namespace.
 
 Prior to deploying the mTLS strict mode, let's verify that the **store-front** service will respond to a client not using mTLS. We will invoke a call from the test pod to the **store-front** service and see if we get a response.
 
@@ -857,6 +863,59 @@ kubectl exec -it ${CURL_POD_NAME} -- curl -IL store-front.pets.svc.cluster.local
 ```
 
 Notice that the curl client failed to get a response from the **store-front** service. The error returned is the indication that the mTLS policy has been enforced, and that the **store-front** service has rejected the non mTLS communication from the test pod.
+
+To verify that the `store-front` service is still accessible for pods in the `pets` namespace where the mTLS Peer Authentication policy is deployed, we will again deploy the **curl** image utility pod in the `pets` namespace. That pod will automatically get the sidecar injection of the Istio proxy, along with the policy that will enable it to securly communicate to the `store-front` service. 
+
+Use the following command to deploy the test pod that will run the **curl** image to the **pets** namespace of the cluster.
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-pets-deployment
+  namespace: pets
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curl
+  template:
+    metadata:
+      labels:
+        app: curl
+    spec:
+      containers:
+      - name: curl
+        image: curlimages/curl
+        command: ["sleep", "3600"]
+EOF
+```
+
+We can again verify the deployment of the test pod in the **pets** namespace using following command:
+
+```bash
+kubectl get pods -n pets | grep curl
+```
+
+Wait for the test pod to be in a **Running** state, and notice the `READY` state, which should have a status of `2/2`.
+
+Run the following command to get the name of the test pod in the `pets` namespace, add it to the **.env** file and source the file.
+
+```bash
+cat <<EOF >> .env
+CURL_PETS_POD_NAME="$(kubectl get pod -n pets -l app=curl -o jsonpath="{.items[0].metadata.name}")"
+EOF
+source .env
+```
+
+Run the following command to run a curl command from the test pod in the `pets` namespace to the **store-front** service.
+
+```bash
+kubectl exec -it ${CURL_PETS_POD_NAME} -n pets -- curl -IL store-front.pets.svc.cluster.local:80
+```
+
+You should see a response with a status of **HTTP/1.1 200 OK** indicating that the **store-front** service successfully responded to the client in the `pets` namespace using only mTLS communication.
 
 ---
 
