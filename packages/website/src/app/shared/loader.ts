@@ -57,17 +57,12 @@ export async function loadFile<E = {}>(
 }
 
 export function updateAssetsBasePath(markdown: string, baseUrl: string): string {
-  // // If the markdown is from a GitHub raw URL, don't update the assets path
-  // if (baseUrl.startsWith('https://raw.githubusercontent.com')) {
-  //   return markdown;
-  // }
-
   if (baseUrl.endsWith('/')) {
     baseUrl = baseUrl.substring(0, baseUrl.length - 1);
   }
 
   // Match all occurrences of unescaped "assets/"
-  const assetsRegex = new RegExp(`(?<!\\\\|\\\\\.\/)([.]?[.]\/)?${assetsFolder}`, 'gm');
+  const assetsRegex = new RegExp(`(?<!\\\\|\\\\\.\/|https:\\/\\/raw\\.githubusercontent\\.com\\/.*\\/.*\\/refs\\/heads\\/.*\\/${baseUrl}\\/)([.]?[.]\/)?${assetsFolder}`, 'gm');
   markdown = markdown.replace(assetsRegex, (_match, root) => `${baseUrl}/${root === '../' ? root : ''}${assetsFolder}`);
 
   // Match all occurrences of escaped "assets/"
