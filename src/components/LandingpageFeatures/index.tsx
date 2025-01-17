@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import  TypewriterComponent  from '../TypewriterComponent';
 import Link from '@docusaurus/Link';
 import styles from './styles.module.css';
+// import LearnerSVG from '../../../static/img/learner2.svg';
 
 
 const keywords = [
@@ -43,7 +44,8 @@ export default function LandingpageFeatures(): ReactNode {
                         </div>
                     </div>
                     <div className='col col--6'>
-                        <img className={styles.img450x450} src={require('../../../static/img/learner.png').default} />
+                        <img className={styles.img450x450} src={require('../../../static/img/learner2.png').default} />
+                        {/* <LearnerSVG className={styles.img450x450} /> */}
                     </div>
                 </div>
             </div>
