@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 title: Getting Started with Azure Kubernetes Service (AKS) Automatic
 
 # published: true # Optional. Set to true to publish the workshop (default: false)

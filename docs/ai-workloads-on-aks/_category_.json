@@ -1,6 +1,6 @@
 {
-    "label": "AI on AKS",
-    "position": 5,
+    "label": "AI",
+    "position": 7,
     "link": {
       "type": "generated-index",
       "description": "AI Workloads on AKS Workshop"

@@ -1,6 +1,7 @@
 ---
 # published: true # Optional. Set to true to publish the workshop (default: false)
 # type: workshop # Required.
+sidebar_position: 1
 title: Getting Started with Kubernetes on Azure Kubernetes Service (AKS) # Required. Full title of the workshop
 # short_title: Getting Started with AKS # Optional. Short title displayed in the header
 # description: This is a workshop for getting started AKS which was originally delivered at Microsoft Build 2023 Pre-day Workshop (PRE03) # Required.
