@@ -9,6 +9,12 @@ import Heading from '@theme/Heading';
 import styles from './index.module.css';
 import LandingpageFeatures from '../components/LandingpageFeatures';
 
+const imageUrls = [
+  './img/learner2.png',
+  './img/learner3.png', 
+  './img/learner4.png'
+];
+
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
@@ -39,7 +45,7 @@ export default function Home(): ReactNode {
       description="Description will go into a meta tag in <head />">
       {/* <HomepageHeader /> */}
       <main>
-        <LandingpageFeatures />
+        <LandingpageFeatures images={imageUrls} />
       </main>
     </Layout>
   );
