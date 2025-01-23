@@ -89,7 +89,7 @@ const config: Config = {
           label: 'Blog', 
           position: 'left'},
         {
-          href: 'https://github.com/russd2357/aks-labs',
+          href: 'https://github.com/Azure-Samples/aks-labs',
           label: 'GitHub',
           position: 'right',
         },
