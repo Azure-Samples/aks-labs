@@ -10,15 +10,19 @@ Before you begin, you will need an [Azure subscription](https://azure.microsoft.
 
 ### Command Line Tools
 
-Most of the workshop will be done using command line tools, so you will need to have the following tools installed:
+Many of the workshops on this site will be done using command line tools, so you will need to have the following tools installed:
 
 - [Azure CLI](https://learn.microsoft.com/cli/azure/what-is-azure-cli)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
-- [Hubble CLI](https://docs.cilium.io/en/stable/observability/hubble/setup/)
-- [Notation CLI](https://notaryproject.dev/docs/user-guides/installation/cli/)
-- [Notation AKV plugin](https://github.com/Azure/notation-azure-kv?tab=readme-ov-file#installation-the-akv-plugin)
 - [Git](https://git-scm.com/)
 - Bash shell (e.g. [Windows Terminal](https://www.microsoft.com/p/windows-terminal/9n0dx20hk701) with [WSL](https://docs.microsoft.com/windows/wsl/install-win10) or [Azure Cloud Shell](https://shell.azure.com))
+
+For the Istio Service Mesh workshop, you will also need:
+- [Hubble CLI](https://docs.cilium.io/en/stable/observability/hubble/setup/)
+
+For the Secure Container Supply Chain workshop, you will also need:
+- [Notation CLI](https://notaryproject.dev/docs/user-guides/installation/cli/)
+- [Notation AKV plugin](https://github.com/Azure/notation-azure-kv?tab=readme-ov-file#installation-the-akv-plugin)
 
 If you are unable to install these tools on your local machine, you can use the Azure Cloud Shell, which has most of the tools pre-installed.
 
@@ -26,7 +30,7 @@ If you are unable to install these tools on your local machine, you can use the 
 
 ## Lab Environment Setup
 
-This workshop will require the use of multiple Azure resources such as [Azure Log Analytics](https://learn.microsoft.com/azure/azure-monitor/logs/log-analytics-overview), [Azure Managed Prometheus](https://learn.microsoft.com/azure/azure-monitor/essentials/prometheus-metrics-overview), [Azure Managed Grafana](https://learn.microsoft.com/azure/managed-grafana/overview), [Azure Key Vault](https://learn.microsoft.com/azure/key-vault/general/overview), and [Azure Container Registry](https://learn.microsoft.com/azure/container-registry/container-registry-intro). The resource deployment can take some time, so to expedite the process, we will use a [Bicep template](https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview?tabs=bicep) to deploy the resources.
+Many of the workshops will require the use of multiple Azure resources such as [Azure Log Analytics](https://learn.microsoft.com/azure/azure-monitor/logs/log-analytics-overview), [Azure Managed Prometheus](https://learn.microsoft.com/azure/azure-monitor/essentials/prometheus-metrics-overview), [Azure Managed Grafana](https://learn.microsoft.com/azure/managed-grafana/overview), [Azure Key Vault](https://learn.microsoft.com/azure/key-vault/general/overview), and [Azure Container Registry](https://learn.microsoft.com/azure/container-registry/container-registry-intro). The resource deployment can take some time, so to expedite the process, we will use a [Bicep template](https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview?tabs=bicep) to deploy the resources.
 
 Using the terminal of your choice, run the following commands to set up the workshop **.env** file which will be used to store the environment variables throughout the workshop. If you are using the Azure Cloud Shell, you may encounter shell a time out loose environment variables. Therefore, writing your variables to an **.env** file will make it easier to reload them.
 
