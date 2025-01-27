@@ -29,6 +29,7 @@
 .img450x450 {
     width: 450px;
     height: 450px;
+    margin-left: .25rem;
 }
 
 .margin-md-left {

@@ -1,7 +1,9 @@
 import { ReactNode } from 'react';
 import  TypewriterComponent  from '../TypewriterComponent';
+import ImageRotator from '../ImageRotator';
 import Link from '@docusaurus/Link';
 import styles from './styles.module.css';
+// import LearnerSVG from '../../../static/img/learner2.svg';
 
 
 const keywords = [
@@ -12,7 +14,12 @@ const keywords = [
     'Azure Kubernetes Service',
   ];
 
-export default function LandingpageFeatures(): ReactNode {
+  interface LandingpageFeaturesProps {
+    images: string[];
+  }  
+
+
+export default function LandingpageFeatures({ images }: LandingpageFeaturesProps): ReactNode {
     return (
         //<section className={styles.largetext}>    
             <div className='container no-sidebar'>
@@ -43,7 +50,11 @@ export default function LandingpageFeatures(): ReactNode {
                         </div>
                     </div>
                     <div className='col col--6'>
-                        <img className={styles.img450x450} src={require('../../../static/img/learner.png').default} />
+                        {/* <img className={styles.img450x450} src={require('../../../static/img/learner2.png').default} /> */}
+                        {/* <LearnerSVG className={styles.img450x450} /> */}
+                        <div className={styles.img450x450}>
+                            <ImageRotator images={images} />
+                        </div>
                     </div>
                 </div>
             </div>
