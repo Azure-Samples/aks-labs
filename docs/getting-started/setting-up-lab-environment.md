@@ -80,7 +80,7 @@ az group create \
 Run the following command to download the Bicep template file to deploy the lab resources.
 
 ```bash
-curl  -o main.bicep https://gist.githubusercontent.com/pauldotyu/2051a64e4709d5248902b7f8e26ff41b/raw/c2f6266927149d18cd7bda78ab832beb0cb70b95/main.bicep
+curl  -o main.bicep https://raw.githubusercontent.com/azure-samples/aks-labs/docs/storage/assets/main.bicep
 ```
 
 Verify the contents of the **main.bicep** file by running the following command.
