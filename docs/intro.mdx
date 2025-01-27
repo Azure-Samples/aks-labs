@@ -1,0 +1,61 @@
+---
+sidebar_position: 1
+sidebar_label: Introduction to AKS Labs
+---
+
+export const Highlight = ({children, color}) => (
+  <span
+    style={{
+      backgroundColor: color,
+      borderRadius: '2px',
+      color: '#fff',
+      padding: '0.2rem',
+    }}>
+    {children}
+  </span>
+);
+
+export const HighlightedWorkshops = () => (
+  <article className="margin-top--lg">
+    <section className="row list">
+        <article className="col col--6 margin-bottom--lg">
+          <a className="card padding--lg cardContainer" 
+          href="/docs/getting-started/getting-started-with-k8s-on-aks">
+            <h2 className="text--truncate cardTitle" title="Getting Started on AKS">
+           "Getting Started on AKS"
+            </h2>
+            <p className="cardDescription">
+              Learn how to deploy a Kubernetes cluster on Azure Kubernetes Service (AKS). </p>
+          </a>
+        </article>
+        <article className="col col--6 margin-bottom--lg">
+          <a className="card padding--lg cardContainer" 
+          href="/docs/getting-started/getting-started-with-aks-automatic">
+            <h2 className="text--truncate cardTitle">
+            "Getting Started with AKS Automatic"
+            </h2>
+            <p className="cardDescription">
+              Learn how to deploy a Kubernetes cluster using AKS Automatic. </p>
+          </a>
+        </article>
+        <article className="col col--6 margin-bottom--lg">
+          <a className="card padding--lg cardContainer" 
+          href="/docs/networking/istio-lab">
+            <h2 className="text--truncate cardTitle">
+            "Istio Service Mesh"
+            </h2>
+            <p className="cardDescription">
+              Learn how to implment service discovery on Azure Kubernetes Service (AKS) using Istio Service Mesh. </p>
+          </a>
+        </article>
+    </section>
+  </article>
+);
+
+# Introduction to AKS Labs
+
+AKS Labs is a series of workshops designed to help you learn how to use Azure Kubernetes Service (AKS) to deploy, scale, and manage containerized applications using Kubernetes. The workshops are designed to provide a hands-on learning experience.
+
+## Highlighted Workshops
+
+<HighlightedWorkshops />
