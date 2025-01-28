@@ -1,0 +1,169 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.32.4.45862",
+      "templateHash": "2116832170418836959"
+    }
+  },
+  "parameters": {
+    "nameSuffix": {
+      "type": "string",
+      "metadata": {
+        "description": "The basename of the resource."
+      }
+    }
+  },
+  "variables": {
+    "documentDBAccountContributorRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5bd9cd88-fe45-4216-938b-f97437e15450')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[format('mylogs{0}', take(uniqueString(parameters('nameSuffix')), 4))]",
+      "location": "[resourceGroup().location]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[format('mylogs{0}', take(uniqueString(parameters('nameSuffix')), 4))]",
+      "location": "[resourceGroup().location]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('mylogs{0}', take(uniqueString(parameters('nameSuffix')), 4)))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', format('mylogs{0}', take(uniqueString(parameters('nameSuffix')), 4)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Monitor/accounts",
+      "apiVersion": "2023-04-03",
+      "name": "[format('myprometheus{0}', take(uniqueString(parameters('nameSuffix')), 4))]",
+      "location": "[resourceGroup().location]"
+    },
+    {
+      "type": "Microsoft.Dashboard/grafana",
+      "apiVersion": "2023-09-01",
+      "name": "[format('mygrafana{0}', take(uniqueString(parameters('nameSuffix')), 4))]",
+      "location": "[resourceGroup().location]",
+      "sku": {
+        "name": "Standard"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "grafanaIntegrations": {
+          "azureMonitorWorkspaceIntegrations": [
+            {
+              "azureMonitorWorkspaceResourceId": "[resourceId('Microsoft.Monitor/accounts', format('myprometheus{0}', take(uniqueString(parameters('nameSuffix')), 4)))]"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Monitor/accounts', format('myprometheus{0}', take(uniqueString(parameters('nameSuffix')), 4)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2022-08-15",
+      "name": "[format('mymongo{0}', take(uniqueString(parameters('nameSuffix')), 4))]",
+      "kind": "MongoDB",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session"
+        },
+        "locations": [
+          {
+            "locationName": "[resourceGroup().location]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ],
+        "databaseAccountOfferType": "Standard",
+        "enableAutomaticFailover": false,
+        "enableMultipleWriteLocations": false,
+        "apiProperties": {
+          "serverVersion": "7.0"
+        },
+        "capabilities": [
+          {
+            "name": "EnableServerless"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/mongodbDatabases",
+      "apiVersion": "2024-12-01-preview",
+      "name": "[format('{0}/{1}', format('mymongo{0}', take(uniqueString(parameters('nameSuffix')), 4)), 'test')]",
+      "properties": {
+        "resource": {
+          "id": "test"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('mymongo{0}', take(uniqueString(parameters('nameSuffix')), 4)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-07-31-preview",
+      "name": "[format('mymongo{0}-identity', take(uniqueString(parameters('nameSuffix')), 4))]",
+      "location": "[resourceGroup().location]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.DocumentDB/databaseAccounts/{0}', format('mymongo{0}', take(uniqueString(parameters('nameSuffix')), 4)))]",
+      "name": "[guid(resourceId('Microsoft.DocumentDB/databaseAccounts', format('mymongo{0}', take(uniqueString(parameters('nameSuffix')), 4))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('mymongo{0}-identity', take(uniqueString(parameters('nameSuffix')), 4))))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('mymongo{0}-identity', take(uniqueString(parameters('nameSuffix')), 4))), '2023-07-31-preview').principalId]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[variables('documentDBAccountContributorRole')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('mymongo{0}', take(uniqueString(parameters('nameSuffix')), 4)))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('mymongo{0}-identity', take(uniqueString(parameters('nameSuffix')), 4)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2023-11-01-preview",
+      "name": "[format('myregistry{0}', take(uniqueString(parameters('nameSuffix')), 4))]",
+      "location": "[resourceGroup().location]",
+      "sku": {
+        "name": "Basic"
+      }
+    }
+  ],
+  "outputs": {
+    "grafanaId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Dashboard/grafana', format('mygrafana{0}', take(uniqueString(parameters('nameSuffix')), 4)))]"
+    },
+    "mongoId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('mymongo{0}', take(uniqueString(parameters('nameSuffix')), 4)))]"
+    },
+    "appInsightsConnectionString": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', format('mylogs{0}', take(uniqueString(parameters('nameSuffix')), 4))), '2020-02-02').ConnectionString]"
+    }
+  }
+}
