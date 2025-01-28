@@ -97,11 +97,11 @@ notation plugin ls
 
 ## Create Azure Container Registry and Azure Key Vault
 
-<div class="info" data-title="Note">
+:::note
 
 > If you have already created an Azure Container Registry and Azure Key Vault, you can skip this section. Make sure the environment variables **AKV_NAME** and **ACR_NAME** are set correctly.
 
-</div>
+:::
 
 Before beginning this exercise, let's set the environment variables for the Azure Container Registry and Azure Key Vault which was created at the beginning of the lab with the Bicep template.
 
