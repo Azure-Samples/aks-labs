@@ -1,11 +1,11 @@
 ---
 sidebar_position: 2
-sidebar_label: Secure Container Supply Chain
+sidebar_label: Signing a Container Image with Notation and Azure Key Vault
 title: Signing a Container Image with Notation and Azure Key Vault
 ---
 
 
-### Secure Supply Chain
+## Container Secure Supply Chain
 
 Containers Secure Supply Chain (CSSC) framework is a seamless, agile ecosystem of tools and processes built to integrate and execute security controls throughout the lifecycle of containers. The container secure supply chain strategy is built considering all the security needs of the container applications. To find out more about the CSSC framework, visit the [Azure Container Secure Supply Chain](https://learn.microsoft.com/azure/security/container-secure-supply-chain/articles/container-secure-supply-chain-implementation/containers-secure-supply-chain-overview) page.
 
@@ -15,7 +15,14 @@ As a quick overview, a container supply chain is built in stages to ensure that 
 
 Container images are signed as part of the Acquire stage of the platform. Once a container image acquired from an external source or third-party vendor is verified for functionality and security, it is signed before being added to a catalog of approved container images. In this exercise, we will sign a container image using [Notation](https://github.com/notaryproject/notation), an open source supply chain security tool developed by the [Notary Project community](https://notaryproject.dev/).
 
-#### Install Notation
+## Prerequisites
+
+For this workshop, you will also need to install the following tools:
+
+- [Notation CLI](https://notaryproject.dev/docs/user-guides/installation/cli/)
+- [Notation AKV plugin](https://github.com/Azure/notation-azure-kv?tab=readme-ov-file#installation-the-akv-plugin)
+
+### Install Notation
 
 First, set a local variable for the version of Notation you want to install (in this lab we will use version 1.2.0). Also set environment variables for the operating system and architecture you are using.
 
@@ -74,7 +81,7 @@ Go version:  go1.23.0
 Git commit:  4700ad6f1bef13e411772d7ae4399f891fc3a6ae
 ```
 
-#### Install the Notation Azure Key Vault Plugin
+### Install the Notation Azure Key Vault Plugin
 
 After installing Notation, install the Notation Azure Key Vault plugin. You can find the URL and the SHA256 checksum for the Notation Azure Key Vault plugin on the [release page](https://github.com/Azure/notation-azure-kv/releases).
 
@@ -88,7 +95,7 @@ Once the plugin is installed, confirm the **azure-kv** plugin is installed by ru
 notation plugin ls
 ```
 
-#### Create Azure Container Registry and Azure Key Vault
+## Create Azure Container Registry and Azure Key Vault
 
 <div class="info" data-title="Note">
 
@@ -115,7 +122,7 @@ IMAGE="${ACR_SERVER}/${REPO}:${TAG}"
 IMAGE_SOURCE="https://github.com/wabbit-networks/net-monitor.git#main"
 ```
 
-#### Create a self-signed certificate in Azure Key Vault
+### Create a self-signed certificate in Azure Key Vault
 
 Use the following command to create a certificate policy file named **my_policy.json** which will be used the create the self-signed certificate in Azure Key Vault. The subject value will be used as the trust identity during verification.
 
@@ -158,7 +165,7 @@ az keyvault certificate create \
 --policy @my_policy.json
 ```
 
-#### Signing a Container Image using Notation and Azure Key Vault Plugin
+## Signing a Container Image using Notation and Azure Key Vault Plugin
 
 To sign a container image using Notation and Azure Key Vault, you first need to authenticate to your Azure Container Registry using the following command.
 
@@ -189,7 +196,7 @@ notation sign \
 --plugin-config self_signed=true ${IMAGE}
 ```
 
-#### Verify the image using Notation
+## Verify the image using Notation
 
 To verify the signed container image, add the root certificate that signs the leaf certificate to the trust store. The following command will download the root certificate and add it to the trust store. In the case of a self-signed certificate, the root certificate _is_ the self-signed certificate
 
@@ -257,4 +264,3 @@ notation verify $IMAGE
 Upon successful verification of the image using the trust policy, the sha256 digest of the verified image is returned in a successful output message.
 
 ---
-

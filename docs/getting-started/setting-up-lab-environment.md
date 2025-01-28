@@ -30,10 +30,7 @@ For the Istio Service Mesh workshop, you will also need:
 
 - [Hubble CLI](https://docs.cilium.io/en/stable/observability/hubble/setup/)
 
-For the Secure Container Supply Chain workshop, you will also need:
 
-- [Notation CLI](https://notaryproject.dev/docs/user-guides/installation/cli/)
-- [Notation AKV plugin](https://github.com/Azure/notation-azure-kv?tab=readme-ov-file#installation-the-akv-plugin)
 
 If you are unable to install these tools on your local machine, you can use the Azure Cloud Shell, which has most of the tools pre-installed.
 
