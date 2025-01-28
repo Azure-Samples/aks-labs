@@ -1,6 +1,10 @@
 @description('The basename of the resource.')
 param nameSuffix string
 
+@description('The user object id for the cluster admin.')
+@secure()
+param userObjectId string
+
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: 'mylogs${take(uniqueString(nameSuffix), 4)}'
   location: resourceGroup().location
@@ -46,6 +50,16 @@ resource grafanaDashboard 'Microsoft.Dashboard/grafana@2023-09-01' = {
         }
       ]
     }
+  }
+}
+
+resource grafanaAdminRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(subscription().id, resourceGroup().id, userObjectId, 'Grafana Admin')
+  scope: grafanaDashboard
+  properties: {
+    principalId: userObjectId
+    principalType: 'User'
+    roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', '22926164-76b3-42b3-bc55-97df8dab3e41')
   }
 }
 

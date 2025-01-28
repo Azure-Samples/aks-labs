@@ -19,7 +19,7 @@ After completing this workshop, you will be able to:
 
 ## Prerequisites
 
-Before you begin, you will need an [Azure subscription](https://azure.microsoft.com/) with permissions to create resources and a [GitHub account](https://github.com/signup).
+Before you begin, you will need an [Azure subscription](https://azure.microsoft.com/) with Owner permissions and a [GitHub account](https://github.com/signup).
 
 In addition, you will need the following tools installed on your local machine:
 
@@ -35,16 +35,23 @@ To keep focus on AKS-specific features, this workshop will need some Azure resou
 # login to azure
 az login
 
+# register preview features
+az feature register --namespace Microsoft.ContainerService --name AKSAutomatic
+
+# register resource providers
+az provider register --namespace Microsoft.Insights
+az provider register --namespace Microsoft.ServiceLinker
+
 # create resource group
 az group create \
 --name myresourcegroup \
 --location eastus
 
 # create resources for the workshop
-az group deployment create \
+az deployment group create \
 --resource-group myresourcegroup \
 --template-uri https://raw.githubusercontent.com/Azure-Samples/aks-labs/docs/getting-started/assets/aks-automatic/azure-deploy.json \
---parameters nameSuffix=$(date +%s) \
+--parameters nameSuffix=$(date +%s) userObjectId=$(az ad signed-in-user show --query objectId -o tsv) \
 --query "properties.outputs"
 ```
 

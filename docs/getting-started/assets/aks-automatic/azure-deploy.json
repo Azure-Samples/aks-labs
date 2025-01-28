@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.32.4.45862",
-      "templateHash": "2116832170418836959"
+      "version": "0.31.34.60546",
+      "templateHash": "7497568428666315358"
     }
   },
   "parameters": {
@@ -13,6 +13,12 @@
       "type": "string",
       "metadata": {
         "description": "The basename of the resource."
+      }
+    },
+    "userObjectId": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The user object id for the cluster admin."
       }
     }
   },
@@ -76,6 +82,20 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Monitor/accounts', format('myprometheus{0}', take(uniqueString(parameters('nameSuffix')), 4)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.Dashboard/grafana/{0}', format('mygrafana{0}', take(uniqueString(parameters('nameSuffix')), 4)))]",
+      "name": "[guid(subscription().id, resourceGroup().id, parameters('userObjectId'), 'Grafana Admin')]",
+      "properties": {
+        "principalId": "[parameters('userObjectId')]",
+        "principalType": "User",
+        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', '22926164-76b3-42b3-bc55-97df8dab3e41')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Dashboard/grafana', format('mygrafana{0}', take(uniqueString(parameters('nameSuffix')), 4)))]"
       ]
     },
     {
