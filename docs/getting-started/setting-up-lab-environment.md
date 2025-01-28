@@ -81,7 +81,7 @@ az group create \
 
 ### Deploy Azure resources using Bicep
 
-Run the following command to download the Bicep template file to deploy the lab resources.
+Run the following command to download the Bicep template file to deploy the lab resources *except* the AKS cluster which we will create in this workshop.
 
 ```bash
 curl  -o main.bicep https://raw.githubusercontent.com/azure-samples/aks-labs/refs/heads/main/docs/storage/assets/main.bicep
@@ -347,11 +347,9 @@ Copy the **EXTERNAL-IP** of the **store-front** service to your browser to acces
 
 :::note[Congratulations!]
 
-You have now created an AKS cluster with some best practices in place such as multiple node pools, availability zones, and monitoring. You have also deployed an application to work with in the upcoming sections.
+You have now created an AKS cluster with some best practices in place such as multiple node pools, availability zones, and monitoring. You have also deployed an application to work with in the other workshops.
 
 At this point, you can jump into any of the workshops and focus on the topics that interest you the most.
-
-Feel free to click **Next** at the bottom of the page to continue with the next topic or jump to any of the topics in the left-hand navigation.
 
 :::
 
