@@ -133,7 +133,7 @@ In the search box at the top of the portal, type **Kubernetes services** and cli
 
 ![Kubernetes services](./assets/aks-automatic/aks-search.png)
 
-In the uppper left portion of the screen, click the **+ Create** button to view all the available options for creating a new AKS cluster. Click on the **Deploy application (new)** option.
+In the upper left portion of the screen, click the **+ Create** button to view all the available options for creating a new AKS cluster. Click on the **Deploy application (new)** option.
 
 ![Deploy application with Automated Deployment](./assets/aks-automatic/deploy-app.png)
 
@@ -290,7 +290,7 @@ You should see an error message that says `Azure CosmosDB settings not found. Bo
 
 ![Contoso Air error logs query results](./assets/aks-automatic/log-query-result.png)
 
-This error occured because the application is trying to connect to an Azure CosmosDB database to store the booking information, but the connection settings are not configured. We can fix this by adding configuration to the application.
+This error occurred because the application is trying to connect to an Azure CosmosDB database to store the booking information, but the connection settings are not configured. We can fix this by adding configuration to the application.
 
 ## Integrating apps with Azure services
 
@@ -361,11 +361,9 @@ Wait a minute or two for the new pod to be rolled out then navigate back to the 
 
 Right now, the application is running a single replica. When the web app receives a lot of traffic, it may not be able to handle the load. To automatically scale your deployments, you can use the [Horizontal Pod Autoscaler (HPA)](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) resource. HPA allows you to automatically scale a workload based on the resource utilization of the pods in the deployment. The resource utilization is based on the CPU and memory requests and limits set in the pod configuration, so it is important to set these values correctly to ensure the HPA can scale your application correctly.
 
-To ensure  [Vertical Pod Autoscaler (VPA)](https://kubernetes.io/docs/tasks/run-application/vertical-pod-autoscaling/) resource.
-
 ### Vertical Pod Autoscaler (VPA) setup
 
-The [Vertical Pod Autoscaler (VPA)](https://kubernetes.io/docs/tasks/run-application/vertical-pod-autoscaling/) resource is a Kubernetes resource that allows you to automatically adjust the CPU and memory requests and limits for your pods based on the actual resource utilization of the pods. This can help you optimize the resource utilization of your pods and reduce the risk of running out of resources.
+Knowing what to set the request and limit values to can be challenging. This is where the [Vertical Pod Autoscaler (VPA)](https://kubernetes.io/docs/tasks/run-application/vertical-pod-autoscaling/) can help. It is a Kubernetes resource that allows you to automatically adjust the CPU and memory requests and limits for your pods based on the actual resource utilization of the pods. This can help you optimize the resource utilization of your pods and reduce the risk of running out of resources.
 
 AKS Automatic comes with the VPA controller pre-installed, so you can use the VPA resource immediately by simply deploying a VPA resource manifest to your cluster.
 
