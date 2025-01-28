@@ -1,21 +1,21 @@
 ---
 # published: true # Optional. Set to true to publish the workshop (default: false)
 # type: workshop # Required.
-sidebar_position: 1
+sidebar_position: 2
 title: Getting Started with Kubernetes on Azure Kubernetes Service (AKS) # Required. Full title of the workshop
 # short_title: Getting Started with AKS # Optional. Short title displayed in the header
 # description: This is a workshop for getting started AKS which was originally delivered at Microsoft Build 2023 Pre-day Workshop (PRE03) # Required.
 # level: beginner # Required. Can be 'beginner', 'intermediate' or 'advanced'
-# authors: # Required. You can add as many authors as needed
-#   - "Paul Yu"
-# contacts: # Required. Must match the number of authors
-#   - "@pauldotyu"
+authors: # Required. You can add as many authors as needed
+   - "Paul Yu"
+contacts: # Required. Must match the number of authors
+   - "@pauldotyu"
 # duration_minutes: 90 # Required. Estimated duration in minutes
 # tags: kubernetes, azure, aks # Required. Tags for filtering and searching
 # wt_id: WT.mc_id=containers-147656-pauyu
 ---
 
-# Getting started
+## Getting Started
 
 In this workshop, you will learn the basics of Kubernetes and how to package applications for delivery to Azure Kubernetes Service (AKS). The goal of this workshop is to cover as many application implementation details as possible to get you comfortable with hosting your apps on AKS. We will start with a simple application deployment and then progress to more complex scenarios by introducing integrations with other Azure services and open source tooling commonly used within cloud native apps.
 
@@ -33,13 +33,7 @@ The objectives of this workshop are to:
 
 ## Prerequisites
 
-<div class="info" data-title="Info">
-
-> This workshop was originally delivered in-person at Microsoft Build 2023 and a pre-configured lab environment was available for all attendees.
-
-</div>
-
-The lab environment was pre-configured with the following:
+The following prerequisites are required to complete this workshop:
 
 - [Azure Subscription](https://azure.microsoft.com/free)
 - [Azure CLI](https://learn.microsoft.com/cli/azure/what-is-azure-cli?WT.mc_id=containers-105184-pauyu)
@@ -48,53 +42,20 @@ The lab environment was pre-configured with the following:
 - [Git](https://git-scm.com/)
 - Bash shell (e.g. [Windows Terminal](https://www.microsoft.com/p/windows-terminal/9n0dx20hk701) with [WSL](https://docs.microsoft.com/windows/wsl/install-win10) or [Azure Cloud Shell](https://shell.azure.com))
 
-## Workshop instructions
-
-When you see these blocks of text, you should follow the instructions below.
-
-<div class="task" data-title="Task">
-
-> This means you need to perform a task.
-
-</div>
-
-<div class="info" data-title="Info">
-
-> This means there's some additional context.
-
-</div>
-
-<div class="tip" data-title="Tip">
-
-> This means you should pay attention to some helpful tips.
-
-</div>
-
-<div class="warning" data-title="Warning">
-
-> This means you should pay attention to some information.
-
-</div>
-
-<div class="important" data-title="Important">
-
-> This means you should **_really_** pay attention to some information.
-
-</div>
-
 ## Setting up your environment
 
 To setup your own lab environment, you will need to run a Terraform script to provision the necessary resources in your Azure subscription. The steps below will walk you through the process.
 
-<div class="important" data-title="Important">
+:::info[Important]
 
-> Before you proceed, please ensure you have access to an Azure subscription with the ability to create resources and users in Azure Active Directory. If you do not have access to an Azure subscription, you can sign up for a [free account](https://azure.microsoft.com/free).
+Before you proceed, please ensure you have access to an Azure subscription with the ability to create resources and users in Azure Active Directory. If you do not have access to an Azure subscription, you can sign up for a [free account](https://azure.microsoft.com/free).
 
-</div>
+:::
 
 1. Using a web browser, navigate to the [Azure Cloud Shell](https://shell.azure.com)
 2. Ensure your Cloud Shell is set to Bash. If it is on PowerShell, click the drop down in the top left corner and select Bash.
 3. Run the following commands to ensure you have all the necessary providers registered in your subscription.
+
   ```bash
   az provider register --namespace Microsoft.Quota
   az provider register --namespace Microsoft.Compute
@@ -107,7 +68,9 @@ To setup your own lab environment, you will need to run a Terraform script to pr
   az provider register --namespace Microsoft.Dashboard
   az provider register --namespace Microsoft.App
   ```
+
 4. Run the following commands to ensure you have all the necessary features registered in your subscription.
+
   ```bash
   az feature register --namespace "Microsoft.ContainerService" --name "EnableWorkloadIdentityPreview"
   az feature register --namespace "Microsoft.ContainerService" --name "AKS-GitOps"
@@ -115,9 +78,13 @@ To setup your own lab environment, you will need to run a Terraform script to pr
   az feature register --namespace "Microsoft.ContainerService" --name "AKS-KedaPreview"
   az feature register --namespace "Microsoft.ContainerService" --name "AKS-PrometheusAddonPreview"
   ```
+
 5. Clone this repo: https://github.com/pauldotyu/awesome-aks
+
 6. Using your terminal, open the repo and navigate to the **2023-05-23-msbuild-preday-aks-workshop** directory
+
 7. Run the following command to create a **terraform.tfvars** file and populate it with the following content.
+
 ```terraform
 cat <<EOF > terraform.tfvars
 deployment_locations = [
@@ -130,7 +97,9 @@ deployment_locations = [
 ]
 EOF
 ```
+
 8. Run the `terraform init` command
+
 9. Run the `terraform apply` command and confirm the deployment when prompted
 
 In 10-15 minutes, your lab environment should be ready to go.
@@ -139,11 +108,11 @@ If you run the `terraform output` command, you should see your username, passwor
 
 ---
 
-# Kubernetes fundamentals
+### Kubernetes Fundamentals
 
 This section of the workshop will introduce you to the basics of Kubernetes. We'll be using [Azure Kubernetes Service (AKS)](https://azure.microsoft.com/products/kubernetes-service) to deploy and manage an [Azure Voting App](https://github.com/Azure-Samples/azure-voting-app-rust).
 
-## Working with `kubectl`
+#### Working with `kubectl`
 
 Kubernetes administrators will commonly interact with the Kubernetes API server using the [`kubectl` command line tool](https://kubernetes.io/docs/reference/kubectl/). As you progress through your cloud native journey, you will find that there are other tools available for deploying, managing, and monitoring Kubernetes clusters. However, basic knowledge of `kubectl` is essential.
 
@@ -151,22 +120,14 @@ Kubernetes administrators will commonly interact with the Kubernetes API server 
 
 An AKS cluster has been provisioned for you. Let's use the Azure CLI to download the credentials for the cluster.
 
-<div class="task" data-title="Task">
-
-> Run the following command to set variables for your resource group and AKS cluster name. Don't forget to replace `<user-number>` in the command below with the username you've been assigned.
-
-</div>
+Run the following command to set variables for your resource group and AKS cluster name. Don't forget to replace `<user-number>` in the command below with the username you've been assigned.
 
 ```bash
 RG_NAME=rg-user<user-number>
 AKS_NAME=aks-user<user-number>
 ```
 
-<div class="task" data-title="Task">
-
-> Run the following command to download the credentials for your AKS cluster.
-
-</div>
+Run the following command to download the credentials for your AKS cluster.
 
 ```bash
 az aks get-credentials --resource-group $RG_NAME --name $AKS_NAME
@@ -174,13 +135,9 @@ az aks get-credentials --resource-group $RG_NAME --name $AKS_NAME
 
 The command above will download the credentials for the cluster and store them in `~/.kube/config`. This file includes cluster certificate information and is used by `kubectl` to connect to the cluster. Since it does contain certificate information, it should be treated as a secret.
 
-### `kubectl` basics
+##### `kubectl` basics
 
-<div class="task" data-title="Task">
-
-> To get some basic information about your cluster, run the following command:
-
-</div>
+To get some basic information about your cluster, run the following command:
 
 ```bash
 kubectl cluster-info
@@ -188,41 +145,29 @@ kubectl cluster-info
 
 The `kubectl` tool allows to you to interact with a variety of Kubernetes clusters.
 
-<div class="tip" data-title="Tip">
-
-> You can see the list of clusters you have access to by running the following command:
-
-</div>
+You can see the list of clusters you have access to by running the following command:
 
 ```bash
 kubectl config get-contexts
 ```
 
-<div class="tip" data-title="Tip">
-
-> If you have more than one context listed, you can switch between clusters by running the following command:
-
-</div>
+If you have more than one context listed, you can switch between clusters by running the following command:
 
 ```bash
 kubectl config use-context <context-name>
 ```
 
-<div class="tip" data-title="Tip">
+:::tip
 
 > Be sure to checkout the [`kubectl` Cheat Sheet](https://kubernetes.io/docs/reference/kubectl/cheatsheet/) for a list of common commands and instructions on configuring your `kubectl` with and alias and enabling autocomplete.
 
-</div>
+:::
 
 ## Deploying your first app
 
-The `kubectl` tool allows you to interact with the Kubernetes API server imperatively or declaratively. When you use the imperative approach, you are telling Kubernetes what to do. When you use the declarative approach, you are telling Kubernetes what you want.
+The `kubectl` tool allows you to interact with the Kubernetes API server imperatively or declaratively. When you use the imperative approach, you are telling Kubernetes what to do -- on the command line. When you use the declarative approach, you are telling Kubernetes what you want -- usually specified in a YAML formatted declaration file.
 
-<div class="task" data-title="Task">
-
-> Let's deploy our first app to Kubernetes using the imperative approach.
-
-</div>
+Let's deploy our first app to Kubernetes using the imperative approach.
 
 ```bash
 kubectl run nginx --image nginx
@@ -232,39 +177,26 @@ Here, we are telling Kubernetes to run a new Pod named `nginx` using the `nginx`
 
 A Pod is the smallest unit of deployment in Kubernetes. It is a group of one or more containers that share the same network and storage. In this case, we are running a single container using the `nginx` image.
 
-<div class="info" data-title="Info">
+:::info
 
 > When you run multiple containers in a Pod, this is known as a [sidecar pattern](https://docs.microsoft.com/azure/architecture/patterns/sidecar).
 
-</div>
+:::
 
-<div class="task" data-title="Task">
-
-> Let's see if our Pod is running.
-
-</div>
+Let's see if our Pod is running.
 
 ```bash
 kubectl get pods
 ```
 
-<details>
-<summary>Click to expand output</summary>
-
-You should see something like this:
+Click to expand output. You should see something like this:
 
 ```text
 NAME    READY   STATUS    RESTARTS   AGE
 nginx   1/1     Running   0          7s
 ```
 
-</details>
-
-<div class="task" data-title="Task">
-
-> We can also get more information about our Pod by running the following command:
-
-</div>
+We can also get more information about our Pod by running the following command:
 
 ```bash
 kubectl describe pod nginx
@@ -272,11 +204,7 @@ kubectl describe pod nginx
 
 This command will give us a lot of information about our Pod including the events that have occurred.
 
-<div class="task" data-title="Task">
-
-> To view container logs, run the following command:
-
-</div>
+To view container logs, run the following command:
 
 ```bash
 kubectl logs nginx
@@ -284,11 +212,7 @@ kubectl logs nginx
 
 Now, let's take a look at how we can deploy our app using a declarative approach.
 
-<div class="task" data-title="Task">
-
-> Let's create a YAML manifest that describes our Pod.
-
-</div>
+Let's create a YAML manifest that describes our Pod.
 
 ```bash
 cat <<EOF > nginx2.yaml
@@ -306,28 +230,17 @@ EOF
 
 [YAML](https://yaml.org/) is a human-readable data serialization language. It is commonly used for configuration files and in applications where data is being stored or transmitted. YAML is short for "YAML Ain't Markup Language".
 
-<div class="task" data-title="Task">
-
-> Next, let's deploy our Pod using the YAML manifest we just created. Don't worry if you don't understand the YAML file. We'll be covering that in more detail later.
-
-</div>
+Next, let's deploy our Pod using the YAML manifest we just created. Don't worry if you don't understand the YAML file. We'll be covering that in more detail later.
 
 ```bash
 kubectl apply -f nginx2.yaml
 ```
 
-<div class="task" data-title="Task">
-
-> Let's see if our Pod is running.
-
-</div>
+Let's see if our Pod is running.
 
 ```bash
 kubectl get pods
 ```
-
-<details>
-<summary>Click to expand output</summary>
 
 You should see something like this:
 
@@ -337,19 +250,17 @@ nginx    1/1     Running   0          7m49s
 nginx2   1/1     Running   0          3s
 ```
 
-</details>
-
 Here, we are telling Kubernetes that we want a Pod named `nginx2` using the `nginx` image.
 
 This is different from the imperative approach where we told Kubernetes to run a Pod named `nginx` using the `nginx` image. The declarative approach is preferred because it allows us to check our code into source control and track changes over time.
 
 The `kubectl apply` command is idempotent. This means that if you run the command multiple times, the result will be the same. If the resource already exists, it will be updated. If the resource does not exist, it will be created.
 
-<div class="important" data-title="Important">
+:::info[Important]
 
-> Before we move on, be sure to delete all pods so that we don't waste cluster resources.
+Before we move on, be sure to delete all pods so that we don't waste cluster resources.
 
-</div>
+:::
 
 ```bash
 kubectl delete pods --all
@@ -357,7 +268,7 @@ kubectl delete pods --all
 
 ---
 
-# Deploying to AKS
+### Deploying to AKS
 
 We'll be deploying the Azure Voting App to Azure Kubernetes Service (AKS). This is a simple web app that lets you vote for things and displays the vote totals. You may recognize this app from Microsoft Docs which allows you to vote for "Dogs" or "Cats". The example we'll be using is a slightly different in that it's been modified to allow you to vote for any two things you want based on the environment variables you set. 
 
@@ -365,78 +276,58 @@ The repo can be found here: [Azure-Samples/azure-voting-app-rust](https://github
 
 Also, you may have guessed by the repo name, this version of the app has been re-written in Rust 🦀
 
-## Getting familiar with Azure Voting App
+### Getting familiar with Azure Voting App
 
 This app uses PostgreSQL as the backend database. We'll be using Docker to package the app into a container image so that it can be deployed to AKS.
 
-<div class="info" data-title="Info">
+:::info
 
-> If you have access to GitHub Codespaces, it is recommended that you open the repo in a Codespace and skip the next step of forking/cloning the repo and opening in a VS Code Dev Container.. 
+If you have access to GitHub Codespaces, it is recommended that you open the repo in a Codespace and skip the next step of forking/cloning the repo and opening in a VS Code Dev Container
 
-</div>
+:::
 
-<div class="task" data-title="Task">
-
-> Start off by forking, then cloning the repo to your local machine. When the repo has been cloned, open it up in VS Code, install the [Dev Container extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), and click the "Reopen in Container" button. This will take a few minutes to complete.
-
-</div>
+If you are going to work from your local machine, start by forking, then cloning the repo to your local machine. When the repo has been cloned, navigate to the directory where you cloned the repo into and open VS Code. In VS Code, install the [Dev Container extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), and click the "Reopen in Container" button. This will take a few minutes to complete.
 
 ![Fork and clone repo](assets/clone-repo.png)
 
-<div class="task" data-title="Task">
-
-> Before we deploy the app to AKS, let's build and run it locally to make sure everything is working as expected.
-
-</div>
+Before we deploy the app to AKS, let's build and run it locally to make sure everything is working as expected.
 
 ```bash
 cargo run
 ```
 
-<div class="warning" data-title="Warning">
-
-> This command will take a few minutes to complete and subsequent runs will be much faster.
-
-</div>
+This command will take a few minutes to complete the first time, but subsequent runs will be much faster.
 
 Once the app is running, you should be able to access it at http://localhost:8080.
 
 ![Azure Voting App](assets/azure-voting-app.png)
 
-If you look at the **docker-compose.yml** file that is in the root of the repo, you'll see that the app is made up of two services: `app` and `db`. 
+If you look at the **docker-compose.yml** file that is in the root of the repo, you'll see that the app is made up of two services: `app` and `db`.
 
-As the names suggest, the `app` service is the web front-end and the `db` service is the database. 
+As the names suggest, the `app` service is the web front-end and the `db` service is the database.
 
 In the `app` service, you'll see that there are two environment variables defined: `FIRST_VALUE` and `SECOND_VALUE`. These are the options that will be displayed on the voting page.
 
 Before we move on, let's stop the app by pressing `Ctrl+C` in the terminal then run the following commands to re-authenticate to Azure from inside this Dev Container's terminal and connect to our AKS cluster.
 
-<div class="important" data-title="Important">
+:::info[Important]
 
 > If you are in a new DevContainer or Codespace, run the following command to login to Azure.
 
-</div>
+:::
 
 ```bash
 az login
 ```
 
-<div class="task" data-title="Task">
-
-> Run the following command to set variables for your resource group and AKS cluster name and don't forget to replace `<user-number>` in the command below with the username you've been assigned.
-
-</div>
+Run the following command to set variables for your resource group and AKS cluster name and don't forget to replace `<user-number>` in the command below with the username you've been assigned.
 
 ```bash
 RG_NAME=rg-user<user-number>
 AKS_NAME=aks-user<user-number>
 ```
 
-<div class="task" data-title="Task">
-
-> Run the following command to download the credentials for your AKS cluster.
-
-</div>
+Run the following command to download the credentials for your AKS cluster.
 
 ```bash
 az aks get-credentials --resource-group $RG_NAME --name $AKS_NAME
@@ -448,11 +339,7 @@ Before you can deploy our app to Kubernetes, you need to package the container i
 
 There are a few different ways to push an image to ACR. We'll be using the `az acr build` command which will use [ACR Tasks](https://learn.microsoft.com/azure/container-registry/container-registry-tasks-overview?WT.mc_id=containers-105184-pauyu) to build the image and push it to ACR.
 
-<div class="task" data-title="Task">
-
-> Let's start by getting the name of your ACR instance.
-
-</div>
+Let's start by getting the name of your ACR instance.
 
 ```bash
 ACR_NAME=$(az resource list \
