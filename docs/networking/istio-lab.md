@@ -32,6 +32,12 @@ Istio is integrated with AKS as an addon and is supported alongside AKS.
 
 </div>
 
+### Prerequisites
+
+For this workshop, you will also need to install the following:
+
+- [Hubble CLI](https://docs.cilium.io/en/stable/observability/hubble/setup/)
+
 ### Configure CA certificates
 
 In the Istio-based service mesh addon for Azure Kubernetes Service, by default the Istio certificate authority (CA) generates a self-signed root certificate and key and uses them to sign the workload certificates. To protect the root CA key, you should use a root CA which runs on a secure machine offline.
