@@ -1,7 +1,16 @@
 ---
 title: "Setting up the Lab Environment"
+description: "Setting up the lab environment for the workshops"
 sidebar_label: "Setting up the Lab Environment"
-sidebar_position: 3
+sidebar_position: 1
+authors:
+ - "Russell de Pina"
+ - "Paul Yu"
+ - "Ken Kilty"
+contacts:
+ - "@russd2357"
+ - "@paultdotyu"
+ - "@KenKilty"
 ---
 
 ## Prerequisites
@@ -82,7 +91,7 @@ az group create \
 Run the following command to download the Bicep template file to deploy the lab resources.
 
 ```bash
-curl  -o main.bicep https://raw.githubusercontent.com/azure-samples/aks-labs/docs/storage/assets/main.bicep
+curl  -o main.bicep https://raw.githubusercontent.com/azure-samples/aks-labs/refs/heads/main/docs/storage/assets/main.bicep
 ```
 
 Verify the contents of the **main.bicep** file by running the following command.
