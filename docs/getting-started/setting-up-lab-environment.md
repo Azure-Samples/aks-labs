@@ -18,9 +18,11 @@ Many of the workshops on this site will be done using command line tools, so you
 - Bash shell (e.g. [Windows Terminal](https://www.microsoft.com/p/windows-terminal/9n0dx20hk701) with [WSL](https://docs.microsoft.com/windows/wsl/install-win10) or [Azure Cloud Shell](https://shell.azure.com))
 
 For the Istio Service Mesh workshop, you will also need:
+
 - [Hubble CLI](https://docs.cilium.io/en/stable/observability/hubble/setup/)
 
 For the Secure Container Supply Chain workshop, you will also need:
+
 - [Notation CLI](https://notaryproject.dev/docs/user-guides/installation/cli/)
 - [Notation AKV plugin](https://github.com/Azure/notation-azure-kv?tab=readme-ov-file#installation-the-akv-plugin)
 
@@ -36,11 +38,11 @@ Using the terminal of your choice, run the following commands to set up the work
 
 Set the environment variables for the resource group name and location.
 
-<div class="important" data-title="Important">
+:::info[Important]
 
-> You must ensure the region you choose to deploy to supports [availability zones](https://learn.microsoft.com/azure/aks/availability-zones-overview) to demonstrate some of the concepts in this workshop.
+You must ensure the region where you choose to deploy supports [availability zones](https://learn.microsoft.com/azure/aks/availability-zones-overview) to demonstrate the concepts in the some of the workshops.
 
-</div>
+:::
 
 ```bash
 cat <<EOF > .env
@@ -61,11 +63,11 @@ Run the following command and follow the prompts to log in to your Azure account
 az login --use-device-code
 ```
 
-<div class="tip" data-title="Tip">
+:::tip
 
 > If you are logging into a different tenant, you can use the **--tenant** flag to specify the tenant domain or tenant ID.
 
-</div>
+:::
 
 Run the following command to create a resource group.
 
@@ -120,11 +122,11 @@ Before you deploy an AKS cluster, it's essential to consider its size based on y
 
 When it comes to considering the size of the node, it is important to understand the types of Virtual Machines (VMs) available in Azure; their characteristics, such as CPU, memory, and disk, and ultimate the SKU that best fits your workload requirements. See the [Azure VM sizes](https://learn.microsoft.com/azure/virtual-machines/sizes/overview) documentation for more information.
 
-<div class="info" data-title="Note">
+:::note
 
 > In your Azure subscription, you will need to make sure to have at least 32 vCPU of Standard D series quota available to create multiple AKS clusters and accommodate node surges on cluster upgrades. If you don't have enough quota, you can request an increase. Check [here](https://docs.microsoft.com/azure/azure-portal/supportability/per-vm-quota-requests) for more information.
 
-</div>
+:::
 
 #### System and User Node Pools
 
@@ -189,11 +191,11 @@ The command above will deploy an AKS cluster with the following configurations:
   - Disable SSH access to the nodes to prevent unauthorized access
   - Enable a managed identity for passwordless authentication to Azure services
 
-<div class="important" data-title="Important">
+:::info[Important]
 
 > Not all best practices are implemented in this workshop. For example, you will be creating an AKS cluster that can be accessible from the public internet. For production use, it is recommended to create a private cluster. You can find more information on creating a private cluster [here](https://docs.microsoft.com/azure/aks/private-clusters). Don't worry though, more best practices will be implemented as we progress through the workshop 😎
 
-</div>
+:::
 
 Once the AKS cluster has been created, run the following command to connect to the cluster.
 
@@ -261,11 +263,11 @@ EOF
 source .env
 ```
 
-<div class="tip" data-title="Tip">
+:::tip
 
 > Whenever you want to see the contents of the **.env** file, run the **cat .env** command.
 
-</div>
+:::
 
 Run the following command to enable metrics monitoring on the AKS cluster.
 
@@ -290,11 +292,11 @@ az aks enable-addons \
 --no-wait
 ```
 
-<div class="info" data-title="Note">
+:::note
 
 > More on full stack monitoring on AKS can be found [here](https://learn.microsoft.com/azure/azure-monitor/containers/monitor-kubernetes)
 
-</div>
+:::
 
 ### Deploying the AKS Store Demo Application
 
@@ -341,14 +343,14 @@ Copy the **EXTERNAL-IP** of the **store-front** service to your browser to acces
 
 ![AKS Store Demo sample app](assets/acns-pets-app.png)
 
-<div class="tip" data-title="Congratulations!">
+:::note[Congratulations!]
 
-> You have now created an AKS cluster with some best practices in place such as multiple node pools, availability zones, and monitoring. You have also deployed an application to work with in the upcoming sections.
->
-> At this point, you can jump any section within this workshop and focus on the topics that interest you the most.
->
-> Feel free to click **Next** at the bottom of the page to continue with the workshop or jump to any of the sections in the left-hand navigation.
+You have now created an AKS cluster with some best practices in place such as multiple node pools, availability zones, and monitoring. You have also deployed an application to work with in the upcoming sections.
 
-</div>
+At this point, you can jump into any of the workshops and focus on the topics that interest you the most.
+
+Feel free to click **Next** at the bottom of the page to continue with the next topic or jump to any of the topics in the left-hand navigation.
+
+:::
 
 ---
