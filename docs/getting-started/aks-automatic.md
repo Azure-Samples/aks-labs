@@ -36,7 +36,7 @@ To keep focus on AKS-specific features, this workshop will need some Azure resou
 az login
 
 # register preview features
-az feature register --namespace Microsoft.ContainerService --name AKSAutomatic
+az feature register --namespace Microsoft.ContainerService --name AutomaticSKUPreview
 
 # register resource providers
 az provider register --namespace Microsoft.Insights
@@ -51,7 +51,7 @@ az group create \
 az deployment group create \
 --resource-group myresourcegroup \
 --template-uri https://raw.githubusercontent.com/Azure-Samples/aks-labs/docs/getting-started/assets/aks-automatic/azure-deploy.json \
---parameters nameSuffix=$(date +%s) userObjectId=$(az ad signed-in-user show --query objectId -o tsv) \
+--parameters nameSuffix=$(date +%s) userObjectId=$(az ad signed-in-user show --query id -o tsv) \
 --query "properties.outputs"
 ```
 
