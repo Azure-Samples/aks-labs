@@ -50,7 +50,7 @@ az group create \
 # create resources for the workshop
 az deployment group create \
 --resource-group myresourcegroup \
---template-uri https://raw.githubusercontent.com/Azure-Samples/aks-labs/docs/getting-started/assets/aks-automatic/azure-deploy.json \
+--template-uri https://raw.githubusercontent.com/Azure-Samples/aks-labs/refs/heads/main/docs/getting-started/assets/aks-automatic/azure-deploy.json \
 --parameters nameSuffix=$(date +%s) userObjectId=$(az ad signed-in-user show --query id -o tsv) \
 --query "properties.outputs"
 ```
