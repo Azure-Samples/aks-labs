@@ -32,30 +32,36 @@ If you are unable to install these tools on your local machine, you can use the 
 
 ## Lab Environment Setup
 
-Many of the workshops will require the use of multiple Azure resources such as [Azure Log Analytics](https://learn.microsoft.com/azure/azure-monitor/logs/log-analytics-overview), [Azure Managed Prometheus](https://learn.microsoft.com/azure/azure-monitor/essentials/prometheus-metrics-overview), [Azure Managed Grafana](https://learn.microsoft.com/azure/managed-grafana/overview), [Azure Key Vault](https://learn.microsoft.com/azure/key-vault/general/overview), and [Azure Container Registry](https://learn.microsoft.com/azure/container-registry/container-registry-intro). The resource deployment can take some time, so to expedite the process, we will use a [Bicep template](https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview?tabs=bicep) to deploy those resources.
+Many of the workshops will require the use of multiple Azure resources such as:
+
+- [Azure Log Analytics](https://learn.microsoft.com/azure/azure-monitor/logs/log-analytics-overview)
+- [Azure Managed Prometheus](https://learn.microsoft.com/azure/azure-monitor/essentials/prometheus-metrics-overview)
+- [Azure Managed Grafana](https://learn.microsoft.com/azure/managed-grafana/overview)
+- [Azure Key Vault](https://learn.microsoft.com/azure/key-vault/general/overview)
+- [Azure Container Registry](https://learn.microsoft.com/azure/container-registry/container-registry-intro).
+
+The resource deployment can take some time, so to expedite the process, we will use a [Bicep template](https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview?tabs=bicep) to deploy those resources.
 
 Using the terminal of your choice, run the following commands to set up the workshop **.env** file which will be used to store the environment variables throughout the workshop. If you are using the Azure Cloud Shell, you may encounter shell a time out loose environment variables. Therefore, writing your variables to an **.env** file will make it easier to reload them.
 
-Set the environment variables for the resource group name and location.
-
 :::info[Important]
 
-You must ensure the region where you choose to deploy supports [availability zones](https://learn.microsoft.com/azure/aks/availability-zones-overview) to demonstrate the concepts in the some of the workshops.
+You must ensure the region where you choose to deploy supports [availability zones](https://learn.microsoft.com/azure/aks/availability-zones-overview) to demonstrate the concepts in the some of the workshops. You can list the regions that support availability zones using the following command:
+
+```bash
+az account list-locations --query "[?metadata.regionType=='Physical' && metadata.supportsAvailabilityZones==true].{Region:name}" -o table
+```
 
 :::
 
-```bash
-cat <<EOF > .env
-RG_NAME="myResourceGroup"
-LOCATION="eastus"
-EOF
-```
-
-Run the following command to load the local variables into the shell.
+In this workshop, we will set environment variables for the resource group name and location. Run the following commands to set the environment variables.
 
 ```bash
-source .env
+export RG_NAME="myResourceGroup"
+export LOCATION="eastus"
 ```
+
+This will set the environment variables for the current terminal session. If you close the current terminal session, you will need to set the environment variables again.
 
 Run the following command and follow the prompts to log in to your Azure account using the Azure CLI.
 
@@ -69,7 +75,7 @@ az login --use-device-code
 
 :::
 
-Run the following command to create a resource group.
+Run the following command to create a resource group using the environment variables you just created.
 
 ```bash
 az group create \
@@ -94,10 +100,7 @@ cat main.bicep
 Run the following command to save your user object ID to a variable, save it to the **.env** file, and reload the environment variables.
 
 ```bash
-cat <<EOF >> .env
-USER_ID="$(az ad signed-in-user show --query id -o tsv)"
-EOF
-source .env
+export USER_ID="$(az ad signed-in-user show --query id -o tsv)"
 ```
 
 Run the following command to deploy Bicep template into the resource group.
@@ -157,6 +160,20 @@ EOF
 source .env
 ```
 
+:::info[Important]
+
+Before creating the AKS cluster you need to decide on the Kubernetes version to use. It is recommended to use the latest version of Kubernetes available in the region you are deploying to. You can find the latest version of Kubernetes available in your region by running the following command:
+
+```bash
+export K8S_VERSION=$(az aks get-versions -l ${LOCATION} \
+--query "reverse(sort_by(values[?isDefault==true].{version: version}, &version)) | [0] " \
+-o tsv)
+```
+
+*If you are planning on doing the cluster upgrades workshop, you will want to use an older version of Kubernetes. To do this, simply specify an index value greater than 0 and less than 4 in the query above.*
+
+:::
+
 Run the following command to create an AKS cluster.
 
 ```bash
@@ -165,7 +182,7 @@ az aks create \
 --name ${AKS_NAME} \
 --location ${LOCATION} \
 --tier standard \
---kubernetes-version 1.31 \
+--kubernetes-version ${K8S_VERSION} \
 --os-sku AzureLinux \
 --nodepool-name systempool \
 --node-count 3 \
@@ -183,7 +200,7 @@ az aks create \
 
 The command above will deploy an AKS cluster with the following configurations:
 
-- Deploy Kubernetes version 1.31. This is not the latest version of Kubernetes, and is intentionally set to an older version to demonstrate cluster upgrades in a separate workshop.
+- Deploy the selected version of Kubernetes.
 - Create a system node pool with 3 nodes spread across availability zones 1, 2, and 3. This node pool will be used to host Kubernetes control plane and AKS-specific components.
 - Use standard load balancer to support traffic across availability zones.
 - Use Azure CNI Overlay Powered By Cilium networking. This will give you the most advanced networking features available in AKS and gives great flexibility in how IP addresses are assigned to pods. Note the Advanced Container Networking Services (ACNS) feature is enabled and will be covered later in the workshop.
