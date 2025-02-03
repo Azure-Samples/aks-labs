@@ -42,8 +42,6 @@ Many of the workshops will require the use of multiple Azure resources such as:
 
 The resource deployment can take some time, so to expedite the process, we will use a [Bicep template](https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview?tabs=bicep) to deploy those resources.
 
-Using the terminal of your choice, run the following commands to set up the workshop **.env** file which will be used to store the environment variables throughout the workshop. If you are using the Azure Cloud Shell, you may encounter shell a time out loose environment variables. Therefore, writing your variables to an **.env** file will make it easier to reload them.
-
 :::info[Important]
 
 You must ensure the region where you choose to deploy supports [availability zones](https://learn.microsoft.com/azure/aks/availability-zones-overview) to demonstrate the concepts in the some of the workshops. You can list the regions that support availability zones using the following command:
