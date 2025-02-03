@@ -3,7 +3,7 @@ sidebar_position: 3
 title: Getting Started with Azure Kubernetes Service (AKS) Automatic
 ---
 
-# Getting Started with Azure Kubernetes Service (AKS) Automatic
+## Overview
 
 This workshop will guide you up to speed with working with Azure Kubernetes Service (AKS) Automatic. AKS Automatic is a new way to deploy and manage Kubernetes clusters on Azure. It is a fully managed Kubernetes service that simplifies the deployment, management, and operations of Kubernetes clusters. With AKS Automatic, you can deploy a Kubernetes cluster with just a few clicks in the Azure Portal. AKS Automatic is designed to be simple and easy to use, so you can focus on building and deploying your applications.
 
