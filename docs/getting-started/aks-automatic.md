@@ -62,7 +62,7 @@ This will create a new resource group and deploy the following resources:
 - Azure User-Assigned Managed Identity for CosmosDB access
 - Azure Monitor Workspace for Prometheus metrics
 - Azure Log Analytics Workspace for container and application insights
-- Azure Managed Grafana for visualizing 
+- Azure Managed Grafana for visualizing metrics
 
 Once the resources are deployed, you can proceed with the workshop.
 
@@ -70,7 +70,7 @@ Once the resources are deployed, you can proceed with the workshop.
 
 Let's jump right in and deploy an application to an AKS Automatic cluster. In this section, you will use AKS Automated Deployment to deploy a sample application hosted on GitHub to your AKS cluster.
 
-With AKS, the [Automated Deployments](https://learn.microsoft.com/azure/aks/automated-deployments) feature allows you to create [GitHub Actions workflows](https://docs.github.com/actions) that allows you to start deploying your applications to your AKS cluster with minimal effort. All you need to do is point it at a GitHub repository with your application code. 
+With AKS, the [Automated Deployments](https://learn.microsoft.com/azure/aks/automated-deployments) feature allows you to create [GitHub Actions workflows](https://docs.github.com/actions) that allows you to start deploying your applications to your AKS cluster with minimal effort. All you need to do is point it at a GitHub repository with your application code.
 
 If you have Dockerfiles or Kubernetes manifests in your repository, that's great, you can simply point to them in the Automated Deployments setup. If you don't have Dockerfiles or Kubernetes manifests in your repository, don't sweat... Automated Deployments can create them for you!
 
