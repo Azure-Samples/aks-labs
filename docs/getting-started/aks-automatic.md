@@ -62,7 +62,7 @@ This will create a new resource group and deploy the following resources:
 - Azure User-Assigned Managed Identity for CosmosDB access
 - Azure Monitor Workspace for Prometheus metrics
 - Azure Log Analytics Workspace for container and application insights
-- Azure Managed Grafana for visualizing 
+- Azure Managed Grafana for visualizing metrics
 
 Once the resources are deployed, you can proceed with the workshop.
 
@@ -70,7 +70,7 @@ Once the resources are deployed, you can proceed with the workshop.
 
 Let's jump right in and deploy an application to an AKS Automatic cluster. In this section, you will use AKS Automated Deployment to deploy a sample application hosted on GitHub to your AKS cluster.
 
-With AKS, the [Automated Deployments](https://learn.microsoft.com/azure/aks/automated-deployments) feature allows you to create [GitHub Actions workflows](https://docs.github.com/actions) that allows you to start deploying your applications to your AKS cluster with minimal effort. All you need to do is point it at a GitHub repository with your application code. 
+With AKS, the [Automated Deployments](https://learn.microsoft.com/azure/aks/automated-deployments) feature allows you to create [GitHub Actions workflows](https://docs.github.com/actions) that allows you to start deploying your applications to your AKS cluster with minimal effort. All you need to do is point it at a GitHub repository with your application code.
 
 If you have Dockerfiles or Kubernetes manifests in your repository, that's great, you can simply point to them in the Automated Deployments setup. If you don't have Dockerfiles or Kubernetes manifests in your repository, don't sweat... Automated Deployments can create them for you!
 
@@ -213,11 +213,11 @@ This process can take up to 20 minutes to complete
 
 ### Review the pull request
 
-Once the deployment is complete, click on the **Approve pull request** button to view the pull request to be taken to the pull request page in your GitHub repository. 
+Once the deployment is complete, click on the **Approve pull request** button to view the pull request to be taken to the pull request page in your GitHub repository.
 
 ![Automated Deployment success](./assets/aks-automatic/deploy-app-done.png)
 
-In the pull request review, click on the **Files changed** tab to view the changes that were made by the Automated Deployments workflow. 
+In the pull request review, click on the **Files changed** tab to view the changes that were made by the Automated Deployments workflow.
 
 ![GitHub pull request files changed](./assets/aks-automatic/github-pull-request-files.png)
 
@@ -243,7 +243,7 @@ After a few minutes, the workflow will complete and you will see two green check
 
 ### Test the deployed application
 
-Back in the Azure portal, click the **Close** button to close the Automated Deployments setup. 
+Back in the Azure portal, click the **Close** button to close the Automated Deployments setup.
 
 In the left-hand menu, click on **Services and ingresses** under the **Kubernetes resources** section. You should see a new service called `contoso-air` with a public IP address assigned to it. Click on the IP address to view the deployed application.
 
@@ -251,7 +251,7 @@ In the left-hand menu, click on **Services and ingresses** under the **Kubernete
 
 With AKS Automated Deployments, every time you push application code changes to your GitHub repository, the GitHub Action workflow will automatically build and deploy your application to your AKS cluster. This is a great way to automate the deployment process and ensure that your applications are always up-to-date!
 
-Let's test the application functionality by clicking the **Login** link in the upper right corner of the page. 
+Let's test the application functionality by clicking the **Login** link in the upper right corner of the page.
 
 ![Contoso Air application](./assets/aks-automatic/contoso-air.png)
 
@@ -259,7 +259,7 @@ There is no authentication required, so you can simply type in whatever you like
 
 ![Contoso Air login page](./assets/aks-automatic/contoso-air-login.png)
 
-Click on the **Book** button and fill in the form with your trip details and click the **Find flights** button. 
+Click on the **Book** button and fill in the form with your trip details and click the **Find flights** button.
 
 ![Contoso Air book flight](./assets/aks-automatic/contoso-air-book.png)
 
@@ -349,7 +349,7 @@ You will see the YAML manifest for the contoso-air application with the highligh
 
 ![AKS service connector yaml snippet for contoso-air](./assets/aks-automatic/service-connector-yaml-deploy.png)
 
-Scroll through the YAML manifest to view the changes highlighted in yellow, then click **Apply** to apply the changes to the application. This will redeploy the contoso-air application with the new connection details. 
+Scroll through the YAML manifest to view the changes highlighted in yellow, then click **Apply** to apply the changes to the application. This will redeploy the contoso-air application with the new connection details.
 
 ![AKS service connector yaml snippet apply](./assets/aks-automatic/service-connector-yaml-apply.png)
 
@@ -367,7 +367,7 @@ Knowing what to set the request and limit values to can be challenging. This is 
 
 AKS Automatic comes with the VPA controller pre-installed, so you can use the VPA resource immediately by simply deploying a VPA resource manifest to your cluster.
 
-Navigate to the **Custom resource** section under **Settings** in the AKS cluster left-hand menu. 
+Navigate to the **Custom resource** section under **Settings** in the AKS cluster left-hand menu.
 
 ![Custom resources](./assets/aks-automatic/custom-resources.png)
 
@@ -379,7 +379,7 @@ Click on the **VerticalPodAutoscaler** resource to view the VPA resources in the
 
 ![VPA resources](./assets/aks-automatic/custom-resources-vpa.png)
 
-Click on the **+ Create** button and click the **Apply a YAML** option. 
+Click on the **+ Create** button and click the **Apply a YAML** option.
 
 ![Create VPA](./assets/aks-automatic/custom-resources-vpa-create.png)
 
@@ -390,7 +390,6 @@ Help me create a vertical pod autoscaler manifest for the contoso-air deployment
 ```
 
 Press `Enter` to generate the VPA manifest.
-
 
 When the VPA manifest is generated, click the copy button to copy the manifest to the clipboard. Then paste the manifest into the text editor in the Azure portal.
 
@@ -507,7 +506,7 @@ The workbook visuals will include a query button that you can click to view the 
 
 :::
 
-If you click on the **Logs** section in the left-hand menu, you can view the logs collected by Container Insights. Here, you can write your own KQL queries or run pre-configured queries to logs from your cluster and applications. 
+If you click on the **Logs** section in the left-hand menu, you can view the logs collected by Container Insights. Here, you can write your own KQL queries or run pre-configured queries to logs from your cluster and applications.
 
 :::note
 
@@ -519,7 +518,7 @@ If you expand the **Logs** menu, click on **Queries**, and scroll down to the **
 
 You can also view live streaming logs for a specific container by clicking on the **Workloads** section in the left-hand menu. In the **Deployments** tab, scroll down and locate the **order-service** deployment. Click on the **order-service** deployment to view the details. In the left-hand menu, click on **Live logs**, then select the pod you want to view logs for.
 
-:::info 
+:::info
 
 This is the equivalent of running `kubectl logs -f <pod-name>` in the terminal.
 
