@@ -95,16 +95,23 @@ Verify the contents of the **main.bicep** file by running the following command.
 cat main.bicep
 ```
 
-Run the following command to save your user object ID to a variable, save it to the **.env** file, and reload the environment variables.
+Run the following command to save your user object ID to a variable.
 
 ```bash
 export USER_ID="$(az ad signed-in-user show --query id -o tsv)"
+```
+
+Run the following command to save the deployment name to a variable. In this example we set the deployment name to **labdemo**.
+
+```bash
+export DEPLOY_NAME="labdemo"
 ```
 
 Run the following command to deploy Bicep template into the resource group.
 
 ```bash
 az deployment group create \
+--name ${DEPLOY_NAME} \
 --resource-group $RG_NAME \
 --template-file main.bicep \
 --parameters userObjectId=${USER_ID} \
@@ -147,15 +154,6 @@ Before you create the AKS cluster, run the following command to install the aks-
 
 ```bash
 az extension add --name aks-preview
-```
-
-Run the following command to set a name for the AKS cluster, save it to the **.env** file, and reload the environment variables.
-
-```bash
-cat <<EOF >> .env
-AKS_NAME="myAKSCluster"
-EOF
-source .env
 ```
 
 :::info[Important]
@@ -258,29 +256,32 @@ This taint will prevent pods from being scheduled on the node pool unless they h
 
 Monitoring and logging are essential for maintaining the health and performance of your AKS cluster. AKS provides integrations with Azure Monitor for metrics and logs. Logging is provided by [container insights](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli#enable-container-insights) which can send container logs to [Azure Log Analytics Workspaces](https://learn.microsoft.com/azure/azure-monitor/logs/log-analytics-overview) for analysis. Metrics are provided by [Azure Monitor managed service for Prometheus](https://learn.microsoft.com/azure/azure-monitor/essentials/prometheus-metrics-overview) which collects performance metrics from nodes and pods and allows you to query using [PromQL](https://prometheus.io/docs/prometheus/latest/querying/basics/) and visualize using [Azure Managed Grafana](https://learn.microsoft.com/azure/managed-grafana/overview).
 
-The Bicep template that was deployed earlier should be completed by now. All you need to do next is enable [metrics monitoring](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli) and on the cluster by linking the monitoring resources to the AKS cluster.
-
-Run the following commands to get the resource IDs for the resources that were created, save them to the **.env** file, and reload the environment variables.
-
-```bash
-cat <<EOF >> .env
-MONITOR_ID="$(az monitor account list -g ${RG_NAME} --query "[0].id" -o tsv)"
-GRAFANA_NAME="$(az grafana list -g ${RG_NAME} --query "[0].name" -o tsv)"
-GRAFANA_ID="$(az grafana list -g ${RG_NAME} --query "[0].id" -o tsv)"
-LOGS_ID="$(az monitor log-analytics workspace list -g ${RG_NAME} --query "[0].id" -o tsv)"
-AKV_NAME="$(az keyvault list --resource-group ${RG_NAME} --query "[0].name" -o tsv)"
-AKV_ID="$(az keyvault list --resource-group ${RG_NAME} --query "[0].id" -o tsv)"
-AKV_URL="$(az keyvault list --resource-group ${RG_NAME} --query "[0].properties.vaultUri" -o tsv)"
-ACR_NAME="$(az acr list --resource-group ${RG_NAME} --query "[0].name" -o tsv)"
-ACR_ID="$(az acr list --resource-group ${RG_NAME} --query "[0].id" -o tsv)"
-ACR_SERVER="$(az acr list --resource-group ${RG_NAME} --query "[0].loginServer" -o tsv)"
-EOF
-source .env
-```
+The Bicep template that was deployed earlier should be completed by now. All you need to do next is enable [metrics monitoring](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli) and on the cluster by linking the monitoring resources to the AKS cluster. 
 
 :::tip
 
-> Whenever you want to see the contents of the **.env** file, run the **cat .env** command.
+The Bicep template has outputs defined so you can access the names and resource IDs of the monitoring resources. However, the outputs are stored as key-value pairs. You can use this scriplet to export the outputs as environment variables.
+
+```bash
+while IFS= read -r line; \
+do echo "exporting $line"; \
+export $line=$(az deployment group show -g ${RG_NAME} -n ${DEPLOY_NAME} --query "properties.outputs.${line}.value" -o tsv); \
+done < <(az deployment group show -g $RG_NAME -n ${DEPLOY_NAME} --query "keys(properties.outputs)" -o tsv)
+```
+
+The output shows the names environment variables being exported so you can use them later and looks like this:
+
+```text
+exporting monitor_id
+exporting grafana_id
+exporting grafana_Name
+exporting logs_id
+exporting akv_id
+exporting akv_name
+exporting akv_url
+exporting acr_id
+exporting acr_server
+```
 
 :::
 
@@ -291,8 +292,8 @@ az aks update \
 --resource-group ${RG_NAME} \
 --name ${AKS_NAME} \
 --enable-azure-monitor-metrics \
---azure-monitor-workspace-resource-id ${MONITOR_ID} \
---grafana-resource-id ${GRAFANA_ID} \
+--azure-monitor-workspace-resource-id ${monitor_id} \
+--grafana-resource-id ${grafana_id} \
 --no-wait
 ```
 
@@ -303,7 +304,7 @@ az aks enable-addons \
 --resource-group ${RG_NAME} \
 --name ${AKS_NAME} \
 --addon monitoring \
---workspace-resource-id ${LOGS_ID} \
+--workspace-resource-id ${logs_id} \
 --no-wait
 ```
 
