@@ -512,7 +512,32 @@ When the VPA manifest is generated, click the **Accept all** button to accept th
 
 :::warning
 
-Microsoft Copilot in Azure may provide different results. If your results are different, make sure it is similar to the output listed in the screenshot above.
+Microsoft Copilot in Azure may provide different results. If your results are different, make sure it is similar to the output listed below:
+
+```yaml
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: contoso-air-vpa
+  namespace: dev
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: contoso-air
+  updatePolicy:
+    updateMode: Auto
+  resourcePolicy:
+    containerPolicies:
+      - containerName: contoso-air
+        minAllowed:
+          cpu: 100m
+          memory: 256Mi
+        maxAllowed:
+          cpu: 1
+          memory: 512Mi
+        controlledResources: ["cpu", "memory"]
+```
 
 :::
 
