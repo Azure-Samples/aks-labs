@@ -1,57 +1,15 @@
 # AKS-LABS
 
-Grab and go resources to learn about Azure Kubernetes Service (AKS)
+Grab and go resources to learn about Kubernetes and Azure Kubernetes Service (AKS)
 
-## Features
-
-This project framework provides the following features:
-
-* Feature 1
-* Feature 2
-* ...
+The labs are organized by topic and are designed to be hands-on, with step-by-step instructions.
 
 ## Getting Started
 
-### Prerequisites
+There are a couple of ways to get started with the labs.
 
-(ideally very short, if any)
+1. You can run the [Setting Up the Lab Environment](https://azure-samples.github.io/aks-labs/docs/getting-started/setting-up-lab-environment)
 
-- OS
-- Library version
-- ...
+2. You can run the [Kubernetes the Easy Way with AKS Automatic](https://azure-samples.github.io/aks-labs/docs/getting-started/aks-automatic)
 
-### Installation
-
-(ideally very short)
-
-- npm install [package name]
-- mvn install
-- ...
-
-### Quickstart
-(Add steps to get up and running quickly)
-
-1. git clone [repository clone url]
-2. cd [repository name]
-3. ...
-
-
-## Demo
-
-A demo app is included to show how to use the project.
-
-To run the demo, follow these steps:
-
-(Add steps to start up the demo)
-
-1.
-2.
-3.
-
-## Resources
-
-(Any additional resources or related projects)
-
-- Link to supporting information
-- Link to similar sample
-- ...
+In either case, you will wind up a AKS cluster running in Azure on which you can run any of the labs.
