@@ -256,7 +256,7 @@ This taint will prevent pods from being scheduled on the node pool unless they h
 
 Monitoring and logging are essential for maintaining the health and performance of your AKS cluster. AKS provides integrations with Azure Monitor for metrics and logs. Logging is provided by [container insights](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli#enable-container-insights) which can send container logs to [Azure Log Analytics Workspaces](https://learn.microsoft.com/azure/azure-monitor/logs/log-analytics-overview) for analysis. Metrics are provided by [Azure Monitor managed service for Prometheus](https://learn.microsoft.com/azure/azure-monitor/essentials/prometheus-metrics-overview) which collects performance metrics from nodes and pods and allows you to query using [PromQL](https://prometheus.io/docs/prometheus/latest/querying/basics/) and visualize using [Azure Managed Grafana](https://learn.microsoft.com/azure/managed-grafana/overview).
 
-The Bicep template that was deployed earlier should be completed by now. All you need to do next is enable [metrics monitoring](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli) and on the cluster by linking the monitoring resources to the AKS cluster. 
+The Bicep template that was deployed earlier should be completed by now. All you need to do next is enable [metrics monitoring](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli) and on the cluster by linking the monitoring resources to the AKS cluster.
 
 :::tip
 
