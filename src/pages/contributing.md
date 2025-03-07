@@ -2,7 +2,7 @@
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+the rights to use your contribution. For details, visit [https://cla.opensource.microsoft.com](https://cla.opensource.microsoft.com).
 
 When you submit a pull request, a CLA bot will automatically determine whether you need to provide
 a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
@@ -17,26 +17,33 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
  - [Feature Requests](#feature)
  - [Submission Guidelines](#submit)
 
-## <a name="coc"></a> Code of Conduct
+## Code of Conduct {#coc}
+
 Help us keep this project open and inclusive. Please read and follow our [Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
 
-## <a name="issue"></a> Found an Issue?
+## Found an Issue? {#issue}
+
 If you find a bug in the source code or a mistake in the documentation, you can help us by
 [submitting an issue](#submit-issue) to the GitHub Repository. Even better, you can
 [submit a Pull Request](#submit-pr) with a fix.
 
-## <a name="feature"></a> Want a Feature?
+## Want a Feature? {#feature}
+
 You can *request* a new feature by [submitting an issue](#submit-issue) to the GitHub
 Repository. If you would like to *implement* a new feature, *please submit an issue with
 a proposal for your work first, to be sure that we can use it*.
 
-* **Small Features** can be crafted and directly [submitted as a Pull Request](#submit-pr).
+- **Small Features** can be crafted and directly [submitted as a Pull Request](#submit-pr).
 
-## <a name="submit"></a> Submission Guidelines
+## Submission Guidelines {#submit}
 
 When putting together your workshop, you need to consider how long it will take to complete. Ideally, we want to keep the workshops *under 2 hours*. If you think your workshop will take longer than that, please consider breaking it up into multiple workshops.
 
-### <a name="styleguide"></a> Style Guide
+Another point to consider before making a submission is whether what you are submitting is already covered in the existing Microsoft Learn content. We are not trying to duplicate the content that is already available on Microsoft Learn, so please check there first. If you find that your workshop is similar to existing content, please consider submitting a PR to update the existing content instead of creating a new workshop.
+
+Finally, consider the scenario you are trying to cover. We want to make sure that the workshops are relevant to the audience and that they are accessible to anyone who wants to learn. For example, while we are happy to have workshops that cover AI and ML, if your lab requires the use of more advanced tools like Azure OpenAI, please consider whether the audience will be able to complete the workshop without having to sign up for a paid service. We want to make sure that the workshops are accessible to everyone, so please keep this in mind when creating your content. If you are unsure whether your workshop is relevant or accessible, please reach out to us and we can help you determine whether it is a good fit for the project.
+
+### Style Guide {#styleguide}
 
 Our style guide is pretty simple. If you haven't guessed by now, our site is built on [Docusaurus](https://docusaurus.io/). For the most part, we use the default Docusaurus theme, so you can refer to their [style guide](https://docusaurus.io/docs/markdown-features) for more information. Check out the other workshop docs in the `docs` folder for examples of how to format your content. Our format is pretty simple:
 
@@ -72,7 +79,8 @@ sidebar_position: 1 (this dictates the order of the pages in the sidebar)
 ---
 ```
 
-### <a name="submit-issue"></a> Submitting an Issue
+### Submitting an Issue {#submit-issue}
+
 Before you submit an issue, search the archive, maybe your question was already answered.
 
 If your issue appears to be a bug, and hasn't been reported, open a new issue.
@@ -91,7 +99,8 @@ chances of your issue being dealt with quickly:
 
 You can file new issues by providing the above information at the corresponding repository's issues link: [https://github.com/Azure-Samples/aks-labs/issues/new](https://github.com/Azure-Samples/aks-labs/issues/new).
 
-### <a name="submit-pr"></a> Submitting a Pull Request (PR)
+### Submitting a Pull Request (PR) {#submit-pr}
+
 Before you submit your Pull Request (PR) consider the following guidelines:
 
 - Search the repository [https://github.com/Azure-Samples/aks-labs/pulls](https://github.com/Azure-Samples/aks-labs/pulls) for an open or closed PR

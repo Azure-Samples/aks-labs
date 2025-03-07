@@ -53,19 +53,24 @@ chances of your issue being dealt with quickly:
 You can file new issues by providing the above information at the corresponding repository's issues link: https://github.com/[organization-name]/[repository-name]/issues/new].
 
 ### Submitting a Pull Request (PR) {#submit-pr}
+
 Before you submit your Pull Request (PR) consider the following guidelines:
 
-- Search the repository (https://github.com/[organization-name]/[repository-name]/pulls) for an open or closed PR
+* Search the repository (https://github.com/[organization-name]/[repository-name]/pulls) for an open or closed PR
   that relates to your submission. You don't want to duplicate effort.
 
-- Make your changes in a new git fork:
+* Make your changes in a new git fork:
 
-- Commit your changes using a descriptive commit message
-- Push your fork to GitHub:
-- In GitHub, create a pull request
-- If we suggest changes then:
-  - Make the required updates.
-  - Rebase your fork and force push to your GitHub repository (this will update your Pull Request):
+* Commit your changes using a descriptive commit message
+
+* Push your fork to GitHub:
+
+* In GitHub, create a pull request
+
+* If we suggest changes then:
+
+  * Make the required updates.
+  * Rebase your fork and force push to your GitHub repository (this will update your Pull Request):
 
     ```shell
     git rebase master -i
