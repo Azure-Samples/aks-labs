@@ -1,20 +1,8 @@
 ---
 sidebar_position: 2
 sidebar_label: Istio Service Mesh
-title: Istio Service Mesh
+title: Istio Service Mesh on AKS
 ---
-
-## Istio Service Mesh
-
-<div class="important" data-title="Important">
-
-> If you have implemented the CiliumNetworkPolicy manifests from the previous sections, you will need to remove them with the following command before proceeding with the Istio service mesh.
->
-> ```bash
-> kubectl delete ciliumnetworkpolicy -n pets --all
-> ```
-
-</div>
 
 Istio is an open-source service mesh that layers transparently onto existing distributed applications. Istio’s powerful features provide a uniform and more efficient way to secure, connect, and monitor services. Istio enables load balancing, service-to-service authentication, and monitoring – with few or no service code changes. Its powerful control plane brings vital features, including:
 
@@ -24,269 +12,168 @@ Istio is an open-source service mesh that layers transparently onto existing dis
 - A pluggable policy layer and configuration API supporting access controls, rate limits, and quotas.
 - Automatic metrics, logs, and traces for all traffic within a cluster, including cluster ingress and egress.
 
-Istio is integrated with AKS as an addon and is supported alongside AKS.
+The AKS Istio add-on simplifies Istio deployment and management, removing the need for manual installation and configuration.
 
-<div class="info" data-title="Note">
+This lab covers:
 
-> Please be aware that the Istio addon for AKS does not provide the full functionality of the Istio upstream project. You can view the current limitations for this AKS Istio addon [here](https://learn.microsoft.com/azure/aks/istio-about#limitations) and what is currently [Allowed, supported, and blocked MeshConfig values](https://learn.microsoft.com/azure/aks/istio-meshconfig#allowed-supported-and-blocked-meshconfig-values)
+Enabling the Istio add-on in AKS.
+Deploying services in the mesh.
+Enforcing security with mTLS.
+Observing Istio-managed traffic.
 
-</div>
+:::info
 
-### Prerequisites
+Please be aware that the Istio addon for AKS does not provide the full functionality of the Istio upstream project. You can view the current limitations for this AKS Istio addon [here](https://learn.microsoft.com/azure/aks/istio-about#limitations) and what is currently [Allowed, supported, and blocked MeshConfig values](https://learn.microsoft.com/azure/aks/istio-meshconfig#allowed-supported-and-blocked-meshconfig-values)
+:::
 
-For this workshop, you will also need to install the following:
+## Prerequisites  
+Before starting this lab, make sure your environment is set up correctly. Follow the guide here:  
 
-- [Hubble CLI](https://docs.cilium.io/en/stable/observability/hubble/setup/)
+➡️ [Setting Up Lab Environment](https://azure-samples.github.io/aks-labs/docs/getting-started/setting-up-lab-environment)  
 
-### Configure CA certificates
+This guide covers:  
+- Installing Azure CLI and Kubectl  
+- Creating an AKS cluster  
+- Configuring your local environment  
 
-In the Istio-based service mesh addon for Azure Kubernetes Service, by default the Istio certificate authority (CA) generates a self-signed root certificate and key and uses them to sign the workload certificates. To protect the root CA key, you should use a root CA which runs on a secure machine offline.
+Once your cluster is ready and `kubectl` is configured, proceed to the next step.
 
-In this lab, we will create our own root CA, along with an intermediate CA, and configure the Istio addon to issue intermediate certificates to the Istio CAs that run in each cluster. An Istio CA can sign workload certificates using the administrator-specified certificate and key, and distribute an administrator-specified root certificate to the workloads as the root of trust.
+## Install Istio on AKS  
 
-#### Clone the Istio Repo
+The AKS Istio add-on simplifies service mesh deployment, removing the need for manual setup.  
 
-To expedite the process of creating the necessary certificates needed, we will leverage the certificate tooling provided by the Istio open-source project.
-
-In your terminal, run the following command to clone the Istio repository.
-
-```bash
-git clone https://github.com/istio/istio.git
-```
-
-##### Generate the Root and Intermediate CA certificates
-
-Navigate into the recently cloned Istio directory.
-
-```bash
-cd istio
-```
-
-Once in the **istio** directory, create the **akslab-certs** directory and navigate into it.
-
-```bash
-mkdir -p akslab-certs
-pushd akslab-certs
-```
-
-Generate the root certificate and key.
-
-```bash
-make -f ../tools/certs/Makefile.selfsigned.mk root-ca
-```
-
-Generate the intermediate certificate and key
-
-```bash
-make -f ../tools/certs/Makefile.selfsigned.mk intermediate-cacerts
-```
-
-This will create a directory called **intermediate** which will contain the intermediate CA certificate information.
-
-### Add the CA Certificates to Azure Key Vault
-
-We will utilize Azure KeyVault to store the root and intermediate CA certificate information.
-
-In the **akslab-certs** directory, run the following commands.
-
-```bash
-az keyvault secret set --vault-name ${AKV_NAME} --name istio-root-cert --file root-cert.pem
-az keyvault secret set --vault-name ${AKV_NAME} --name istio-intermediate-cert --file ./intermediate/ca-cert.pem
-az keyvault secret set --vault-name ${AKV_NAME} --name istio-intermediate-key --file ./intermediate/ca-key.pem
-az keyvault secret set --vault-name ${AKV_NAME} --name istio-cert-chain --file ./intermediate/cert-chain.pem
-```
-
-### Enable Azure Key Vault provider for Secret Store CSI Driver for your cluster
-
-The Azure Key Vault provider for Secrets Store CSI Driver allows for the integration of an Azure Key Vault as a secret store with an Azure Kubernetes Service (AKS) cluster via a [CSI volume](https://kubernetes-csi.github.io/docs/).
-
-This integration will allow AKS to create, store, and retrieve Kubernetes secrets from Azure Key Vault.
-
-Run the following command to enable the AKS Azure Key Vault secrets provider.
-
-```bash
-az aks enable-addons \
---addons azure-keyvault-secrets-provider \
---resource-group ${RG_NAME} \
---name ${AKS_NAME}
-```
-
-### Authorize the user-assigned managed identity of the AKS Azure Key Vault provider add-on to have access to Azure Key Vault
-
-<div class="info" data-title="Note">
-
-> For the purposes of this lab, we are using the **Key Vault Administrator** role. Please consider a role with lesser privileges for accessing Azure Key Vault in a production environment.
-
-</div>
-
-When you enable the Azure Key Vault provider for the AKS cluster, a user-assigned managed identity is created for the cluster. We will provide the managed identity with access to Azure Key Vault to retrieve the CA certificate information needed when we deploy the AKS Istio addon.
-
-Run the following commands to add an Azure role assignment for Key Vault administrator for the add-on's user-assigned managed identity.
-
-```bash
-OBJECT_ID=$(az aks show \
---resource-group ${RG_NAME} \
---name ${AKS_NAME} \
---query 'addonProfiles.azureKeyvaultSecretsProvider.identity.objectId' \
--o tsv)
-
-az role assignment create \
---role "Key Vault Administrator" \
---assignee-object-id ${OBJECT_ID} \
---assignee-principal-type ServicePrincipal \
---scope ${AKV_ID}
-```
-
-### Deploy Istio service mesh add-on with plug-in CA certificates
-
-Before deploying the AKS Istio add-on, check the revision of Istio to ensure it is compatible with the version of Kubernetes on the cluster. To check the available revisions in the region that the AKS cluster is deployed in, run the following command:
-
-```bash
-az aks mesh get-revisions \
---location ${LOCATION} \
---output table
-```
-
-You should see the available revisions for the AKS Istio add-on and the compatible versions of Kubernetes they support.
-
-Run the following command to enable the default supported revision of the AKS Istio add-on for the AKS cluster, using the CA certificate information created earlier.
+Run the following command to enable Istio on your AKS cluster:  
 
 ```bash
 az aks mesh enable \
---resource-group ${RG_NAME} \
---name ${AKS_NAME} \
---key-vault-id ${AKV_ID} \
---root-cert-object-name istio-root-cert \
---ca-cert-object-name istio-intermediate-cert \
---ca-key-object-name istio-intermediate-key \
---cert-chain-object-name istio-cert-chain
+  --resource-group <RG_NAME> \
+  --name <AKS_NAME>
 ```
 
-<div class="info" data-title="Note">
+🔹 **Replace placeholders before running:**  
+- `<RG_NAME>` → Your Azure **Resource Group**  
+- `<AKS_NAME>` → Your AKS **cluster name**  
 
-> This may take several minutes to complete.
+This enables Istio system components like **istiod** (control plane) and **ingressgateway** (external traffic management).  
 
-</div>
+:::note
+**This step takes a few minutes.** You won’t see immediate output, but you can check the progress in the next step.
+:::
 
-Once the service mesh has been enabled, run the following command to view the Istio pods on the cluster.
+Check if Istio components are running:  
 
 ```bash
 kubectl get pods -n aks-istio-system
 ```
 
-### Enable Sidecar Injection
+Expected output:
 
-Service meshes traditionally work by deploying an additional container within the same pod as your application container. These additional containers are referred to as a sidecar or a sidecar proxy. These sidecar proxies receive policy and configuration from the service mesh control plane, and insert themselves in the communication path of your application to control the traffic to and from your application container.
-
-The first step to onboarding your application into a service mesh, is to enable sidecar injection for your application pods. To control which applications are onboarded to the service mesh, we can target specific Kubernetes namespaces where applications are deployed.
-
-<div class="info" data-title="Note">
-
-> For upgrade scenarios, it is possible to run multiple Istio add-on control planes with different versions. The following command enables sidecar injection for the Istio revision **asm-1-22**. If you are not sure which revision is installed on the cluster, you can run the following command `az aks show --resource-group ${RG_NAME} --name ${AKS_NAME}  --query "serviceMeshProfile.istio.revisions"`
-
-</div>
-
-The following command will enable the AKS Istio add-on sidecar injection for the **pets** namespace for the Istio revision **1.22**.
-
-```bash
-kubectl label namespace pets istio.io/rev=asm-1-22
+```
+NAME                                    READY   STATUS    RESTARTS   AGE
+istiod-abc123                            1/1     Running   0          1m
+istio-ingressgateway-xyz456              1/1     Running   0          1m
 ```
 
-At this point, we have simply just labeled the namespace, instructing the Istio control plane to enable sidecar injection on new deployments into the namespace. Since we have existing deployments in the namespace already, we will need to restart the deployments to trigger the sidecar injection.
+If Istio pods are in a **Running** state, the installation is complete. If they are **Pending** or **CrashLoopBackOff**, wait a few minutes and check again.
 
-Get a list of all the current pods running in the **pets** namespace.
+## Deploy a Sample Application
 
-```bash
-kubectl get pods -n pets
-```
+We'll deploy a **pets** application with three services:  
+- **store-front** (user-facing UI)  
+- **order-service** (handles orders)  
+- **product-service** (manages products)  
 
-You'll notice that each pod listed has a **READY** state of **1/1**. This means there is one container (the application container) per pod. We will restart the deployments to have the Istio sidecar proxies injected into each pod.
-
-Restart the deployments for the **order-service**, **product-service**, and **store-front**.
-
-```bash
-kubectl rollout restart deployment order-service -n pets
-kubectl rollout restart deployment product-service -n pets
-kubectl rollout restart deployment store-front -n pets
-```
-
-If we re-run the get pods command for the **pets** namespace, you will notice all of the pods now have a **READY** state of **2/2**, meaning the pods now include the sidecar proxy for Istio. The RabbitMQ for the AKS Store application is not a Kubernetes deployment, but is a stateful set. We will need to redeploy the RabbitMQ stateful set to get the sidecar proxy injection.
+### Deploy the Application
+First, create a namespace for the application:  
 
 ```bash
-kubectl rollout restart statefulset rabbitmq -n pets
+kubectl create namespace pets
 ```
 
-If you again re-run the get pods command for the **pets** namespace, we'll see all the pods with a **READY** state of **2/2**
+Then, deploy the services:  
+
+```bash
+kubectl apply -n pets -f https://raw.githubusercontent.com/your-repo/pets-app/main/deployment.yaml
+```
+
+Check that the pods are running:  
 
 ```bash
 kubectl get pods -n pets
 ```
 
-### Verify the Istio Mesh is Controlling Mesh Communications
+At this point, the application is running **without Istio sidecars**.
 
-We will walk through some common configurations to ensure the communications for the AKS Store application are secured. To begin we will deploy a Curl utility container to the cluster, so we can execute traffic commands from it to test out the Istio mesh policy.
+## Enable Sidecar Injection
 
-Use the following command to deploy a test pod that will run the **curl** image to the **default** namespace of the cluster.
-
-```bash
-kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: curl-deployment
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: curl
-  template:
-    metadata:
-      labels:
-        app: curl
-    spec:
-      containers:
-      - name: curl
-        image: curlimages/curl
-        command: ["sleep", "3600"]
-EOF
-```
-
-We can verify the deployment of the test pod in the **default** namespace using following command:
+To bring services into the Istio mesh, enable automatic **sidecar injection** for the `pets` namespace:  
 
 ```bash
-kubectl get pods -n default
+kubectl label namespace pets istio-injection=enabled
 ```
 
-Wait for the test pod to be in a **Running** state.
-
-#### Configure mTLS Strict Mode for the pets namespace
-
-Currently Istio configures managed workloads to use mTLS when calling other workloads, but the default permissive mode allows a service to accept traffic in both plaintext or mTLS traffic. To ensure that the workloads we manage with the Istio add-on only accept mTLS communication, we will deploy a Peer Authentication policy to enforce only mTLS traffic for the workloads in the **pets** namespace.
-
-Prior to deploying the mTLS strict mode, let's verify that the **store-front** service will respond to a client not using mTLS. We will invoke a call from the test pod to the **store-front** service and see if we get a response.
-
-Run the following command to get the name of the test pod.
+Now, restart the deployments so that new pods get the sidecars injected:  
 
 ```bash
-CURL_POD_NAME="$(kubectl get pod -l app=curl -o jsonpath="{.items[0].metadata.name}")"
+kubectl rollout restart deployment -n pets
 ```
 
-Run the following command to run a curl command from the test pod to the **store-front** service.
+Verify that the sidecars are injected by checking the pod status:  
 
 ```bash
-kubectl exec -it ${CURL_POD_NAME} -- curl -IL store-front.pets.svc.cluster.local:80
+kubectl get pods -n pets
 ```
 
-You should see a response with a status of **HTTP/1.1 200 OK** indicating that the **store-front** service successfully responded to the client Let's now apply the Peer Authentication policy that will enforce all services in the **pets** namespace to only use mTLS communication.
+Each pod should now show **2/2** containers—one for the application and one for the Istio proxy.  
 
-Run the following command to configure the mTLS Peer Authentication policy.
+This means the services are now part of the Istio mesh and can use its features like traffic management, security, and observability.
+
+## Secure Service Communication with mTLS  
+
+Istio allows services to communicate securely using **mutual TLS (mTLS)**. This ensures that:  
+
+- **Encryption**: All service-to-service traffic is encrypted.  
+- **Authentication**: Services verify each other’s identity before communicating.  
+- **Zero Trust Security**: Even if a service inside the cluster is compromised, it can’t talk to other services unless it’s part of the mesh.  
+
+By default, Istio allows **both plaintext (unencrypted) and mTLS traffic**. We’ll enforce **strict mTLS**, so all communication inside the `pets` namespace is encrypted and authenticated.  
+
+### What is PeerAuthentication?  
+
+A **PeerAuthentication policy** in Istio controls how services accept traffic. It lets you:  
+
+- Require **mTLS for all services** in a namespace.  
+- Allow both plaintext and mTLS (permissive mode).  
+- Disable mTLS if needed.  
+
+We’ll apply a **PeerAuthentication policy** to require mTLS for all services in the `pets` namespace.  
+
+### Test Communication Before Enforcing mTLS  
+
+First, deploy a test pod **outside** the mesh to simulate an external client:  
+
+```bash
+kubectl run curl-outside --image=curlimages/curl -it -- sleep 3600
+```
+
+Once the pod is running, try sending a request to the **store-front** service:
+
+```bash
+kubectl exec -it curl-outside -- curl -IL store-front.pets.svc.cluster.local:80
+```
+
+You should see a **200 OK** response, meaning the service is **accepting unencrypted traffic**.
+
+### Apply PeerAuthentication to Enforce mTLS  
+
+Now, enforce **strict mTLS** for all services in the `pets` namespace:
 
 ```bash
 kubectl apply -n pets -f - <<EOF
 apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
-  name: pets-default
+  name: pets-mtls
   namespace: pets
 spec:
   mtls:
@@ -294,24 +181,28 @@ spec:
 EOF
 ```
 
-Once the mTLS strict mode peer authentication policy has been applied, we will now see if we can again get a response back from the **store-front** service from a client not using mTLS. Run the following command to curl to the **store-front** service again.
+What this does:
+✅ Forces all services in the `pets` namespace to **only** accept encrypted mTLS traffic.  
+✅ Blocks **any** plaintext communication.  
+
+### Test Communication Again
+
+Try sending the same request from the **outside** test pod:
 
 ```bash
-kubectl exec -it ${CURL_POD_NAME} -- curl -IL store-front.pets.svc.cluster.local:80
+kubectl exec -it curl-outside -- curl -IL store-front.pets.svc.cluster.local:80
 ```
 
-Notice that the curl client failed to get a response from the **store-front** service. The error returned is the indication that the mTLS policy has been enforced, and that the **store-front** service has rejected the non mTLS communication from the test pod.
+This time, the request **fails** because the `store-front` service now **rejects plaintext connections**.
 
-To verify that the **store-front** service is still accessible for pods in the **pets** namespace where the mTLS Peer Authentication policy is deployed, we will again deploy the **curl** image utility pod in the **pets** namespace. That pod will automatically get the sidecar injection of the Istio proxy, along with the policy that will enable it to securely communicate to the **store-front** service.
-
-Use the following command to deploy the test pod that will run the **curl** image to the **pets** namespace of the cluster.
+To verify that **services inside the mesh can still communicate**, deploy a **test pod inside** the `pets` namespace:
 
 ```bash
 kubectl apply -f - <<EOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: curl-pets-deployment
+  name: curl-inside
   namespace: pets
 spec:
   replicas: 1
@@ -330,26 +221,283 @@ spec:
 EOF
 ```
 
-We can again verify the deployment of the test pod in the **pets** namespace using following command:
+Once it’s running, get its name:
 
 ```bash
-kubectl get pods -n pets | grep curl
+CURL_INSIDE_POD="$(kubectl get pod -n pets -l app=curl -o jsonpath="{.items[0].metadata.name}")"
 ```
 
-Wait for the test pod to be in a **Running** state, and notice the **READY** state, which should have a status of **2/2**.
-
-Run the following command to get the name of the test pod in the **pets** namespace.
+Then, try the request again:
 
 ```bash
-CURL_PETS_POD_NAME="$(kubectl get pod -n pets -l app=curl -o jsonpath="{.items[0].metadata.name}")"
+kubectl exec -it ${CURL_INSIDE_POD} -n pets -- curl -IL store-front.pets.svc.cluster.local:80
 ```
 
-Run the following command to run a curl command from the test pod in the **pets** namespace to the **store-front** service.
+This **succeeds**, proving that **only Istio-managed services inside the mesh** can talk to each other.
+
+Now that Istio is securing traffic, we need a way to **visualize service-to-service communication, monitor traffic, and debug issues**.  
+
+### What is Kiali?
+Kiali is an Istio dashboard that helps you:  
+- See a **service graph** of how workloads communicate.  
+- Monitor traffic flows and request latency.  
+- Check security policies (mTLS status, authorization rules).  
+- Debug Istio configurations.  
+
+## Enable Observability with Kiali
+
+### Deploy Kiali
+
+Istio provides **Kiali** as an optional component. Deploy it using the following command:  
 
 ```bash
-kubectl exec -it ${CURL_PETS_POD_NAME} -n pets -- curl -IL store-front.pets.svc.cluster.local:80
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.18/samples/addons/kiali.yaml
 ```
 
-You should see a response with a status of **HTTP/1.1 200 OK** indicating that the **store-front** service successfully responded to the client in the **pets** namespace using only mTLS communication.
+Check if Kiali is running:  
 
----
+```bash
+kubectl get pods -n istio-system
+```
+
+Expected output (example):  
+
+```
+NAME                                   READY   STATUS    RESTARTS   AGE
+kiali-abc123                           1/1     Running   0          1m
+```
+
+### Access the Kiali Dashboard
+
+You can access Kiali using **port-forwarding (recommended)** or via a **LoadBalancer** if using **Azure Cloud Shell**.
+
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+  <TabItem value="local" label="Local Terminal (Recommended)" default>
+
+If you're running commands from a **local machine**, use port-forwarding:
+
+```bash
+kubectl port-forward -n istio-system svc/kiali 20001:20001
+```
+
+Then, open your browser and go to:
+
+➡️ **http://localhost:20001**
+
+This method keeps Kiali internal to the cluster and is **more secure** than exposing it publicly.
+
+  </TabItem>
+
+  <TabItem value="cloud-shell" label="Azure Cloud Shell (Alternative - Not Best Practice)">
+
+> ⚠️ **Warning:** This method exposes Kiali via a public LoadBalancer, which is **not recommended for production**. Instead, use an **Istio Ingress Gateway** for secure access.
+
+Since **Azure Cloud Shell does not support `kubectl port-forward`**, patch the Kiali service to use a LoadBalancer:
+
+```bash
+kubectl patch svc kiali -n istio-system -p '{"spec": {"type": "LoadBalancer"}}'
+```
+
+Check the external IP:
+
+```bash
+kubectl get svc kiali -n istio-system
+```
+
+Example output:
+
+```
+NAME    TYPE           CLUSTER-IP      EXTERNAL-IP      PORT(S)
+kiali   LoadBalancer   10.0.200.100    52.123.45.67     20001:32456/TCP
+```
+
+Once the `EXTERNAL-IP` appears, open your browser and go to:
+
+➡️ **http://EXTERNAL-IP:20001**
+
+> ✅ **After testing, revert Kiali to a ClusterIP to remove public exposure:**
+
+```bash
+kubectl patch svc kiali -n istio-system -p '{"spec": {"type": "ClusterIP"}}'
+```
+
+  </TabItem>
+</Tabs>
+
+
+### View the Istio Service Graph
+
+1. In Kiali, go to **Graph**.  
+2. Select the `pets` namespace from the dropdown.  
+3. You’ll see a **visual representation** of how `store-front`, `order-service`, and `product-service` communicate.  
+4. Click on a service to view traffic, request success rates, and mTLS security status.  
+
+### Generate Traffic to See Live Metrics  
+
+Right now, your app isn't getting much traffic. To generate traffic, run:  
+
+```bash
+kubectl exec -it ${CURL_INSIDE_POD} -n pets -- watch -n 1 curl -s -o /dev/null -w "%{http_code}\n" store-front.pets.svc.cluster.local:80
+```
+
+Now, refresh the Kiali **Graph** tab and observe **real-time traffic flows**.  
+
+So far, the `store-front` service is only accessible **inside the cluster**. To allow **external users** to access it (e.g., from a browser), we need an **Istio Ingress Gateway**.  
+
+
+## Expose Services with Istio Ingress Gateway
+
+### What is an Istio Ingress Gateway?
+An **Ingress Gateway** is an Istio-managed entry point that:  
+✅ Controls incoming traffic from the internet.  
+✅ Can enforce security, rate limiting, and routing rules.  
+✅ Works like a Kubernetes Ingress but provides more flexibility.  
+
+### Create an Istio Gateway
+
+We’ll define a **Gateway** resource that listens on **HTTP (port 80)** and forwards traffic to our `store-front` service.
+
+Apply the following Gateway resource:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: pets-gateway
+  namespace: pets
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+EOF
+```
+
+### Create a VirtualService to Route Traffic
+
+A **Gateway** only defines how traffic enters the cluster. We also need a **VirtualService** to route traffic from the gateway to `store-front`.
+
+Apply the VirtualService inline to route traffic to `store-front`:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: pets-route
+  namespace: pets
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - pets-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: store-front
+        port:
+          number: 80
+EOF
+```
+
+### Find the External IP
+
+Check the **Istio Ingress Gateway** service to get the external IP:
+
+```bash
+kubectl get svc -n aks-istio-system
+```
+
+Expected output:
+
+```
+NAME                   TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)
+istio-ingressgateway   LoadBalancer   10.0.200.100    52.123.45.67    80:32567/TCP
+```
+
+The **EXTERNAL-IP** field is the public IP of your `istio-ingressgateway`.  
+
+### Test External Access
+
+Copy the external IP and open it in a browser:
+
+```
+http://<EXTERNAL-IP>
+```
+
+or test with `curl`:
+
+```bash
+curl http://<EXTERNAL-IP>
+```
+
+You should see the **store-front service response**.
+
+## Summary
+
+🎉 Congratulations on completing this lab!  
+
+You now have **hands-on experience** with **Istio on AKS**, learning how to secure and manage microservices at scale. Hopefully, you had fun, but unfortunately, all good things must come to an end. 🥲  
+
+### What We Learned
+In this lab, you:  
+✅ Enabled the **Istio add-on** in AKS to simplify service mesh deployment  
+✅ Deployed a **sample application** and onboarded it into the Istio mesh  
+✅ Configured **automatic sidecar injection**  
+✅ Enforced **strict mTLS** to secure service-to-service communication  
+✅ Used **Kiali** to visualize traffic flows and security policies  
+✅ Exposed services externally using an **Istio Ingress Gateway**  
+
+## Next Steps
+
+This lab introduced core **Istio on AKS** concepts, but there's more you can explore:  
+
+🔹 **Traffic Management** → Implement **canary deployments**, **A/B testing**, or **fault injection**.  
+🔹 **Advanced Security** → Apply **Istio AuthorizationPolicies** to restrict access based on user identity.  
+🔹 **Performance Monitoring** → Integrate **Prometheus and Grafana** to track service performance and error rates.  
+🔹 **Scaling & Upgrades** → Learn how to perform **rolling updates** for Istio and **auto-scale** workloads inside the mesh.  
+
+If you want to dive deeper, check out:  
+📖 [Istio Documentation](https://istio.io/latest/docs/)  
+📖 [AKS Documentation](https://learn.microsoft.com/azure/aks/)  
+📖 [Kubernetes Learning Path](https://learn.microsoft.com/en-us/training/paths/learn-kubernetes/)  
+
+For more hands-on workshops, explore:  
+🔗 [AKS Labs Catalog](https://azure-samples.github.io/aks-labs/catalog/)  
+🔗 [Open Source Labs](https://aka.ms/oss-labs)  
+
+## Cleanup (Optional)
+
+If you no longer need the resources from this lab, you can delete your **AKS cluster**:  
+
+```bash
+az aks delete --resource-group <RG_NAME> --name <AKS_NAME> --yes --no-wait
+```
+
+Or remove just the **Istio components**:  
+
+```bash
+kubectl delete namespace aks-istio-system pets istio-system
+```
+
+## Stay Connected
+
+If you have **questions, feedback, or just want to connect**, feel free to reach out!  
+
+🐦 **Twitter/X:** [@Pixel_Robots](https://x.com/pixel_robots) \
+💼 **LinkedIn:** [Richard Hooper](https://www.linkedin.com/in/%E2%98%81-richard-hooper/)  
+
+Let me know what you think of this lab. I’d love to hear your feedback! 🚀 
