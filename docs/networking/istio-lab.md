@@ -14,12 +14,9 @@ Istio is an open-source service mesh that layers transparently onto existing dis
 
 The AKS Istio add-on simplifies Istio deployment and management, removing the need for manual installation and configuration.
 
-This lab covers:
+## **Objectives**  
 
-Enabling the Istio add-on in AKS.
-Deploying services in the mesh.
-Enforcing security with mTLS.
-Observing Istio-managed traffic.
+In this workshop, you will learn how to use the Istio service mesh with Azure Kubernetes Service (AKS). You will enable the Istio add-on in AKS, deploy services into the mesh, and configure mutual TLS (mTLS) to secure service-to-service communication. You will also expose an application to the internet using the Istio Ingress Gateway and use Kiali to observe traffic within the mesh.
 
 :::info
 
