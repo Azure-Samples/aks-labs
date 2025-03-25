@@ -54,7 +54,7 @@ az aks mesh enable \
 - `<RG_NAME>` → Your Azure **Resource Group**  
 - `<AKS_NAME>` → Your AKS **cluster name**  
 
-This enables Istio system components like **istiod** (control plane) and **ingressgateway** (external traffic management).  
+This enables Istio system components like **istiod** (control plane).  
 
 :::note
 **This step takes a few minutes.** You won’t see immediate output, but you can check the progress in the next step.
@@ -69,9 +69,9 @@ kubectl get pods -n aks-istio-system
 Expected output:
 
 ```
-NAME                                    READY   STATUS    RESTARTS   AGE
-istiod-abc123                            1/1     Running   0          1m
-istio-ingressgateway-xyz456              1/1     Running   0          1m
+NAME                               READY   STATUS    RESTARTS   AGE
+istiod-asm-1-23-564586fc99-ghbwt   1/1     Running   0          64s
+istiod-asm-1-23-564586fc99-wk9q7   1/1     Running   0          49s
 ```
 
 If Istio pods are in a **Running** state, the installation is complete. If they are **Pending** or **CrashLoopBackOff**, wait a few minutes and check again.
@@ -84,6 +84,11 @@ We'll deploy a **pets** application with three services:
 - **product-service** (manages products)  
 
 ### Deploy the Application
+
+:::info
+If you have deployed the AKS Store Demo application from the Setting up the Lab Environment guide you can skip this step.
+:::
+
 First, create a namespace for the application:  
 
 ```bash
@@ -93,7 +98,7 @@ kubectl create namespace pets
 Then, deploy the services:  
 
 ```bash
-kubectl apply -n pets -f https://raw.githubusercontent.com/your-repo/pets-app/main/deployment.yaml
+kubectl apply -f https://raw.githubusercontent.com/Azure-Samples/aks-store-demo/refs/heads/main/aks-store-quickstart.yaml -n pets
 ```
 
 Check that the pods are running:  
@@ -106,27 +111,51 @@ At this point, the application is running **without Istio sidecars**.
 
 ## Enable Sidecar Injection
 
-To bring services into the Istio mesh, enable automatic **sidecar injection** for the `pets` namespace:  
+Service meshes traditionally work by deploying an additional container within the same pod as your application container. These additional containers are referred to as a sidecar or a sidecar proxy. These sidecar proxies receive policy and configuration from the service mesh control plane, and insert themselves in the communication path of your application to control the traffic to and from your application container.
+
+The first step to onboarding your application into a service mesh, is to enable sidecar injection for your application pods. To control which applications are onboarded to the service mesh, we can target specific Kubernetes namespaces where applications are deployed.
+
+:::info
+For upgrade scenarios, it is possible to run multiple Istio add-on control planes with different versions. The following command enables sidecar injection for the Istio revision asm-1-23. If you are not sure which revision is installed on the cluster, you can run the following command `az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query "serviceMeshProfile.istio.revisions"`
+:::
+
+The following command will enable the AKS Istio add-on sidecar injection for the `pets` namespace for the Istio revision **1.23**.
 
 ```bash
-kubectl label namespace pets istio-injection=enabled
+kubectl label namespace pets istio.io/rev=asm-1-23
 ```
 
-Now, restart the deployments so that new pods get the sidecars injected:  
+At this point, we have simply just labeled the namespace, instructing the Istio control plane to enable sidecar injection on new deployments into the namespace. Since we have existing deployments in the namespace already, we will need to restart the deployments to trigger the sidecar injection.
 
-```bash
-kubectl rollout restart deployment -n pets
-```
-
-Verify that the sidecars are injected by checking the pod status:  
+Get a list of all the current pods running in the pets namespace.
 
 ```bash
 kubectl get pods -n pets
 ```
 
-Each pod should now show **2/2** containers—one for the application and one for the Istio proxy.  
+You'll notice that each pod listed has a **READY** state of **1/1**. This means there is one container (the application container) per pod. We will restart the deployments to have the Istio sidecar proxies injected into each pod.
 
-This means the services are now part of the Istio mesh and can use its features like traffic management, security, and observability.
+Restart the deployments for the **order-service**, **product-service**, and **store-front**.
+
+```bash
+kubectl rollout restart deployment order-service -n pets
+kubectl rollout restart deployment product-service -n pets
+kubectl rollout restart deployment store-front -n pets
+```
+
+If we re-run the get pods command for the **pets** namespace, you will notice all of the pods now have a **READY** state of **2/2**, meaning the pods now include the sidecar proxy for Istio. The RabbitMQ for the AKS Store application is not a Kubernetes deployment, but is a stateful set. We will need to redeploy the RabbitMQ stateful set to get the sidecar proxy injection.
+
+```bash
+kubectl rollout restart statefulset rabbitmq -n pets
+```
+
+If you again re-run the get pods command for the **pets** namespace, we'll see all the pods with a **READY** state of **2/2**
+
+```bash
+kubectl get pods -n pets
+```
+
+The applications are now part of the Istio mesh and can use its features like traffic management, security, and observability.
 
 ## Secure Service Communication with mTLS  
 
@@ -150,19 +179,41 @@ We’ll apply a **PeerAuthentication policy** to require mTLS for all services i
 
 ### Test Communication Before Enforcing mTLS  
 
-First, deploy a test pod **outside** the mesh to simulate an external client:  
+First, deploy a test pod **outside** the mesh, in the **default** namespace, to simulate an external client:  
 
 ```bash
-kubectl run curl-outside --image=curlimages/curl -it -- sleep 3600
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curl
+  template:
+    metadata:
+      labels:
+        app: curl
+    spec:
+      containers:
+      - name: curl
+        image: docker.io/curlimages/curl
+        command: ["sleep", "3600"]
+EOF
 ```
 
 Once the pod is running, try sending a request to the **store-front** service:
 
+Run the following command to get the name of the test pod.
+
 ```bash
-kubectl exec -it curl-outside -- curl -IL store-front.pets.svc.cluster.local:80
+CURL_POD_NAME="$(kubectl get pod -l app=curl -o jsonpath="{.items[0].metadata.name}")"
+kubectl exec -it ${CURL_POD_NAME} -- curl -IL store-front.pets.svc.cluster.local:80
 ```
 
-You should see a **200 OK** response, meaning the service is **accepting unencrypted traffic**.
+You should see a **HTTP/1.1 200 OK** response, meaning the service is **accepting unencrypted traffic**.
 
 ### Apply PeerAuthentication to Enforce mTLS  
 
@@ -190,7 +241,7 @@ What this does:
 Try sending the same request from the **outside** test pod:
 
 ```bash
-kubectl exec -it curl-outside -- curl -IL store-front.pets.svc.cluster.local:80
+kubectl exec -it ${CURL_POD_NAME} -- curl -IL store-front.pets.svc.cluster.local:80
 ```
 
 This time, the request **fails** because the `store-front` service now **rejects plaintext connections**.
@@ -235,119 +286,7 @@ kubectl exec -it ${CURL_INSIDE_POD} -n pets -- curl -IL store-front.pets.svc.clu
 
 This **succeeds**, proving that **only Istio-managed services inside the mesh** can talk to each other.
 
-Now that Istio is securing traffic, we need a way to **visualize service-to-service communication, monitor traffic, and debug issues**.  
-
-### What is Kiali?
-Kiali is an Istio dashboard that helps you:  
-- See a **service graph** of how workloads communicate.  
-- Monitor traffic flows and request latency.  
-- Check security policies (mTLS status, authorization rules).  
-- Debug Istio configurations.  
-
-## Enable Observability with Kiali
-
-### Deploy Kiali
-
-Istio provides **Kiali** as an optional component. Deploy it using the following command:  
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.18/samples/addons/kiali.yaml
-```
-
-Check if Kiali is running:  
-
-```bash
-kubectl get pods -n istio-system
-```
-
-Expected output (example):  
-
-```
-NAME                                   READY   STATUS    RESTARTS   AGE
-kiali-abc123                           1/1     Running   0          1m
-```
-
-### Access the Kiali Dashboard
-
-You can access Kiali using **port-forwarding (recommended)** or via a **LoadBalancer** if using **Azure Cloud Shell**.
-
-
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
-<Tabs>
-  <TabItem value="local" label="Local Terminal (Recommended)" default>
-
-If you're running commands from a **local machine**, use port-forwarding:
-
-```bash
-kubectl port-forward -n istio-system svc/kiali 20001:20001
-```
-
-Then, open your browser and go to:
-
-➡️ **http://localhost:20001**
-
-This method keeps Kiali internal to the cluster and is **more secure** than exposing it publicly.
-
-  </TabItem>
-
-  <TabItem value="cloud-shell" label="Azure Cloud Shell (Alternative - Not Best Practice)">
-
-> ⚠️ **Warning:** This method exposes Kiali via a public LoadBalancer, which is **not recommended for production**. Instead, use an **Istio Ingress Gateway** for secure access.
-
-Since **Azure Cloud Shell does not support `kubectl port-forward`**, patch the Kiali service to use a LoadBalancer:
-
-```bash
-kubectl patch svc kiali -n istio-system -p '{"spec": {"type": "LoadBalancer"}}'
-```
-
-Check the external IP:
-
-```bash
-kubectl get svc kiali -n istio-system
-```
-
-Example output:
-
-```
-NAME    TYPE           CLUSTER-IP      EXTERNAL-IP      PORT(S)
-kiali   LoadBalancer   10.0.200.100    52.123.45.67     20001:32456/TCP
-```
-
-Once the `EXTERNAL-IP` appears, open your browser and go to:
-
-➡️ **http://EXTERNAL-IP:20001**
-
-> ✅ **After testing, revert Kiali to a ClusterIP to remove public exposure:**
-
-```bash
-kubectl patch svc kiali -n istio-system -p '{"spec": {"type": "ClusterIP"}}'
-```
-
-  </TabItem>
-</Tabs>
-
-
-### View the Istio Service Graph
-
-1. In Kiali, go to **Graph**.  
-2. Select the `pets` namespace from the dropdown.  
-3. You’ll see a **visual representation** of how `store-front`, `order-service`, and `product-service` communicate.  
-4. Click on a service to view traffic, request success rates, and mTLS security status.  
-
-### Generate Traffic to See Live Metrics  
-
-Right now, your app isn't getting much traffic. To generate traffic, run:  
-
-```bash
-kubectl exec -it ${CURL_INSIDE_POD} -n pets -- watch -n 1 curl -s -o /dev/null -w "%{http_code}\n" store-front.pets.svc.cluster.local:80
-```
-
-Now, refresh the Kiali **Graph** tab and observe **real-time traffic flows**.  
-
 So far, the `store-front` service is only accessible **inside the cluster**. To allow **external users** to access it (e.g., from a browser), we need an **Istio Ingress Gateway**.  
-
 
 ## Expose Services with Istio Ingress Gateway
 
@@ -355,7 +294,46 @@ So far, the `store-front` service is only accessible **inside the cluster**. To 
 An **Ingress Gateway** is an Istio-managed entry point that:  
 ✅ Controls incoming traffic from the internet.  
 ✅ Can enforce security, rate limiting, and routing rules.  
-✅ Works like a Kubernetes Ingress but provides more flexibility.  
+✅ Works like a Kubernetes Ingress but provides more flexibility.
+
+### Enabling Istio Ingress Gateway
+
+With the usage of the AKS Istio add-on we can easily enable the Istio Ingress Gateway controller, removing the need for manual steps.
+
+Run the following command to enable Istio Ingress Gateway on your cluster:
+
+```bash
+az aks mesh enable-ingress-gateway  \
+  --resource-group <RG_NAME> \
+  --name <AKS_NAME> \
+  --ingress-gateway-type external
+```
+
+🔹 **Replace placeholders before running:**  
+- `<RG_NAME>` → Your Azure **Resource Group**  
+- `<AKS_NAME>` → Your AKS **cluster name**
+
+This enabled **ingressgateway** (external traffic management).
+
+:::note
+**This step takes a few minutes.** You won’t see immediate output, but you can check the progress in the next step.
+:::
+
+Check if Istio components are running:  
+
+```bash
+kubectl get pods -n aks-istio-ingress
+```
+
+Expected output:
+
+```
+NAME                                                          READY   STATUS    RESTARTS   AGE
+aks-istio-ingressgateway-external-asm-1-23-698f9ccc98-ktgqw   1/1     Running   0          2m41s
+aks-istio-ingressgateway-external-asm-1-23-698f9ccc98-pkrww   1/1     Running   0          2m26s
+```
+
+If Istio pods are in a **Running** state, the installation is complete. If they are **Pending** or **CrashLoopBackOff**, wait a few minutes and check again.
 
 ### Create an Istio Gateway
 
@@ -372,7 +350,7 @@ metadata:
   namespace: pets
 spec:
   selector:
-    istio: ingressgateway
+    istio: aks-istio-ingressgateway-external
   servers:
   - port:
       number: 80
@@ -382,6 +360,10 @@ spec:
     - "*"
 EOF
 ```
+
+:::info
+The selector used in the Gateway object points to istio: aks-istio-ingressgateway-external, which can be found as label on the service mapped to the external ingress that was enabled earlier.
+:::
 
 ### Create a VirtualService to Route Traffic
 
@@ -418,17 +400,17 @@ EOF
 Check the **Istio Ingress Gateway** service to get the external IP:
 
 ```bash
-kubectl get svc -n aks-istio-system
+kubectl get svc -n aks-istio-ingress
 ```
 
 Expected output:
 
 ```
-NAME                   TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)
-istio-ingressgateway   LoadBalancer   10.0.200.100    52.123.45.67    80:32567/TCP
+NAME                                TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                                      AGE
+aks-istio-ingressgateway-external   LoadBalancer   172.16.0.128   131.145.32.126   15021:32312/TCP,80:30483/TCP,443:32303/TCP   5m5s
 ```
 
-The **EXTERNAL-IP** field is the public IP of your `istio-ingressgateway`.  
+The **EXTERNAL-IP** field is the public IP of your `aks-istio-ingressgateway-external`.  
 
 ### Test External Access
 
@@ -498,6 +480,7 @@ kubectl delete namespace aks-istio-system pets istio-system
 If you have **questions, feedback, or just want to connect**, feel free to reach out!  
 
 🐦 **Twitter/X:** [@Pixel_Robots](https://x.com/pixel_robots) \
+🦋 **BlueSky** [@pixelrobots.co.uk](https://bsky.app/profile/pixelrobots.co.uk) \
 💼 **LinkedIn:** [Richard Hooper](https://www.linkedin.com/in/%E2%98%81-richard-hooper/)  
 
 Let me know what you think of this lab. I’d love to hear your feedback! 🚀 
