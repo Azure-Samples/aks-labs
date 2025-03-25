@@ -73,6 +73,9 @@ istiod-asm-1-23-564586fc99-wk9q7   1/1     Running   0          49s
 
 If Istio pods are in a **Running** state, the installation is complete. If they are **Pending** or **CrashLoopBackOff**, wait a few minutes and check again.
 
+If pods stay in CrashLoopBackOff, there's likely a configuration or resource issue—check logs with kubectl logs and describe the pod with kubectl describe pod <pod-name> to troubleshoot.
+
+
 ## Deploy a Sample Application
 
 We'll deploy a **pets** application with three services:  
