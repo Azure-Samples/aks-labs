@@ -28,7 +28,7 @@ Before starting this lab, make sure your environment is set up correctly. Follow
 
 ➡️ [Setting Up Lab Environment](https://azure-samples.github.io/aks-labs/docs/getting-started/setting-up-lab-environment)  
 
-This guide covers:  
+This lab covers:  
 - Installing Azure CLI and Kubectl  
 - Creating an AKS cluster  
 - Configuring your local environment  
