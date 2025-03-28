@@ -86,7 +86,7 @@ az login --use-device-code
 
 :::tip
 
-> If you are logging into a different tenant, you can use the **--tenant** flag to specify the tenant domain or tenant ID.
+If you are logging into a different tenant, you can use the **--tenant** flag to specify the tenant domain or tenant ID.
 
 :::
 
@@ -133,6 +133,14 @@ The `--no-wait` flag is used to run the deployment in the background. This will 
 
 This deployment will take a few minutes to complete. Move on to the next section while the resources are being deployed.
 
+## Creating an AKS Cluster
+
+:::danger
+
+Some workshops include steps to create an AKS cluster as part of their instructions. If that's the case, you can skip this section and return to the specific workshop you are working on.
+
+:::
+
 ### AKS Deployment Strategies
 
 Before deploying an AKS cluster, you should consider how you want to configure it. Factors such as cluster sizing and topology, system and user node pools, and availability zones are a few examples. In this lab you will create an AKS cluster implementing some of the best practices for production clusters. Not all best practices will be covered in this lab, but it will give you a good foundation to build upon.
@@ -145,7 +153,7 @@ When it comes to considering the size of the node, it is important to understand
 
 :::note
 
-> In your Azure subscription, you will need to make sure to have at least 32 vCPU of Standard D series quota available to create multiple AKS clusters and accommodate node surges on cluster upgrades. If you don't have enough quota, you can request an increase. Check [here](https://docs.microsoft.com/azure/azure-portal/supportability/per-vm-quota-requests) for more information.
+In your Azure subscription, you will need to make sure to have at least 32 vCPU of Standard D series quota available to create multiple AKS clusters and accommodate node surges on cluster upgrades. If you don't have enough quota, you can request an increase. Check [here](https://docs.microsoft.com/azure/azure-portal/supportability/per-vm-quota-requests) for more information.
 
 :::
 
@@ -167,7 +175,11 @@ Before you create the AKS cluster, make sure you have the AKS Preview extension 
 
 :::info[Important]
 
-Before creating the AKS cluster you need to decide on the Kubernetes version to use. It is recommended to use the latest version of Kubernetes available in the region you are deploying to. You can find the latest version of Kubernetes available in your region by running the following command:
+Before creating the AKS cluster you need to decide on the Kubernetes version to use. It is recommended to use the latest version of Kubernetes available in the region you are deploying to.
+
+:::
+
+You can get the latest version of Kubernetes available in your region by running the following command:
 
 ```bash
 export K8S_VERSION=$(az aks get-versions -l ${LOCATION} \
@@ -175,23 +187,24 @@ export K8S_VERSION=$(az aks get-versions -l ${LOCATION} \
 -o tsv)
 ```
 
-*If you are planning on doing the cluster upgrades workshop, you will want to use an older version of Kubernetes. To do this, simply specify an index value greater than 0 and less than 4 in the query above.*
+:::tip
+
+If you are planning on doing the cluster upgrades workshop, you will want to use an older version of Kubernetes. To do this, simply specify an index value greater than 0 and less than 4 in the query above.
 
 :::
 
 Run the following command to create an AKS cluster.
 
 ```bash
-az aks create \
+AKS_NAME=$(az aks create \
 --resource-group ${RG_NAME} \
---name ${AKS_NAME} \
+--name myakscluster \
 --location ${LOCATION} \
 --tier standard \
 --kubernetes-version ${K8S_VERSION} \
 --os-sku AzureLinux \
 --nodepool-name systempool \
 --node-count 3 \
---zones 1 2 3 \
 --load-balancer-sku standard \
 --network-plugin azure \
 --network-plugin-mode overlay \
@@ -200,13 +213,14 @@ az aks create \
 --ssh-access disabled \
 --enable-managed-identity \
 --enable-acns \
---generate-ssh-keys
+--generate-ssh-keys \
+--query name -o tsv)
 ```
 
 The command above will deploy an AKS cluster with the following configurations:
 
 - Deploy the selected version of Kubernetes.
-- Create a system node pool with 3 nodes spread across availability zones 1, 2, and 3. This node pool will be used to host Kubernetes control plane and AKS-specific components.
+- Create a system node pool with 3 nodes. This node pool will be used to host Kubernetes control plane and AKS-specific components.
 - Use standard load balancer to support traffic across availability zones.
 - Use Azure CNI Overlay Powered By Cilium networking. This will give you the most advanced networking features available in AKS and gives great flexibility in how IP addresses are assigned to pods. Note the Advanced Container Networking Services (ACNS) feature is enabled and will be covered later in the workshop.
 - Some best practice for production clusters:
@@ -215,7 +229,7 @@ The command above will deploy an AKS cluster with the following configurations:
 
 :::info[Important]
 
-> Not all best practices are implemented in this workshop. For example, you will be creating an AKS cluster that can be accessible from the public internet. For production use, it is recommended to create a private cluster. You can find more information on creating a private cluster [here](https://docs.microsoft.com/azure/aks/private-clusters). Don't worry though, more best practices will be implemented as we progress through the workshop 😎
+Not all best practices are implemented in this workshop. For example, you will be creating an AKS cluster that can be accessible from the public internet. For production use, it is recommended to create a private cluster. You can find more information on creating a private cluster [here](https://docs.microsoft.com/azure/aks/private-clusters). Don't worry though, more best practices will be implemented as we progress through the workshop 😎
 
 :::
 
@@ -230,7 +244,7 @@ az aks get-credentials \
 
 ### Adding a User Node Pool
 
-As mentioned above, the AKS cluster has been created with a system node pool that is used to host system workloads. You will need to manually create a user node pool to host user workloads. This user node pool will be created with a single node but can be scaled up as needed. Also note that the VM SKU is specified here which can be changed to suit your workload requirements.
+As mentioned above, the AKS cluster has been created with a system node pool that is used to host system workloads. You will need to manually create a user node pool to host user workloads. This user node pool will be created with a single node but can be scaled up as needed.
 
 Run the following command to add a user node pool to the AKS cluster.
 
@@ -240,9 +254,7 @@ az aks nodepool add \
 --cluster-name ${AKS_NAME} \
 --mode User \
 --name userpool \
---node-count 1 \
---node-vm-size Standard_DS2_v2 \
---zones 1 2 3
+--node-count 1
 ```
 
 ### Tainting the System Node Pool
@@ -269,7 +281,7 @@ The Bicep template that was deployed earlier should be completed by now. All you
 
 :::tip
 
-The Bicep template has outputs defined so you can access the names and resource IDs of the monitoring resources. However, the outputs are stored as key-value pairs. You can use this scriplet to export the outputs as environment variables.
+The Bicep template has outputs defined so you can access the names and resource IDs of the monitoring resources. However, the outputs are stored as key-value pairs. You can use this scriptlet to export the outputs as environment variables.
 
 ```bash
 while IFS= read -r line; \
@@ -281,15 +293,16 @@ done < <(az deployment group show -g $RG_NAME -n ${DEPLOY_NAME} --query "keys(pr
 The output shows the names environment variables being exported so you can use them later and looks like this:
 
 ```text
-exporting monitor_id
-exporting grafana_id
-exporting grafana_Name
-exporting logs_id
-exporting akv_id
-exporting akv_name
-exporting akv_url
-exporting acr_id
-exporting acr_server
+exporting metricsWorkspaceId
+exporting grafanaDashboardId
+exporting grafanaDashboardName
+exporting logWorkspaceId
+exporting azureKeyVaultId
+exporting azureKeyVaultName
+exporting azureKeyVaultUri
+exporting containerRegistryId
+exporting containerRegistryUrl
+exporting appInsightsConnectionString
 ```
 
 :::
@@ -301,8 +314,8 @@ az aks update \
 --resource-group ${RG_NAME} \
 --name ${AKS_NAME} \
 --enable-azure-monitor-metrics \
---azure-monitor-workspace-resource-id ${monitor_id} \
---grafana-resource-id ${grafana_id} \
+--azure-monitor-workspace-resource-id ${metricsWorkspaceId} \
+--grafana-resource-id ${grafanaDashboardId} \
 --no-wait
 ```
 
@@ -313,13 +326,13 @@ az aks enable-addons \
 --resource-group ${RG_NAME} \
 --name ${AKS_NAME} \
 --addon monitoring \
---workspace-resource-id ${logs_id} \
+--workspace-resource-id ${logWorkspaceId} \
 --no-wait
 ```
 
 :::note
 
-> More on full stack monitoring on AKS can be found [here](https://learn.microsoft.com/azure/azure-monitor/containers/monitor-kubernetes)
+More on full stack monitoring on AKS can be found [here](https://learn.microsoft.com/azure/azure-monitor/containers/monitor-kubernetes)
 
 :::
 
