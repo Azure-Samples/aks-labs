@@ -23,7 +23,9 @@ Key aspects of platform engineering include:
 
 - **Infrastructure Management** - This involves ensuring that servers, networks, and storage systems are reliable and performant. Platform engineers design and maintain the foundational infrastructure that supports applications, ensuring it can handle the demands of the organization and scale as needed.
 
-- **Automation** - Focuses on implementing tools and processes to streamline repetitive tasks such as deployment, scaling, and configuration management. By automating these tasks, platform engineers increase efficiency, reduce human error, and free up time for more strategic work.
+- **Automation** - Focuses on implementing tools and processes to streamline repetitive tasks such as deployment, scaling, and configuration management. By automating these tasks, platform engineers increase efficiency, reduce human error, and free up time for more strategic work. This is achieved through the use of Infrastructure as Code (IaC) tools, CI/CD pipelines, and other automation frameworks. *GitOps* is a key practice in this area. GitOps is an operational framework that extends DevOps principles to infrastructure management. where Git repositories are used to manage infrastructure and application code, enabling version control and collaboration. You can learn more about GitOps from the links in the Resources section.
+
+- **Self-Service** - Platform engineering promotes a self-service model where developers can access the tools and resources they need without relying on operations teams. This empowers developers to be more autonomous, speeding up the development process and reducing bottlenecks.
 
 - **Monitoring and Observability** - This aspect involves setting up systems to continuously monitor application performance and health. Observability tools help detect issues early, providing insights into system behavior and enabling quick resolution of problems to maintain stability and reliability.
 
@@ -31,4 +33,14 @@ Key aspects of platform engineering include:
 
 - **Developer Experience** - Enhancing developer experience by providing tools, environments, and processes that make development smoother and more efficient. Platform engineers aim to reduce friction and improve productivity by creating a supportive and user-friendly environment for developers.
 
-We will explore these concepts in more detail in the labs that follow.
+You will explore these concepts in the labs that follow.
+
+## Resources
+
+You can find more information about the tools and concepts used in this lab in the following resources:
+
+- GitOps for Azure Kubernetes Service - [https://learn.microsoft.com/en-us/azure/architecture/example-scenario/gitops-aks/gitops-blueprint-aks](https://learn.microsoft.com/en-us/azure/architecture/example-scenario/gitops-aks/gitops-blueprint-aks)
+
+- ArgoCD - [https://argo-cd.readthedocs.io/en/stable/](https://argo-cd.readthedocs.io/en/stable/)
+
+- Backstage - [https://backstage.io/](https://backstage.io/)
