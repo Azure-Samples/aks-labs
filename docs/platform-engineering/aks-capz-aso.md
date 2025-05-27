@@ -182,7 +182,7 @@ In this step, we will do the following:
   az role assignment create \
     --assignee "${PRINCIPAL_ID}" \
     --role "Managed Identity Operator" \
-    --scope "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${IDENTITY_RG}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${IDENTITY_NAME}"
+    --scope "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${MANAGED_IDENTITY_NAME}"
   ```
 
 4. Creating federated identity credential: **aks-labs-capz-manager-credential**
