@@ -26,7 +26,7 @@ Please be aware that the Istio addon for AKS does not provide the full functiona
 ## Prerequisites  
 Before starting this lab, make sure your environment is set up correctly. Follow the guide here:  
 
-➡️ [Setting Up Lab Environment](https://azure-samples.github.io/aks-labs/docs/getting-started/setting-up-lab-environment)  
+➡️ [Setting Up Lab Environment](/docs/getting-started/setting-up-lab-environment)  
 
 This lab covers:  
 - Installing Azure CLI and Kubectl  
@@ -458,7 +458,7 @@ If you want to dive deeper, check out:
 📖 [Kubernetes Learning Path](https://learn.microsoft.com/en-us/training/paths/learn-kubernetes/)  
 
 For more hands-on workshops, explore:  
-🔗 [AKS Labs Catalog](https://azure-samples.github.io/aks-labs/catalog/)  
+🔗 [AKS Labs Catalog](/docs/intro)  
 🔗 [Open Source Labs](https://aka.ms/oss-labs)  
 
 ## Cleanup (Optional)

@@ -51,6 +51,7 @@ az feature register --namespace Microsoft.ContainerService --name AzureMonitorAp
 Register resource providers.
 
 ```bash
+az provider register --namespace Microsoft.AlertsManagement
 az provider register --namespace Microsoft.Insights
 az provider register --namespace Microsoft.ServiceLinker
 ```

@@ -153,7 +153,7 @@ This is the content of the workshop. It can be a mix of text, code snippets, and
 
 You must include an Objective and Prerequisites section in your workshop. This will help users understand what they will learn and what they need to know before starting the workshop.
 
-To make for a more positive learning experience, we want all the labs to start with a common environment. You should review the environment described in the [Setting Up the Lab Environment](/aks-labs/docs/getting-started/setting-up-lab-environment) workshop and ensure that your workshop is compatible with that environment. If you need to use a different environment, please reach out to us so we can help you determine the best way to do this.
+To make for a more positive learning experience, we want all the labs to start with a common environment. You should review the environment described in the [Setting Up the Lab Environment](/docs/getting-started/setting-up-lab-environment) workshop and ensure that your workshop is compatible with that environment. If you need to use a different environment, please reach out to us so we can help you determine the best way to do this.
 
 :::
 
