@@ -1,7 +1,9 @@
 ---
+title: Containerizing and Deploying AI Workloads on AKS
+sidebar_position: 1
+sidebar_label: AI Workloads Workshop
 # published: true
 # type: workshop
-title: Containerizing and Deploying AI Workloads on AKS
 # short_title: Containerizing and Deploying AI Workloads on AKS
 # description: So, you have a new AI workload that you're ready to put into production. Join us as we cover the key considerations for deploying AI workloads at scale, from local development to large-scale deployment on Azure Kubernetes Service (AKS). We'll get hands on and deploy an AI workload to an enterprise ready AKS cluster. We'll go from "works on my machine" to "works on all machines" in 90 minutes or less!
 # level: beginner

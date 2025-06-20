@@ -1,0 +1,58 @@
+# serving-deployment.yaml - Kubernetes Deployment for Ray Serve
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ray-serve-mnist
+  namespace: $RAY_NAMESPACE
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ray-serve-mnist
+  template:
+    metadata:
+      labels:
+        app: ray-serve-mnist
+    spec:
+      containers:
+      - name: ray-serve
+        image: rayproject/ray-ml:2.8.0-py310
+        command: ["python"]
+        args: ["/app/simple_serving.py"]
+        ports:
+        - containerPort: 8000
+          name: serve-port
+        resources:
+          requests:
+            cpu: 1
+            memory: 2Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
+        volumeMounts:
+        - name: serving-script
+          mountPath: /app
+        env:
+        - name: RAY_ADDRESS
+          value: "ray://raycluster-ml-head-svc:10001"
+        - name: RAY_CLUSTER_NAME
+          value: "raycluster-ml"
+      volumes:
+      - name: serving-script
+        configMap:
+          name: serving-script
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ray-serve-mnist-svc
+  namespace: ray-system
+spec:
+  selector:
+    app: ray-serve-mnist
+  ports:
+  - name: serve-port
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
