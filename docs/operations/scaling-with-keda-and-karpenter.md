@@ -7,7 +7,7 @@ sidebar_label: Scaling with KEDA and Karpenter
 
 ## Overview
 
-In this workshop you'll learn about the Kubernetes Event Driven Autoscaler (aka [KEDA](https://keda.sh)), as well as the AKS Node Auto Provisioner (aka [NAP](https://learn.microsoft.com/en-us/azure/aks/node-autoprovision?tabs=azure-cli)). We'll deploy a sample application, and demonstrate how Keda allows you to scale Kubernetes workloads based on a vast list of potential scale trigger sources. We'll then learn about how Node Auto Provisioner leverages the capabilities established by the [Karpenter](https://karpenter.sh/) open source project, via the [Karpenter Provider for Azure](https://github.com/Azure/karpenter-provider-azure), to improve the nodepool scaling behavior and flexibility of your AKS cluster.
+In this workshop you'll learn about the Kubernetes Event Driven Autoscaler (aka [KEDA](https://keda.sh)), as well as the AKS Node Auto Provisioner (aka [NAP](https://learn.microsoft.com/en-us/azure/aks/node-autoprovision?tabs=azure-cli)). We'll deploy a sample application, and demonstrate how Keda allows you to scale Kubernetes workloads based on a vast list of potential scale trigger sources. We'll then learn about how Node Auto Provisioner leverages the capabilities established by the [Karpenter](https://karpenter.sh/) open source project, via the [Karpenter Provider for Azure](https://github.com/Azure/karpenter-provider-azure), to improve the node scaling behavior and flexibility of your AKS cluster.
 
 ## Objectives
 
@@ -253,9 +253,9 @@ The [Karpenter](https://karpenter.sh/) project was developed to address some lim
 
 While the cluster autoscaler has served us well for years, it doesn't provide much fine grained control in scaling behavior, in particular what machine types are selected. For example, what if you want to autoscale targeting the most cost effective machine types possible. Cluster autoscaler had no way to handle that.
 
-The Karpenter project introduced new mechanisms for creating node configuration definitions (NodeClasses) and node pool definitions (NodePools). These are combined with new capabilities around scheduling (ex. affinity and topology spread) and Disruption (how nodes are terminated when they aren't needed).
+The Karpenter project introduced new mechanisms for creating node configuration definitions (NodeClasses) and node pool definitions (NodePools). These are combined with new capabilities around scheduling (ex. affinity and topology spread), provisioning best-fit compute, and Disruption (how nodes are terminated when they aren't needed).
 
-Finally, Karpenter was implemented as a specification, allowing compute providers to create their own implementation of the specification, like the [Karpenter Provider for Azure](https://github.com/Azure/karpenter-provider-azure). This made it easy for AKS to enable Karpenter capabilities via what AKS calls 'Node Auto Provisioning'.
+Karpenter was developed as an open-source project, allowing development of compute provider specific implementations of this open-source project, like the open-source [Karpenter Provider for Azure](https://github.com/Azure/karpenter-provider-azure) which you can host in your AKS cluster. This made it easy for AKS to offer a managed experience for Karpenter via what AKS calls 'Node Auto-Provisioning'.
 
 
 ## Using NAP
@@ -282,7 +282,7 @@ az aks nodepool update \
 --node-taints CriticalAddonsOnly=true:NoExecute
 ```
 
-While the above command runs, in another terminal window, you can use the following to watch the pods as they transition to the new nodepool which NAP will create. The process will run as follows.
+While the above command runs, in another terminal window, you can use the following to watch the pods as they transition to the new nodes which NAP will create. The process will run as follows.
 
 1. All pet store pods will be evicted from the system nodepool, as they don't have the 'CriticalAddonsOnly' toleration
 2. Within a minute or two, NAP will start a new node with a name prefix of 'aks-default'
@@ -298,7 +298,7 @@ kubectl get events -A --field-selector source=karpenter -w
 watch kubectl get nodes,pods -n pets -o wide
 ```
 
-It's cool to see that NAP jumped in and made sure a nodepool was created for us and the pods got scheduled, but it did use the default profile. Let's have a look at that and see how we can create our own custom profile. Let's, for example, imagine that we're looking to minimize our power consumption for a new green compute policy, and move workloads to ARM based compute. Can we create a NAP profile that prioritizes ARM compute?
+It's cool to see that NAP jumped in and made sure nodes were created for us and the pods got scheduled, but it did use the default profile. Let's have a look at that and see how we can create our own custom profile. Let's, for example, imagine that we're looking to minimize our power consumption for a new green compute policy, and move workloads to ARM based compute. Can we create a NAP profile that prioritizes ARM compute?
 
 ```bash
 # Have a look at the NodePool definitions that ship with the NAP managed add-on
