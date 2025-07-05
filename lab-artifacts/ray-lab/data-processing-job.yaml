@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ray-data-processing
+  namespace: $RAY_NAMESPACE
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: ray-data-processing
+        image: rayproject/ray-ml:2.8.0-py310
+        command: ["python"]
+        args: ["/app/data_processing.py"]
+        env:
+        - name: RAY_DASHBOARD_URL
+          value: "ray://$RAY_CLUSTER_NAME-head-svc.$RAY_NAMESPACE.svc.cluster.local:10001"
+        - name: RAY_OUTPUT_PATH
+          value: "/tmp/ray_processed_data"
+        volumeMounts:
+        - name: script-volume
+          mountPath: /app
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1
+            memory: 2Gi
+      volumes:
+      - name: script-volume
+        configMap:
+          name: ray-data-processing-script
+  backoffLimit: 3

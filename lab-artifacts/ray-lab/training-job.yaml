@@ -1,0 +1,33 @@
+# training-job.yaml - Kubernetes Job for distributed training
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ray-distributed-training
+  namespace: $RAY_NAMESPACE
+spec:
+  template:
+    spec:
+      containers:
+      - name: ray-training
+        image: rayproject/ray-ml:2.8.0-py310
+        command: ["python"]
+        args: ["/app/distributed_training.py"]
+        resources:
+          requests:
+            cpu: 1
+            memory: 2Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
+        volumeMounts:
+        - name: training-script
+          mountPath: /app
+        env:
+        - name: RAY_CLUSTER_NAME
+          value: $RAY_CLUSTER_NAME
+      volumes:
+      - name: training-script
+        configMap:
+          name: training-script
+      restartPolicy: Never
+  backoffLimit: 4
