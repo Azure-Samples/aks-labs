@@ -1,0 +1,81 @@
+# ray-cluster.yaml - CPU-optimized Ray cluster configuration
+apiVersion: ray.io/v1alpha1
+kind: RayCluster
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: $RAY_CLUSTER_NAME
+  namespace: $RAY_NAMESPACE
+spec:
+  rayVersion: '2.8.0'
+  # Ray head pod template
+  headGroupSpec:
+    # The `rayStartParams` are used to start the `ray head` process.
+    rayStartParams:
+      dashboard-host: '0.0.0.0'
+      block: 'true'
+    #pod template
+    template:
+      spec:
+        containers:
+        - name: ray-head
+          image: rayproject/ray-ml:2.8.0-py310
+          ports:
+          - containerPort: 6379
+            name: gcs-server
+          - containerPort: 8265
+            name: dashboard
+          - containerPort: 10001
+            name: client
+          - containerPort: 8080
+            name: metrics
+          resources:
+            limits:
+              cpu: 2
+              memory: 4Gi
+            requests:
+              cpu: 1
+              memory: 2Gi
+          volumeMounts:
+          - mountPath: /tmp/ray
+            name: ray-logs
+        volumes:
+        - name: ray-logs
+          emptyDir: {}
+  workerGroupSpecs:
+  # the pod replicas in this group typed worker
+  - replicas: 2
+    minReplicas: 1
+    maxReplicas: 5
+    # logical group name, for this called small-group, also can be functional
+    groupName: small-group
+    # The `rayStartParams` are used to start the `ray worker` process.
+    rayStartParams: {}
+    #pod template
+    template:
+      spec:
+        initContainers:
+        # The init container is used to wait for the head node to be ready
+        - name: init
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup raycluster-ml-head-svc.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for K8s Service raycluster-ml-head-svc; sleep 2; done"]
+        containers:
+        - name: ray-worker
+          image: rayproject/ray-ml:2.8.0-py310
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","ray stop"]
+          resources:
+            limits:
+              cpu: 2
+              memory: 4Gi
+            requests:
+              cpu: 1
+              memory: 2Gi
+          volumeMounts:
+          - mountPath: /tmp/ray
+            name: ray-logs
+        volumes:
+        - name: ray-logs
+          emptyDir: {}

@@ -1,0 +1,93 @@
+# ray-cluster-gpu.yaml - GPU-optimized Ray cluster configuration
+apiVersion: ray.io/v1alpha1
+kind: RayCluster
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: $RAY_CLUSTER_NAME-gpu
+  namespace: $RAY_NAMESPACE
+spec:
+  rayVersion: '2.8.0'
+  # Ray head pod template
+  headGroupSpec:
+    rayStartParams:
+      dashboard-host: '0.0.0.0'
+      block: 'true'
+    template:
+      spec:
+        containers:
+        - name: ray-head
+          image: rayproject/ray-ml:2.8.0-gpu
+          ports:
+          - containerPort: 6379
+            name: gcs-server
+          - containerPort: 8265
+            name: dashboard
+          - containerPort: 10001
+            name: client
+          - containerPort: 8080
+            name: metrics
+          resources:
+            limits:
+              cpu: 4
+              memory: 16Gi
+              nvidia.com/gpu: 1
+            requests:
+              cpu: 2
+              memory: 8Gi
+              nvidia.com/gpu: 1
+          volumeMounts:
+          - mountPath: /tmp/ray
+            name: ray-logs
+        volumes:
+        - name: ray-logs
+          emptyDir: {}
+        nodeSelector:
+          sku: gpu
+        tolerations:
+        - key: sku
+          operator: Equal
+          value: gpu
+          effect: NoSchedule
+  workerGroupSpecs:
+  - replicas: 2
+    minReplicas: 1
+    maxReplicas: 4
+    groupName: gpu-group
+    rayStartParams:
+      resources: '"{\"GPU\": 1}"'
+    template:
+      spec:
+        nodeSelector:
+          sku: gpu
+        tolerations:
+        - key: sku
+          operator: Equal
+          value: gpu
+          effect: NoSchedule
+        initContainers:
+        - name: init
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup raycluster-ml-gpu-head-svc.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for K8s Service raycluster-ml-gpu-head-svc; sleep 2; done"]
+        containers:
+        - name: ray-worker
+          image: rayproject/ray-ml:2.8.0-gpu
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","ray stop"]
+          resources:
+            limits:
+              cpu: 4
+              memory: 16Gi
+              nvidia.com/gpu: 1
+            requests:
+              cpu: 2
+              memory: 8Gi
+              nvidia.com/gpu: 1
+          volumeMounts:
+          - mountPath: /tmp/ray
+            name: ray-logs
+        volumes:
+        - name: ray-logs
+          emptyDir: {}
