@@ -654,7 +654,7 @@ You should see a file with the name `logs.txt`. Additionally, you can use the Az
 
 :::tip
 
-Be sure to checkout the [Advanced Storage Concepts lab](https://azure-samples.github.io/aks-labs/docs/storage/advanced-storage-concepts) for more advanced storage scenarios.
+Be sure to checkout the [Advanced Storage Concepts lab](/docs/storage/advanced-storage-concepts) for more advanced storage scenarios.
 
 :::
 

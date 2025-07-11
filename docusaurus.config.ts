@@ -10,10 +10,10 @@ const config: Config = {
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
-  url: 'https://azure-samples.github.io',
+  url: 'https://labs.aks.azure.com',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/aks-labs/',
+  baseUrl: '/',
   deploymentBranch: 'gh-pages',
 
   // GitHub pages deployment config.
