@@ -1,7 +1,10 @@
 ---
-sidebar_position: 3
 title: Kubernetes and AKS Fundamentals
+sidebar_position: 3
 ---
+
+import Prerequisites from "../../src/components/SharedMarkdown/_prerequisites.mdx";
+import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provision_resource_group.mdx";
 
 This workshop provides a hands-on introduction to get you started with Kubernetes and Azure Kubernetes Service (AKS). It focuses on key concepts, tools, and best practices for deploying and managing containerized applications. The topics within this workshop align with [Kubernetes Certified Application Developer (CKAD)](https://training.linuxfoundation.org/certification/certified-kubernetes-application-developer-ckad/) objectives, offering practical exercises to build foundational skills for working with Kubernetes while also learning some tips and tricks with AKS along the way. This workshop does not aim to be a full and complete study guide for the CKAD exam but it will give you a solid foundation to build on 💪
 
@@ -24,86 +27,39 @@ As you progress through the workshop, you will learn how to:
 
 ---
 
-## Prerequisites
+<Prerequisites
+  tools={[
+    {
+      name: "Docker Desktop",
+      url: "https://www.docker.com/products/docker-desktop/"
+    },
+    {
+      name: "Helm",
+      url: "https://helm.sh/docs/intro/install/",
+    },
+    {
+      name: "Kustomize",
+      url: "https://kubectl.docs.kubernetes.io/installation/kustomize/",
+    },
+    {
+      name: "Draft",
+      url: "https://github.com/Azure/draft",
+    },
+    {
+      name: "jq",
+      url: "https://jqlang.org/",
+    },
 
-To be successful in this workshop, you should have the following tools installed on your local machine.
+]}
+/>
 
-- [Visual Studio Code](https://code.visualstudio.com/download) with the following extensions:
-  - [Azure Kubernetes Service (AKS)](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-aks-tools)
-  - [Kubernetes](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools)
-  - [Container Tools](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-containers)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) or [Podman Desktop](https://podman-desktop.io/). The instructions are written for Docker Desktop, but you could use Podman Desktop with [Docker compatibility enabled](https://podman-desktop.io/docs/migrating-from-docker/managing-docker-compatibility).
-- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
-- [kubectl](https://kubernetes.io/docs/reference/kubectl/)
-- [Helm](https://helm.sh/docs/intro/install/)
-- [Kustomize](https://kubectl.docs.kubernetes.io/installation/kustomize/)
-- [Draft](https://github.com/Azure/draft) or the [Draft extension for AKS](https://learn.microsoft.com/azure/aks/draft)
-- [jq](https://jqlang.org/)
-- POSIX-compliant shell (bash, zsh, etc.)
+<ProvisionResourceGroup />
 
-### Pre-provision Azure Resources
+### Setup Azure Resources
 
-To keep focus on AKS-specific features, this workshop will need some Azure preview features enabled and resources to be pre-provisioned. You can use the Azure CLI commands below to register the preview features.
+To keep focus on AKS-specific features, this workshop will need some Azure preview features enabled and resources to be pre-provisioned.
 
-:::warning
-
-You are expected to have an Azure subscription with sufficient quota and permissions to create the resources.
-
-:::
-
-Start by logging in to the Azure CLI.
-
-```bash
-az login
-```
-
-Run the following command to register preview features.
-
-```bash
-az extension add --name aks-preview
-```
-
-To keep the resource names unique, we will use a random number as a suffix for the resource names. This will also help you to avoid naming conflicts with other resources in your Azure subscription.
-
-Run the following command to generate a random number.
-
-```bash
-RAND=$RANDOM
-export RAND
-echo "Random resource identifier will be: ${RAND}"
-```
-
-Set the location to a region of your choice. For example, `eastus` or `westeurope`.
-
-```bash
-export LOCATION=eastus
-```
-
-Create a resource group name using the random number.
-
-```bash
-export RG_NAME=myresourcegroup$RAND
-```
-
-Create a resource group in Azure.
-
-```bash
-az group create \
---name $RG_NAME \
---location $LOCATION
-```
-
-Deploy the Azure resources needed for the workshop.
-
-```bash
-az deployment group create \
---resource-group $RG_NAME \
---name "${RG_NAME}-deployment" \
---template-uri https://raw.githubusercontent.com/Azure-Samples/aks-labs/refs/heads/main/docs/getting-started/assets/k8s-aks-fundamentals/main.json \
---parameters randomSeed=$RAND userObjectId=$(az ad signed-in-user show --query id -o tsv)
-```
-
-This will create the following resources in the resource group:
+This lab will require the use of multiple Azure resources including:
 
 - [Azure Kubernetes Service](https://learn.microsoft.com/azure/aks/what-is-aks) cluster to work with throughout the workshop
 - [Azure Container Registry](https://learn.microsoft.com/azure/container-registry/container-registry-intro) for storing container images
@@ -114,6 +70,22 @@ This will create the following resources in the resource group:
 - [Azure App Configuration](https://learn.microsoft.com/azure/azure-app-configuration/overview) for storing application configuration
 - [Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/introduction) for demo application data storage
 - [Azure User-Assigned Managed Identities](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/how-manage-user-assigned-managed-identities?pivots=identity-mi-methods-azp) for authenticating to the Azure services
+
+:::tip
+
+You can deploy these resources using a single [ARM template](https://learn.microsoft.com/azure/azure-resource-manager/templates/overview).
+
+:::
+
+Run the following command to deploy [this ARM template](https://raw.githubusercontent.com/Azure-Samples/aks-labs/refs/heads/main/docs/getting-started/assets/k8s-aks-fundamentals/main.json).
+
+```bash
+az deployment group create \
+--resource-group $RG_NAME \
+--name "${RG_NAME}-deployment" \
+--template-uri https://raw.githubusercontent.com/Azure-Samples/aks-labs/refs/heads/main/docs/getting-started/assets/k8s-aks-fundamentals/main.json \
+--parameters randomSeed=$RAND userObjectId=$(az ad signed-in-user show --query id -o tsv)
+```
 
 :::danger Important
 
@@ -299,7 +271,7 @@ The most common types of workload resources are:
 - [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) resource is a declarative way to manage a set of Pods. It in turn creates a ReplicaSet resource to manage the Pods. A Deployment is used for stateless applications and is the most common way to deploy applications in Kubernetes.
 - [ReplicaSet](https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/) resource is a low-level resource that is used to manage a set of Pods. It is used to ensure that a specified number of pod replicas are running at any given time. A ReplicaSet is mostly used by the Deployment resource to manage the Pods. You typically won't use a ReplicaSet directly, but it's important to understand how it works.
 - [StatefulSet](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/) resource is used to manage stateful applications. It is used for applications that require stable, unique network identifiers and stable storage. A StatefulSet is used for applications that require persistent storage and stable network identities, such as databases.
-A stateful set is a workload resource that is used to manage stateful applications. It is used for applications that require stable, unique network identifiers and stable storage.
+  A stateful set is a workload resource that is used to manage stateful applications. It is used for applications that require stable, unique network identifiers and stable storage.
 - [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/) resource is often used to ensure that a copy of a Pod is running on all nodes in the cluster, such as logging or monitoring agents.
 - [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) resource is a workload resource that is used to run a batch job. These are applications that need to run to completion, such as data processing jobs.
 - [CronJob](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/) resource is a workload resource that is used to run a batch job on a schedule, such as backups or report generation.
@@ -697,7 +669,7 @@ data:
     <style>
     html { color-scheme: light dark; }
     body { width: 35em; margin: 0 auto;
-    font-family: Tahoma, Verdana, Arial, sans-serif; 
+    font-family: Tahoma, Verdana, Arial, sans-serif;
     color: blue;}
     </style>
     </head>
@@ -755,7 +727,7 @@ data:
     <style>
     html { color-scheme: light dark; }
     body { width: 35em; margin: 0 auto;
-    font-family: Tahoma, Verdana, Arial, sans-serif; 
+    font-family: Tahoma, Verdana, Arial, sans-serif;
     color: green;}
     </style>
     </head>
@@ -875,7 +847,7 @@ kubectl scale deploy nginx-green --replicas=3
 Now that you have the nginx-blue and nginx-green Deployments running with the same label, you can test the canary deployment strategy by running a curl command to see the response.
 
 ```bash
-while true; do curl -s "http://$(kubectl get svc mynginx --output jsonpath='{.status.loadBalancer.ingress[0].ip}')" | grep color:; done 
+while true; do curl -s "http://$(kubectl get svc mynginx --output jsonpath='{.status.loadBalancer.ingress[0].ip}')" | grep color:; done
 ```
 
 You should see the response alternating between blue and green text. This is because the Service resource is routing traffic to both Deployments based on the label selector.
@@ -1155,7 +1127,7 @@ You will see the output of the command in the **Run command** window.
 
 :::tip
 
-Using Microsoft Copilot in Azure is a great way to learn how to use the `kubectl` CLI commands and get suggestions for commands that you can run. This is especially useful if you are new to Kubernetes and are not familiar with the `kubectl` CLI commands. To learn more about how to use this tool, refer to the  [Work with AKS clusters efficiently using Microsoft Copilot in Azure](https://learn.microsoft.com/azure/copilot/work-aks-clusters) documentation.
+Using Microsoft Copilot in Azure is a great way to learn how to use the `kubectl` CLI commands and get suggestions for commands that you can run. This is especially useful if you are new to Kubernetes and are not familiar with the `kubectl` CLI commands. To learn more about how to use this tool, refer to the [Work with AKS clusters efficiently using Microsoft Copilot in Azure](https://learn.microsoft.com/azure/copilot/work-aks-clusters) documentation.
 
 :::
 
@@ -1510,7 +1482,7 @@ spec:
         resources: {}
         envFrom:
           - configMapRef:             # <-- use all keys in the ConfigMap resource
-              name: contoso-air-configs  
+              name: contoso-air-configs
 status: {}
 EOF
 ```
@@ -1525,7 +1497,7 @@ POD_NAME=$(kubectl get po -l app=contoso-air -ojsonpath='{.items[0].metadata.nam
 kubectl exec -it $POD_NAME -- printenv
 ```
 
-You should see the environment variables that start with **AZURE_COSMOS_** which have been pulled in from the ConfigMap resource.
+You should see the environment variables that start with `AZURE_COSMOS_` which have been pulled in from the ConfigMap resource.
 
 :::tip
 

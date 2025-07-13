@@ -1,0 +1,49 @@
+import CodeBlock from '@theme/CodeBlock';
+
+export const AksCreateCommand = ({ version }) => {
+  const versionLine = version ? `--kubernetes-version ${version} \\
+` : '';
+  
+  const command = `az aks create \\
+--resource-group \${RG_NAME} \\
+--name \${AKS_NAME} \\
+--location \${LOCATION} \\
+${versionLine}--network-plugin azure \\
+--network-plugin-mode overlay \\
+--network-dataplane cilium \\
+--network-policy cilium \\
+--enable-managed-identity \\
+--enable-workload-identity \\
+--enable-oidc-issuer \\
+--generate-ssh-keys`;
+
+return (
+
+<CodeBlock language="bash">{command}</CodeBlock>
+); };
+
+### Setup AKS Cluster
+
+Set the AKS cluster name.
+
+```bash
+export AKS_NAME=myakscluster$RAND
+```
+
+Run the following command to create an AKS cluster with some best practices in place.
+
+<AksCreateCommand version={props.version} />
+
+:::tip
+
+The AKS cluster created for this lab only includes a few best practices such as enabling [Workload Identity](https://learn.microsoft.com/azure/aks/workload-identity-overview?tabs=dotnet) and setting the cluster networking to [Azure CNI powered by Cilium](https://learn.microsoft.com/azure/aks/azure-cni-powered-by-cilium). For complete guidance on implementing AKS best practices be sure to check out the [best practices](https://learn.microsoft.com/azure/aks/best-practices) and [baseline architecture for an AKS cluster](https://learn.microsoft.com/azure/architecture/reference-architectures/containers/aks/baseline-aks?toc=/azure/aks/toc.json&bc=/azure/aks/breadcrumb/toc.json) guides on Microsoft Learn.
+
+:::
+
+Once the AKS cluster has been created, run the following command to connect to it.
+
+```bash
+az aks get-credentials \
+--resource-group ${RG_NAME} \
+--name ${AKS_NAME}
+```

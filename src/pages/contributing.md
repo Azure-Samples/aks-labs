@@ -1,6 +1,6 @@
 # Contributing to AKS Labs
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
+This project welcomes contributions and suggestions. Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
 the rights to use your contribution. For details, visit [https://cla.opensource.microsoft.com](https://cla.opensource.microsoft.com).
 
@@ -12,10 +12,10 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
- - [Code of Conduct](#coc)
- - [Issues and Bugs](#issue)
- - [Feature Requests](#feature)
- - [Submission Guidelines](#submit)
+- [Code of Conduct](#coc)
+- [Issues and Bugs](#issue)
+- [Feature Requests](#feature)
+- [Submission Guidelines](#submit)
 
 ## Code of Conduct {#coc}
 
@@ -29,9 +29,9 @@ If you find a bug in the source code or a mistake in the documentation, you can 
 
 ## Want a Feature? {#feature}
 
-You can *request* a new feature by [submitting an issue](#submit-issue) to the GitHub
-Repository. If you would like to *implement* a new feature, *please submit an issue with
-a proposal for your work first, to be sure that we can use it*.
+You can _request_ a new feature by [submitting an issue](#submit-issue) to the GitHub
+Repository. If you would like to _implement_ a new feature, _please submit an issue with
+a proposal for your work first, to be sure that we can use it_.
 
 - **Small Features** can be crafted and directly [submitted as a Pull Request](#submit-pr).
 
@@ -41,7 +41,7 @@ Before you submit an issue, search the archive, maybe your question was already 
 
 If your issue appears to be a bug, and hasn't been reported, open a new issue.
 Help us to maximize the effort we can spend fixing issues and adding new
-features, by not reporting duplicate issues.  Providing the following information will increase the
+features, by not reporting duplicate issues. Providing the following information will increase the
 chances of your issue being dealt with quickly:
 
 - **Overview of the Issue** - if an error is being thrown a non-minified stack trace helps
@@ -66,6 +66,7 @@ Before you submit your Pull Request (PR) consider the following guidelines:
 - Push your fork to GitHub:
 - In GitHub, create a pull request
 - If we suggest changes then:
+
   - Make the required updates.
   - Rebase your fork and force push to your GitHub repository (this will update your Pull Request):
 
@@ -123,7 +124,7 @@ Here is an example:
 ---
 title: Your Workshop Title
 sidebar_label: Your Navigation Title # use only if you want to display a different label than the title
-sidebar_position: 1                  # this dictates the order of the pages in the sidebar 
+sidebar_position: 1 # this dictates the order of the pages in the sidebar
 ---
 ```
 
@@ -142,7 +143,7 @@ This is a short description of what the reader will learn in this workshop.
 
 ## Prerequisites
 
-This is a list of what the reader needs to know and/or installed in their environment  before starting the workshop.
+This is a list of what the reader needs to know and/or installed in their environment before starting the workshop.
 
 ## Workshop Content
 
@@ -153,7 +154,7 @@ This is the content of the workshop. It can be a mix of text, code snippets, and
 
 You must include an Objective and Prerequisites section in your workshop. This will help users understand what they will learn and what they need to know before starting the workshop.
 
-To make for a more positive learning experience, we want all the labs to start with a common environment. You should review the environment described in the [Setting Up the Lab Environment](/aks-labs/docs/getting-started/setting-up-lab-environment) workshop and ensure that your workshop is compatible with that environment. If you need to use a different environment, please reach out to us so we can help you determine the best way to do this.
+To make for a more positive learning experience, we want all the labs to start with a common environment. To help with this, we have created shared markdown components that provide standardized sections for common workshop elements like prerequisites, resource provisioning, and cleanup steps.
 
 :::
 
@@ -162,6 +163,60 @@ To make for a more positive learning experience, we want all the labs to start w
 When authoring content, you may want to draw attention to certain sections of your content. Use Docusaurus's [admonitions](https://docusaurus.io/docs/markdown-features/admonitions) to do this.
 
 :::
+
+### Using Shared Markdown Components
+
+To maintain consistency across workshops and reduce duplication, this project provides reusable markdown components located in `src/components/SharedMarkdown/`. These components help standardize common sections that appear in most workshops:
+
+- **`_prerequisites.mdx`** - Provides a standard prerequisites section with common tools and Azure CLI setup
+- **`_provision_resource_group.mdx`** - Creates environment variables and resource group setup
+- **`_provision_aks_cluster.mdx`** - Standard AKS cluster creation commands
+- **`_provision_resources.mdx`** - Additional resource provisioning steps
+- **`_cleanup.mdx`** - Standard cleanup instructions for removing workshop resources
+
+To use these components in your workshop, import them at the top of your `.mdx` file:
+
+```markdown
+import Prerequisites from "../../src/components/SharedMarkdown/\_prerequisites.mdx";
+import ProvisionResourceGroup from "../../src/components/SharedMarkdown/\_provision_resource_group.mdx";
+import Cleanup from "../../src/components/SharedMarkdown/\_cleanup.mdx";
+```
+
+Then use them within your content:
+
+```markdown
+## Prerequisites
+
+<Prerequisites
+tools={[
+{
+name: "Docker Desktop",
+url: "https://www.docker.com/products/docker-desktop/"
+},
+{
+name: "Helm",
+url: "https://helm.sh/docs/intro/install/"
+}
+]}
+provision_resource_group="true"
+/>
+```
+
+The `Prerequisites` component accepts optional props:
+
+- `tools` - Array of additional tools needed for your specific workshop
+- `provision_resource_group` - Set to "true" to include resource group setup
+- `provision_resources` - Set to "true" to include additional resource provisioning
+
+This approach ensures all workshops have a consistent starting point while allowing customization for specific requirements.
+
+:::note
+
+Files can use either the `.md` or `.mdx` extension and use the shared components as needed. The `.mdx` format will give you better support for syntax highlighting and rendering of React components, but `.md` files will also work if you prefer plain markdown.
+
+:::
+
+### Directory Structure {#directory-structure}
 
 If your workshop content requires additional files, such as code samples, images, or other assets, use the `assets` directory that can be found in the root of the category folder. You can create subdirectories within the `assets` directory to organize your files.
 

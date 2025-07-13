@@ -1,0 +1,45 @@
+import ProvisionResourceGroup from "./_provision_resource_group.mdx";
+import ProvisionResources from "./_provision_resources.mdx";
+
+## Prerequisites
+
+Before you begin, you will need an [Azure subscription](https://azure.microsoft.com/) with Owner permissions and a [GitHub account](https://github.com/signup).
+
+In addition, you will need the following tools installed on your local machine:
+
+{/* prettier-ignore */}
+<ul>
+  <li><a href="https://code.visualstudio.com/download" target="_blank" rel="noopener noreferrer">Visual Studio Code</a> with the following extensions:<ul><li><a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-aks-tools" target="_blank" rel="noopener noreferrer">Azure Kubernetes Service (AKS)</a></li><li><a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools" target="_blank" rel="noopener noreferrer">Kubernetes</a></li><li><a href="https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-containers" target="_blank" rel="noopener noreferrer">Container Tools</a></li></ul></li>
+  <li><a href="https://learn.microsoft.com/cli/azure/install-azure-cli?view=azure-cli-latest" target="_blank" rel="noopener noreferrer">Azure CLI</a></li>
+  <li><a href="https://cli.github.com/" target="_blank" rel="noopener noreferrer">GitHub CLI</a></li>
+  <li><a href="https://git-scm.com/" target="_blank" rel="noopener noreferrer">Git</a></li>
+  <li><a href="https://kubernetes.io/docs/reference/kubectl/" target="_blank" rel="noopener noreferrer">kubectl</a></li>
+  {props.tools && props.tools.map((tool, index) => (
+    <li key={index}>{tool.url ? (<a href={tool.url} target="_blank" rel="noopener noreferrer">{tool.name}</a>) : ( tool.name )}{tool.description && ` ${tool.description}`}</li>
+  ))}
+  <li>POSIX-compliant shell (bash, zsh, <a href="https://shell.azure.com" target="_blank" rel="noopener noreferrer">Azure Cloud Shell</a>)</li>
+</ul>
+
+### Setup Azure CLI
+
+Start by logging into Azure by run the following command and follow the prompts:
+
+```bash
+az login --use-device-code
+```
+
+:::tip
+
+You can log into a different tenant by passing in the **--tenant** flag to specify your tenant domain or tenant ID.
+
+:::
+
+Run the following command to register preview features.
+
+```bash
+az extension add --name aks-preview
+```
+
+{props.provision_resource_group && props.provision_resource_group === "true" ? <ProvisionResourceGroup /> : ""}
+
+{props.provision_resources && props.provision_resources === "true" ? <ProvisionResources /> : ""}

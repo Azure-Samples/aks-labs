@@ -1,9 +1,11 @@
 ---
-sidebar_position: 2
 title: Kubernetes the Easy Way with AKS Automatic
+sidebar_position: 2
 ---
 
-# Kubernetes the Easy Way with AKS Automatic
+import Prerequisites from "../../src/components/SharedMarkdown/_prerequisites.mdx";
+import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provision_resource_group.mdx";
+import ProvisionResources from "../../src/components/SharedMarkdown/_provision_resources.mdx";
 
 This workshop will show you how easy it is to deploy applications to AKS Automatic. AKS Automatic is a new way to deploy and manage Kubernetes clusters on Azure. It is a fully managed Kubernetes service that simplifies the deployment, management, and operations of Kubernetes clusters. With AKS Automatic, you can deploy a Kubernetes cluster with just a few clicks in the Azure Portal, and it is designed to be simple and easy to use, so you can focus on building your applications!
 
@@ -21,25 +23,9 @@ After completing this workshop, you will be able to:
 
 ---
 
-## Prerequisites
+<Prerequisites />
 
-Before you begin, you will need an [Azure subscription](https://azure.microsoft.com/) with Owner permissions and a [GitHub account](https://github.com/signup).
-
-In addition, you will need the following tools installed on your local machine:
-
-- [Azure CLI](https://learn.microsoft.com/cli/azure/what-is-azure-cli?WT.mc_id=containers-105184-pauyu)
-- [Visual Studio Code](https://code.visualstudio.com/)
-- [Git](https://git-scm.com/)
-- [GitHub CLI](https://cli.github.com/)
-- Bash shell (e.g. [Windows Terminal](https://www.microsoft.com/p/windows-terminal/9n0dx20hk701) with [WSL](https://docs.microsoft.com/windows/wsl/install-win10) or [Azure Cloud Shell](https://shell.azure.com))
-
-To keep focus on AKS-specific features, this workshop will need some Azure preview features enabled and resources to be pre-provisioned. You can use the Azure CLI commands below to register the preview features.
-
-Start by logging in to the Azure CLI.
-
-```bash
-az login
-```
+This workshop will need some Azure preview features enabled and resources to be pre-provisioned. You can use the Azure CLI commands below to register the preview features.
 
 Register preview features.
 
@@ -67,15 +53,16 @@ Once the feature is registered, run the following command to re-register the Mic
 az provider register --namespace Microsoft.ContainerService
 ```
 
-Once the resource provider and preview features have been registered, jump over to [Lab Environment Setup](/docs/getting-started/setting-up-lab-environment#lab-environment-setup) and follow the instructions to provision the required resources and come back here to continue with the workshop.
-
 :::warning
 
 As noted in the AKS Automatic [documentation](https://learn.microsoft.com/azure/aks/automatic/quick-automatic-managed-network?pivots=azure-portal), AKS Automatic tries to dynamically select a virtual machine size for the system node pool based on the capacity available in the subscription. Make sure your subscription has quota for 16 vCPUs of any of the following sizes in the region you're deploying the cluster to: [Standard_D4pds_v5](https://learn.microsoft.com/azure/virtual-machines/sizes/general-purpose/dpsv5-series), [Standard_D4lds_v5](https://learn.microsoft.com/azure/virtual-machines/sizes/general-purpose/dldsv5-series), [Standard_D4ads_v5](https://learn.microsoft.com/azure/virtual-machines/sizes/general-purpose/dadsv5-series), [Standard_D4ds_v5](https://learn.microsoft.com/azure/virtual-machines/sizes/general-purpose/ddsv5-series), [Standard_D4d_v5](https://learn.microsoft.com/azure/virtual-machines/sizes/general-purpose/ddv5-series), [Standard_D4d_v4](https://learn.microsoft.com/azure/virtual-machines/sizes/general-purpose/ddv4-series), [Standard_DS3_v2](https://learn.microsoft.com/azure/virtual-machines/sizes/general-purpose/dsv3-series), [Standard_DS12_v2](https://learn.microsoft.com/azure/virtual-machines/sizes/memory-optimized/dv2-dsv2-series-memory). You can [view quotas for specific VM-families and submit quota increase requests](https://learn.microsoft.com/azure/quotas/per-vm-quota-requests) through the Azure portal.
 
 :::
 
-After you have provisioned the required resources, the last thing you need to do is create an [Azure CosmosDB database with a MongoDB API](https://learn.microsoft.com/azure/cosmos-db/mongodb/introduction) ([version 7.0](https://learn.microsoft.com/azure/cosmos-db/mongodb/feature-support-70)) and a database named `test`.
+<ProvisionResourceGroup />
+<ProvisionResources />
+
+After you have provisioned the required resources, the last thing you need to do is create an [Azure CosmosDB database with a MongoDB API](https://learn.microsoft.com/azure/cosmos-db/mongodb/introduction) ([version 7.0](https://learn.microsoft.com/azure/cosmos-db/mongodb/feature-support-70)) and a database named `test` which is not included in the ARM template you just deployed.
 
 You can do that by running the following commands.
 
@@ -95,12 +82,6 @@ az cosmosdb mongodb collection create \
 --database-name test \
 --resource-group ${RG_NAME}
 ```
-
-:::note
-
-Make sure to replace `${RG_NAME}` with the name of the resource group you created earlier.
-
-:::
 
 Once the resources are deployed, you can proceed with the workshop.
 
@@ -621,7 +602,7 @@ Filter the **namespace** to **dev** the **type** to **deployment**, and the **wo
 
 #### Querying metrics with PromQL
 
-If you prefer to write your own queries to visualize the data, you can use the **Explore** feature in Grafana. In the Grafana home page, click on the **Explore** link in the left-hand menu, and select the data source name that begins with **Managed_Prometheus_**.
+If you prefer to write your own queries to visualize the data, you can use the **Explore** feature in Grafana. In the Grafana home page, click on the **Explore** link in the left-hand menu, and select the data source name that begins with **Managed*Prometheus***.
 
 The query editor supports a graphical query builder and a text-based query editor. The graphical query builder is a great way to get started with PromQL. You can select the metric you want to query, the aggregation function, and any filters you want to apply.
 

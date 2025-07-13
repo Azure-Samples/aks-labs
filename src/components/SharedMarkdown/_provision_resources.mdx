@@ -1,0 +1,43 @@
+### Setup Resources
+
+To keep focus on AKS-specific features, this workshop will need some Azure preview features enabled and resources to be pre-provisioned.
+
+This lab will require the use of multiple Azure resources including:
+
+- [Azure Log Analytics Workspace](https://learn.microsoft.com/azure/azure-monitor/logs/data-platform-logs) for [container insights](https://learn.microsoft.com/azure/azure-monitor/containers/container-insights-overview) and [application insights](https://learn.microsoft.com/azure/azure-monitor/app/app-insights-overview)
+- [Azure Monitor Workspace for Prometheus](https://learn.microsoft.com/azure/azure-monitor/essentials/prometheus-metrics-overview) metrics
+- [Azure Managed Grafana](https://learn.microsoft.com/azure/managed-grafana/overview) for visualizing metrics
+- [Azure Container Registry](https://learn.microsoft.com/azure/container-registry/container-registry-intro) for storing container images
+- [Azure Key Vault](https://learn.microsoft.com/azure/key-vault/general/overview) for secrets management
+- [Azure User-Assigned Managed Identity](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/overview) for accessing Azure services via Workload Identity
+
+:::tip
+
+You can deploy these resources using a single [ARM template](https://learn.microsoft.com/azure/azure-resource-manager/templates/overview).
+
+:::
+
+To deploy [this ARM template](https://raw.githubusercontent.com/azure-samples/aks-labs/refs/heads/main/docs/getting-started/assets/aks-labs-deploy.json). Run the following command to save your user object ID to a variable.
+
+```bash
+export USER_ID=$(az ad signed-in-user show --query id -o tsv)
+```
+
+Run the following command to deploy Bicep template into the resource group.
+
+```bash
+az deployment group create \
+--resource-group ${RG_NAME} \
+--name "${RG_NAME}-deployment" \
+--template-uri https://raw.githubusercontent.com/azure-samples/aks-labs/refs/heads/main/docs/getting-started/assets/aks-labs-deploy.json \
+--parameters userObjectId=$(az ad signed-in-user show --query id -o tsv) \
+--no-wait
+```
+
+:::tip
+
+The `--no-wait` flag is used to run the deployment in the background. This will allow you to continue while the resources are being deployed.
+
+:::
+
+This deployment will take a few minutes to complete. Move on to the next section while the resources are being deployed.

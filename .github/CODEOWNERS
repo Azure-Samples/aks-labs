@@ -1,6 +1,9 @@
+<!-- markdownlint-disable -->
 # Global owners
 *       @chzbrgr71
 
 # Category owners
 
 # Lab owners
+/docs/getting-started/aks-automatic.mdx @pauldotyu
+/docs/getting-started/k8s-aks-fundamentals.mdx @pauldotyu
