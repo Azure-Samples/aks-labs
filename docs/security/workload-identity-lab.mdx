@@ -1,11 +1,12 @@
 ---
-sidebar_label: Workload Identity
-sidebar_position: 1
 title: Workload Identity
+sidebar_position: 1
 ---
 
-
-## Objectives
+import Prerequisites from "../../src/components/SharedMarkdown/_prerequisites.mdx";
+import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provision_resource_group.mdx";
+import ProvisionAKSCluster from "../../src/components/SharedMarkdown/_provision_aks_cluster.mdx";
+import Cleanup from "../../src/components/SharedMarkdown/_cleanup.mdx";
 
 Workloads deployed on an Azure Kubernetes Services (AKS) cluster require Microsoft Entra application credentials or managed identities to access Microsoft Entra protected resources, such as Azure Key Vault and Microsoft Graph. Microsoft Entra Workload ID integrates with the capabilities native to Kubernetes to federate with external identity providers.
 
@@ -18,26 +19,30 @@ In this lab, you will learn how to:
 - Deploy a sample application utilizing Workload Identity
 - Access secrets in Azure Key Vault with Workload Identity
 
-## Prerequisites
+<Prerequisites />
+<ProvisionResourceGroup />
+<ProvisionAKSCluster />
 
-To complete this lab, you will need an [Azure subscription](https://azure.microsoft.com/) with permissions to create resources and a [GitHub account](https://github.com/signup). Using a code editor like [Visual Studio Code](https://code.visualstudio.com/) will also be helpful for editing files and running commands.
+### Setup Azure Key Vault
 
-You will also need to have the command line tools mentioned in Command Line Tools section [Setting Up the Lab Enviroment](../getting-started/setting-up-lab-environment#command-line-tools) installed.
-
-If you do not already have an AKS cluster created in your subscription, you can create all the required infrastructure for this lab by running the [Setting Up the Lab Enviroment](../getting-started/setting-up-lab-environment) lab.
-
-### Set Environment Variables
-
-To make it easier to run the commands in the lab, use the following commands save the names of the resource group, Azure Key Vault and AKS cluster, and region you are using in environment variables.
+Set the Azure Key Vault name.
 
 ```bash
-export RG_NAME="myResourceGroup"
-export AKS_NAME="myAKSCluster"
-export LOCATION="eastus"
-export AKV_NAME="myKeyVault"
+export AKV_NAME="mykeyvault$RAND"
 ```
 
-In this example we are using the resource group name **myResourceGroup**, the region name **eastus** and the AKS cluster name **myAKSCluster**. Using the environment variables allows you to easily change the values in one place and have them used in all the commands.
+Run the following command to create an key vault and export its resource identifier for later use.
+
+```bash
+export AKV_ID=$(az keyvault create \
+--resource-group ${RG_NAME} \
+--name ${AKV_NAME} \
+--enable-rbac-authorization \
+--query id \
+--output tsv)
+```
+
+Once the AKS cluster and key vault has been deployed, you can proceed with the workshop.
 
 ## Enable Workload Identity and OpenID Connect (OIDC) on an AKS cluster
 
@@ -113,7 +118,9 @@ You will need several properties of the managed identity for the next steps. Run
 export USER_ASSIGNED_CLIENT_ID="$(az identity show \
 --resource-group ${RG_NAME} \
 --name ${USER_ASSIGNED_IDENTITY_NAME} \
+--query "clientId" \
 --output tsv)"
+
 export USER_ASSIGNED_PRINCIPAL_ID="$(az identity show \
 --name "${USER_ASSIGNED_IDENTITY_NAME}" \
 --resource-group ${RG_NAME} \
@@ -189,11 +196,11 @@ az role assignment create \
 
 ## Deploy a Sample Application Utilizing Workload Identity
 
-When you deploy your application pods, the manifest should reference the service account created in the Create Kubernetes service account step. The manifest depicted here shows the reference to the service account in the pod template ```spec``` section.
+When you deploy your application pods, the manifest should reference the service account created in the Create Kubernetes service account step. The manifest depicted here shows the reference to the service account in the pod template `spec` section.
 
 :::warning[Important]
 
-Ensure that the application pods using workload identity include the label **azure.workload.identity/use: "true"** in the pod template ```spec``` section. Otherwise the pods will fail after they are restarted.
+Ensure that the application pods using workload identity include the label **azure.workload.identity/use: "true"** in the pod template `spec` section. Otherwise the pods will fail after they are restarted.
 
 :::
 
@@ -219,7 +226,17 @@ EOF
 
 ## Access Secrets in Azure Key Vault with Workload Identity
 
-Make sure the Azure account you are signed in on has the apprpriate privileges to create secrets in an Azure Key Vault. If so, run the following command to create a secret in the key vault.
+Run the following command to make sure the Azure account you are signed in on has the appropriate privileges to create secrets in an Azure Key Vault.
+
+```bash
+az role assignment create \
+--assignee-object-id $(az ad signed-in-user show --query id -o tsv) \
+--role "Key Vault Administrator" \
+--scope "${AKV_ID}" \
+--assignee-principal-type User
+```
+
+Next, run the following command to create a secret in the key vault.
 
 ```bash
 az keyvault secret set \
@@ -246,7 +263,7 @@ spec:
       name: oidc
       env:
       - name: KEYVAULT_URL
-        value: ${AKV_URL}
+        value: $(az keyvault show -n ${AKV_NAME} -g ${RG_NAME} --query "properties.vaultUri" -o tsv)
       - name: SECRET_NAME
         value: my-secret
   nodeSelector:
@@ -254,7 +271,7 @@ spec:
 EOF
 ```
 
-To check whether all properties are injected properly, use the ```kubectl describe``` command:
+To check whether all properties are injected properly, use the `kubectl describe` command:
 
 ```bash
 kubectl describe pod sample-workload-identity-key-vault -n ${SERVICE_ACCOUNT_NAMESPACE} | grep "SECRET_NAME:"
@@ -268,15 +285,4 @@ kubectl logs -n ${SERVICE_ACCOUNT_NAMESPACE} sample-workload-identity-key-vault
 
 You have successfully deployed a sample application that utilizes Workload Identity to access a secret in Azure Key Vault.
 
-## Clean Up
-
-To clean up the resources created in this lab, run the following command to delete the resource group and all its contents. If you want to use the resources again, you can skip this step.
-
-```bash
-az group delete \
---name ${RG_NAME} \
---yes \
---no-wait
-```
-
-This will delete the resource group and all its contents, including the AKS cluster, managed identity, and key vault.
+<Cleanup />

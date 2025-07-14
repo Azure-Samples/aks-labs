@@ -1,40 +1,19 @@
 ---
-sidebar_position: 1
 title: Advanced Storage Concepts
-sidebar_label: Advanced Storage Concepts
-# published: true # Optional. Set to true to publish the workshop (default: false)
-# type: workshop # Required.
-# title: AKS Deep Dives # Required. Full title of the workshop
-# short_title: AKS Deep Dives # Optional. Short title displayed in the header
-# description: This is a workshop for advanced AKS scenarios and day 2 operations # Required.
-# level: intermediate # Required. Can be 'beginner', 'intermediate' or 'advanced'
-# authors: # Required. You can add as many authors as needed
-#   - "Paul Yu"
-#   - "Brian Redmond"
-#   - "Phil Gibson"
-#   - "Russell de Pina"
-#   - "Ken Kilty"
-# contacts: # Required. Must match the number of authors
-#   - "@pauldotyu"
-#   - "@chzbrgr71"
-#   - "@phillipgibson"
-#   - "@russd2357"
-#   - "@kenkilty"
-# duration_minutes: 180 # Required. Estimated duration in minutes
-# tags: kubernetes, azure, aks # Required. Tags for filtering and searching
-# wt_id: WT.mc_id=containers-147656-pauyu
+sidebar_position: 1
 ---
 
-## Objectives
+import Prerequisites from "../../src/components/SharedMarkdown/_prerequisites.mdx";
+import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provision_resource_group.mdx";
+import ProvisionAKSCluster from "../../src/components/SharedMarkdown/_provision_aks_cluster.mdx";
 
 In this workshop you will learn about the advanced storage concepts in Azure Kubernetes Service (AKS). You will learn about the different storage options available in Azure, how to use Azure Container Storage to manage local NVMe disks, and how to use Azure Container Storage to replicate local NVMe disks across multiple nodes. You will also learn about the different orchestration options available in Azure, including CSI drivers and Azure Container Storage.
 
-## Prerequisites
+<Prerequisites />
+<ProvisionResourceGroup />
+<ProvisionAKSCluster />
 
-Before starting this lab, please make sure that you have provisioned a lab environment. We suggest you complete *ONE* of the following labs before starting this lab:
-
-- [Setting Up the Lab Environment](../getting-started/setting-up-lab-environment.md)
-- [Kubernetes the Easy Way with AKS Automatic](../getting-started/aks-automatic.md)
+Once the AKS cluster is deployed, you can proceed with the workshop.
 
 ## Storage Options
 
@@ -48,19 +27,19 @@ The following guidance can facilitate your evaluation:
 
   **Block storage category:**
 
-  | Storage option | Characteristics | User Cases |
+  |                                        Storage option                                         |                          Characteristics                           |                                                        User Cases                                                         |
   | :-------------------------------------------------------------------------------------------: | :----------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------: |
-  | [Azure Disks](https://learn.microsoft.com/azure/virtual-machines/managed-disks-overview) | Rich SKUs from low-cost HDD disks to high performance Ultra Disks. | Generic option for all user cases from Backup to database to SAP Hana. |
-  | [Elastic SAN](https://learn.microsoft.com/azure/storage/elastic-san/elastic-san-introduction) | Scalability up to millions of IOPS, Cost efficiency at scale | Tier 1 & 2 workloads, Databases, VDI hosted on any Compute options (VM, Containers, AVS) |
-  | [Local Disks](https://learn.microsoft.com/azure/virtual-machines/nvme-overview) | Priced in VM, High IOPS/Throughput and extremely low latency. | Applications with no data durability requirement or with built-in data replication support (e.g., Cassandra), AI training |
+  |   [Azure Disks](https://learn.microsoft.com/azure/virtual-machines/managed-disks-overview)    | Rich SKUs from low-cost HDD disks to high performance Ultra Disks. |                          Generic option for all user cases from Backup to database to SAP Hana.                           |
+  | [Elastic SAN](https://learn.microsoft.com/azure/storage/elastic-san/elastic-san-introduction) |    Scalability up to millions of IOPS, Cost efficiency at scale    |                 Tier 1 & 2 workloads, Databases, VDI hosted on any Compute options (VM, Containers, AVS)                  |
+  |        [Local Disks](https://learn.microsoft.com/azure/virtual-machines/nvme-overview)        |   Priced in VM, High IOPS/Throughput and extremely low latency.    | Applications with no data durability requirement or with built-in data replication support (e.g., Cassandra), AI training |
 
   **Shared File Storage category:**
 
-  | Storage option | Characteristics | User Cases |
+  |                                               Storage option                                               |                                       Characteristics                                       |                                     User Cases                                     |
   | :--------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: |
-  | [Azure Files](https://learn.microsoft.com/azure/storage/files/storage-files-introduction) | Fully managed, multiple redundancy options. | General purpose file shares, LOB apps, shared app or config data for CI/CD, AI/ML. |
-  | [Azure NetApp Files](https://learn.microsoft.com/azure/azure-netapp-files/azure-netapp-files-introduction) | Fully managed ONTAP with high performance and low latency. | Analytics, HPC, CMS, CI/CD, custom apps currently using NetApp. |
-  | [Azure Blobs](https://learn.microsoft.com/azure/storage/blobs/storage-blobs-introduction) | Unlimited amounts of unstructured data, data lifecycle management, rich redundancy options. | Large scale of object data handling, backup |
+  |         [Azure Files](https://learn.microsoft.com/azure/storage/files/storage-files-introduction)          |                         Fully managed, multiple redundancy options.                         | General purpose file shares, LOB apps, shared app or config data for CI/CD, AI/ML. |
+  | [Azure NetApp Files](https://learn.microsoft.com/azure/azure-netapp-files/azure-netapp-files-introduction) |                 Fully managed ONTAP with high performance and low latency.                  |          Analytics, HPC, CMS, CI/CD, custom apps currently using NetApp.           |
+  |         [Azure Blobs](https://learn.microsoft.com/azure/storage/blobs/storage-blobs-introduction)          | Unlimited amounts of unstructured data, data lifecycle management, rich redundancy options. |                    Large scale of object data handling, backup                     |
 
 - Select performance tier, redundancy type on the storage option.
   See the product page from above table for further evaluation of performance tier, redundancy type or other requirements.

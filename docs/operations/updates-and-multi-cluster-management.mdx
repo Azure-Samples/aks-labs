@@ -2,7 +2,9 @@
 title: Updates and Multi-Cluster Management
 ---
 
-# Updates and Multi-Cluster Management
+import Prerequisites from "../../src/components/SharedMarkdown/_prerequisites.mdx";
+import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provision_resource_group.mdx";
+import ProvisionAKSCluster from "../../src/components/SharedMarkdown/_provision_aks_cluster.mdx";
 
 Maintaining your AKS cluster's updates is crucial for operational hygiene. Neglecting this can lead to severe issues, including losing support and becoming vulnerable to known CVEs (Common Vulnerabilities and Exposures) attacks. In this workshop, we will look and examine all tiers of your AKS infrastructure, and discuss and show the procedures and best practices to keep your AKS cluster up-to-date.
 
@@ -19,9 +21,9 @@ After completing this workshop, you will be able to:
 
 ---
 
-## Pre-requisites
-
-Before you begin, please make sure that you have provisioned a lab environment. Head over to [Lab Environment Setup](/docs/getting-started/setting-up-lab-environment#lab-environment-setup) and follow the instructions to provision the required resources. Once you've provisioned the resources and [created an AKS cluster](/docs/getting-started/setting-up-lab-environment#lab-environment-setup#creating-an-aks-cluster) come back here to continue with the workshop.
+<Prerequisites />
+<ProvisionResourceGroup />
+<ProvisionAKSCluster version="1.32.0" />
 
 ---
 
@@ -54,23 +56,33 @@ We can also, quickly look at the current version of Kubernetes running on the no
 kubectl get nodes
 ```
 
-We can see all of the nodes in both the system and user node pools are at version **1.29.9** as well.
+We can see all of the nodes in both the system and user node pools are at version **1.30.0** as well.
 
 ```text
 NAME                                 STATUS   ROLES    AGE    VERSION
-aks-systempool-14753261-vmss000000   Ready    <none>   123m   v1.29.9
-aks-systempool-14753261-vmss000001   Ready    <none>   123m   v1.29.9
-aks-systempool-14753261-vmss000002   Ready    <none>   123m   v1.29.9
-aks-userpool-27827974-vmss000000     Ready    <none>   95m    v1.29.9
+aks-systempool-14753261-vmss000000   Ready    <none>   123m   v1.30.0
+aks-systempool-14753261-vmss000001   Ready    <none>   123m   v1.30.0
+aks-systempool-14753261-vmss000002   Ready    <none>   123m   v1.30.0
+aks-userpool-27827974-vmss000000     Ready    <none>   95m    v1.30.0
 ```
 
-Run the following command to upgrade the current cluster API server, and the Kubernetes version running on the nodes, from version **1.29.9** to version **1.30.5**.
+Run the following command to get the latest supported version in the region.
+
+```bash
+export KUBERNETES_VERSION=$(az aks get-versions -l ${LOCATION} \
+--query "reverse(sort_by(values[?isDefault==true].{version: version}, &version)) | [0] " \
+-o tsv)
+
+echo $KUBERNETES_VERSION
+```
+
+Run the following command to upgrade the current cluster API server, and the Kubernetes version running on the nodes.
 
 ```bash
 az aks upgrade \
 --resource-group ${RG_NAME} \
 --name ${AKS_NAME} \
---kubernetes-version "1.30.5"
+--kubernetes-version ${KUBERNETES_VERSION}
 ```
 
 :::note

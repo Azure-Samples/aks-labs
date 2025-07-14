@@ -1,0 +1,470 @@
+---
+title: Getting started with Terraform
+---
+
+import Prerequisites from "../../src/components/SharedMarkdown/\_prerequisites.mdx";
+
+In this workshop, you will learn the basics of using Terraform to provision an AKS cluster.
+
+## Objectives
+
+- Understand what Terraform is
+- Know the basics of working with Terraform on your machine
+- Setup Azure Storage for remote state
+- Provision an AKS cluster and Azure Container Registry (ACR)
+- Understand AzApi provider
+
+---
+
+<Prerequisites
+tools={[
+{
+name: "Terraform CLI",
+url: "https://developer.hashicorp.com/terraform/install",
+},
+]}
+/>
+
+---
+
+## What is Terraform?
+
+[Terraform](https://developer.hashicorp.com/terraform) is an open-source Infrastructure as Code (IaC) tool created by HashiCorp. It allows you to define and provision infrastructure using a high-level configuration language called HashiCorp Configuration Language (HCL). Terraform is very popular due to it's ability to manage a wide range of cloud providers, including Azure, AWS, Google Cloud, and many others.
+
+### Infrastructure as Code (IaC)
+
+[Infrastructure as Code or IaC](https://learn.microsoft.com/devops/deliver/what-is-infrastructure-as-code) is a practice of managing and provisioning infrastructure through code, rather than manual processes. You could click through a portal to create resources, but IaC allows you to define your infrastructure using code, which can be versioned, tested, and reused. This approach brings many benefits, such as consistency, repeatability, and the ability to track changes over time.
+
+### Imperative vs Declarative
+
+In the context of IaC, there are two main approaches: imperative and declarative.
+
+- **Imperative**: In an imperative approach, you define a sequence of commands that must be executed to achieve the desired state. This means you specify how to create and configure resources step by step.
+- **Declarative**: In a declarative approach, you define the desired state of your infrastructure without specifying how to achieve it. This means you describe what you want, and the tool (like Terraform) figures out how to make it happen.
+
+The AKS labs sites uses an imperative approach frequently, where you are given a series of commands to run in order to create resources. This is often easier for beginners to understand, as it provides a clear step-by-step guide. However, Terraform uses a declarative approach, which allows you to define your infrastructure in a more abstract way. Much like Kubernetes manifests, you describe the desired state of your infrastructure, and Terraform takes care of the details of how to achieve that state.
+
+## Terraform basics
+
+To get started with Terraform, you need to understand a few key concepts and components. But before we dive into the details, let's set up your workstation and familiarize ourselves with the HashiCorp Configuration Language (HCL) used in Terraform.
+
+### Workstation setup
+
+If you haven't already, install the Terraform CLI on your machine. You can find the installation instructions on the [Terraform website](https://developer.hashicorp.com/terraform/install). The Terraform CLI is the command-line interface that allows you to interact with Terraform and can be installed on all major operating systems, including Windows, macOS, and Linux.
+
+### HashiCorp Configuration Language (HCL)
+
+Once you have the Terraform CLI installed, you can start writing your first Terraform configuration. Terraform uses a domain-specific language called [HashiCorp Configuration Language (HCL)](https://developer.hashicorp.com/terraform/language/syntax/configuration) to define infrastructure resources. HCL is designed to be human-readable and easy to understand.
+
+If you wanted to create a simple Azure resource group, your Terraform configuration might look like this:
+
+```hcl
+azurerm_resource_group "example" {
+  name     = "example-resource-group"
+  location = "East US"
+}
+```
+
+Each resource in Terraform is defined using a block, which starts with the resource type (in this case, `azurerm_resource_group`) followed by a name (in this case, `example`). This name is used to reference the resource within your Terraform configuration and should not be confused with the actual resource name in Azure.
+
+Inside the block, you specify the properties of the resource, such as `name` and `location`. The name property here is the name of the resource group in Azure. Azure Resource Groups are extremely simple so this resource block does not require many properties, but other resources like AKS have many more properties that can be configured.
+
+### Basic commands
+
+Now that you have a basic understanding of HCL, let's go over some of the basic Terraform commands you'll use frequently:
+
+- `terraform init`: Initializes a new or existing Terraform configuration. This command downloads the necessary provider plugins and prepares your working directory for use.
+- `terraform fmt`: Formats your Terraform configuration files to ensure they are properly indented and follow best practices. This is useful for maintaining readability and consistency in your code.
+- `terraform validate`: Validates your Terraform configuration files to ensure they are syntactically correct and can be applied without errors.
+- `terraform plan`: Creates an execution plan, showing you what actions Terraform will take to achieve the desired state defined in your configuration. This is a dry-run command that does not make any changes to your infrastructure.
+- `terraform apply`: Applies the changes required to reach the desired state of the configuration. This command will create, update, or delete resources as necessary and requires you to confirm the changes before proceeding.
+- `terraform destroy`: Destroys the resources defined in your configuration. This command will remove all resources created by Terraform.
+
+There are other commands available, but these are the most commonly used ones. You can always run `terraform -help` to see a list of all available commands and their descriptions.
+
+## Setup for Azure
+
+To work with Terraform on Azure, you need to set up a few things to ensure that Terraform can authenticate with Azure and manage your resources effectively.
+
+You also need to decide how you want to manage your Terraform state. The state is a crucial part of Terraform's operation, as it keeps track of the resources it manages and their current state. For Azure, it's common to use Azure Storage for remote state management.
+
+### Authentication with Azure CLI
+
+Terraform needs to authenticate with Azure to create and manage resources. The recommended way to do this is by using the Azure CLI. It can use your existing Azure CLI login session or you can create a service principal for Terraform to use. When testing locally, it is often easiest to use the Azure CLI login. However, for production scenarios, and being able to run Terraform in a CI/CD pipeline, you will want to create a service principal.
+
+Since you are already logged in to the Azure CLI, you can run the following command to set up Terraform authentication:
+
+```bash
+export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+```
+
+This environment variable will be used by Terraform to determine which Azure subscription to use when creating resources.
+
+### Directory structure
+
+When working with Terraform, the directory structure of your Terraform configuration files is important to consider but not strictly enforced. The only requirement is that your Terraform configuration files must have the `.tf` extension. You could have a single file named `main.tf` and put all your resources in that file, but it's often better to organize your files into a directory structure that makes sense for your project.
+
+### Provider setup
+
+Terraform uses providers to interact with different cloud platforms and services. Providers are responsible for understanding the APIs of the services they manage and translating your Terraform configuration into API calls. There are many providers available so refer to the [Terraform Registry](https://registry.terraform.io/browse/providers) to find the one you need.
+
+In Azure, the `azurerm` provider, which is the official Terraform provider for Azure resources is the most commonly used. One common complaint about the `azurerm` provider is that it can be slow to update with new Azure features and resources. This is because most often the Hashicorp team has to wait for the Azure API to be stable before they can implement it in the provider. This can lead to situations where preview features in Azure are not yet available in the `azurerm` provider, or where new resources are not yet supported.
+
+As as alternative, the Microsoft Azure team maintains the `azapi` provider, which is aligned with the Azure Resource Manager API and provides access to all Azure resources and features as soon as they are available in the Azure API. So you may find yourself using both the `azurerm` and the `azapi` provider for certain situations. This is perfectly acceptable and you can use both providers in the same Terraform configuration.
+
+Let's take a look at how to set up the `azurerm` provider in your Terraform configuration. Create a new directory in your workspace, and create a file named `main.tf` inside that directory. In this file, you will define the provider configuration for Azure. Add the following code to your `main.tf` file.
+
+```hcl
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "=4.36.0"
+    }
+  }
+}
+```
+
+This code block specifies that you want to use the `azurerm` provider from HashiCorp and sets the version to `4.35.0`. You can change the version to the latest stable version available in the [Terraform Registry](https://registry.terraform.io/providers/hashicorp/azurerm/latest). You don't necessarily need to specify the version, but it's a good practice to do so to ensure that your configuration is compatible with the provider version you are using.
+
+Next add the following code beneath the `terraform` block to configure the provider:
+
+```hcl
+provider "azurerm" {
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+  }
+}
+```
+
+This block configures the `azurerm` provider and sets some features. The `features` block is required for the `azurerm` provider and can be used to configure various provider-specific settings. In this case, we are setting the `prevent_deletion_if_contains_resources` property to `false`, which allows you to delete a resource group even if it contains resources. This is useful for testing and development, but in production, you may want to set this to `true` to prevent accidental deletions.
+
+For more information on all the available features and settings, refer to [The Features Block](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/features-block) documentation.
+
+### Creating resources
+
+Below the provider block, you can add any resources you want to create. Let's start with a simple resource group we looked at earlier. Add the following code to your `main.tf` file:
+
+```hcl
+resource "azurerm_resource_group" "example" {
+  name     = "example-resource-group"
+  location = "East US"
+}
+```
+
+Notice the name and location properties are hard-coded in this example. This is not ideal for production scenarios, as you may want to use variables to make your configuration more flexible and reusable. Let's update the resource group to use variables instead. Create a new file named `variables.tf` in the same directory and add the following code:
+
+```hcl
+variable "resource_group_name" {
+  description = "The name of the resource group"
+  type        = string
+  default     = "example-resource-group"
+}
+
+variable "location" {
+  description = "The Azure region where the resource group will be created"
+  type        = string
+  default     = "East US"
+}
+```
+
+Replace the hard-coded values in the `azurerm_resource_group` resource block with the variables you just created. Your `main.tf` file should now look like this:
+
+```hcl
+resource "azurerm_resource_group" "example" {
+  name     = var.resource_group_name
+  location = var.location
+}
+```
+
+You would also want to add output blocks to display properties of resources you create. Create a new file named `outputs.tf` in the same directory and add the following code:
+
+```hcl
+output "rg_name" {
+  description = "The name of the resource group"
+  value       = azurerm_resource_group.example.name
+}
+```
+
+This output block will display the name of the resource group after it has been created. You can add more output blocks for other resources you create in the future.
+
+At this point you have a basic Terraform configuration that defines the `azurerm` provider and a resource group. You can now run the following commands to initialize your Terraform configuration, format your code, validate it, and create the resource group:
+
+```bash
+terraform init
+terraform fmt
+terraform validate
+terraform plan
+terraform apply
+```
+
+You will be prompted to confirm the changes before Terraform applies them. Type `yes` to proceed, and Terraform will create the resource group in Azure. After a few moments, you should see the output indicating that the resource group has been created successfully. You can verify that the resource group was created by checking the Azure portal or by running the following command in the Azure CLI:
+
+```bash
+az group show --name example-resource-group
+```
+
+To add additional resources, you can simply add more `resource` blocks to your `main.tf` file. To explore all the available resources and their properties for the `azurerm` provider, refer to the [AzureRM Provider Documentation](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs).
+
+### State management with Azure Storage
+
+As mentioned above, Terraform uses state files to keep track of the resources it manages. These state files are stored locally by default, but it's a best practice to store them remotely, especially when working in teams or in production environments.
+
+Let's take a look at where the Terraform state file is currently stored. Run the following command in your terminal:
+
+```bash
+ls -lah
+```
+
+You should see a file named `terraform.tfstate` in your current directory. This file contains the current state of your Terraform-managed resources.
+
+If you run the following command, you can see the contents of the state file:
+
+```bash
+cat terraform.tfstate
+```
+
+You will see a JSON file that contains information about the resources you have created, including their IDs, properties. Notice that the state file may contain sensitive information, such as access keys or passwords, so you should treat this file with care and avoid committing it to version control. Also since the state file is the source of truth for your Terraform-managed resources, you should avoid keeping it in your local directory. This is especially important when working in teams, as multiple people may be making changes to the same resources.
+
+In Azure, it is common to use Azure Storage to store Terraform state files but you could also use other remote storage solutions like Terraform Cloud.
+
+To store the Terraform state in Azure Storage, you need to create a storage account and a container to hold the state files. You can do this using the Azure CLI or the Azure portal. For this workshop, we will use the Azure CLI.
+
+First, create a resource group to hold the storage account:
+
+```bash
+az group create \
+--name rg-tfstate \
+--location eastus
+```
+
+Set the name of your storage account. The name must be globally unique across Azure, so you may need to change it to something unique for your subscription:
+
+```bash
+export STORAGE_ACCOUNT_NAME=terraformstate$(date +%s)
+```
+
+Next, create a storage account within that resource group:
+
+```bash
+az storage account create \
+--name ${STORAGE_ACCOUNT_NAME} \
+--resource-group rg-tfstate \
+--sku Standard_LRS
+```
+
+Now, create a container within the storage account to hold the Terraform state files:
+
+```bash
+az storage container create \
+--name terraform-state \
+--account-name ${STORAGE_ACCOUNT_NAME}
+```
+
+Now that you have created the storage account and container, you can configure Terraform to use this remote storage for state management. Update your **terraform** block and add in your `main.tf` file and add the following code under **required_providers**:
+
+```hcl
+backend "azurerm" {
+  resource_group_name  = "rg-tfstate"
+  storage_account_name = "SET_YOUR_STORAGE_ACCOUNT_NAME_HERE"
+  container_name       = "terraform-state"
+  key                  = "terraform.tfstate"
+}
+```
+
+This block configures Terraform to use the Azure Storage backend for state management. The `resource_group_name`, `storage_account_name`, and `container_name` properties specify the Azure resources you created earlier, and the `key` property specifies the name of the state file in the container.
+
+After adding the backend configuration, run the following commands to clean up formatting, validate, and initialize the backend:
+
+```bash
+terraform fmt
+terraform validate
+terraform init
+```
+
+This command will prompt you to migrate your existing state file to the remote backend. Type `yes` to proceed, and Terraform will move the state file to the Azure Storage container you specified.
+
+After the migration is complete, you can verify that the state file is now stored in Azure Storage by running the following command:
+
+```bash
+az storage blob list \
+--container-name terraform-state \
+--account-name ${STORAGE_ACCOUNT_NAME} \
+--output table
+```
+
+You should see the `terraform.tfstate` file listed in the output. This means that your Terraform state is now being managed remotely in Azure Storage.
+
+## Azure Verified Modules (AVM)
+
+Azure Verified Modules (AVM) are a collection of pre-built Terraform modules that are designed to help you quickly and easily deploy Azure resources. These modules are maintained by Microsoft and are designed to follow best practices for deploying Azure resources.
+
+To get started with Azure Verified Modules, you need to add the `azurerm` provider to your Terraform configuration, as we did earlier. Then, you can use the modules provided by Microsoft to deploy resources.
+
+AVM is available for both Azure Bicep and Terraform, and you can find the Terraform modules in the [Azure Verified Modules repository](https://azure.github.io/Azure-Verified-Modules/).
+
+As soon as you land on the AVM repository website, you will see a list under the **Module Indexes** section. It is divided into two sections: **Bicep** and **Terraform** and under each you will see additional sections that divide the modules into types like **Resource Modules**, **Pattern Modules**, and **Utility Modules**.
+
+Here is a brief overview of the different types of modules:
+
+- **Resource Modules**: These modules are designed to create a single resource or a group of related resources. They are typically used to create resources like virtual machines, storage accounts, or databases.
+- **Pattern Modules**: These modules are designed to implement a specific pattern or architecture in Azure. They are typically used to create more complex architectures and reference one or many resource modules.
+- **Utility Modules**: These modules are designed to provide utility or helper functions that can be used across multiple modules.
+
+:::note
+
+See the [Module Classifications](https://azure.github.io/Azure-Verified-Modules/specs/shared/module-classifications/) documentation for more information on the different types of modules and their intended use cases.
+
+:::
+
+## Deploy an AKS cluster
+
+Let's deploy an AKS cluster using AVM. For this workshop, we want to deploy a simple AKS cluster with an Azure Container Registry (ACR) for dev/test purposes. Typically you'd need to create these resources separately, but the [avm-ptn-aks-dev](https://registry.terraform.io/modules/Azure/avm-ptn-aks-dev/azurerm/latest) pattern module will create both resources for you and configure them to work together.
+
+If you navigate to the module page, you should end up in the Terraform Registry website. Here you will find the module documentation, including the inputs and outputs, as well as examples of how to use the module (under the **Provision Instructions** heading). The module documentation is very important, as it will tell you what inputs are required and what outputs you can expect from the module.
+
+We will build on our existing `main.tf` file, so add a new line after the `azurerm_resource_group` resource block and add the following code:
+
+```hcl
+module "avm-ptn-aks-dev" {
+  source  = "Azure/avm-ptn-aks-dev/azurerm"
+  version = "0.2.0"
+  # insert the 3 required variables here
+}
+```
+
+The example code calls for you to insert the three required variables. If you click on the **Inputs** tab, you will see the required variables listed. The three required variables are `resource_group_name`, `location`, and `aks_name`. You can also see the optional variables that you can use to customize the AKS cluster.
+
+Update the module block to include the required variables, like this:
+
+```hcl
+module "avm-ptn-aks-dev" {
+  source  = "Azure/avm-ptn-aks-dev/azurerm"
+  version = "0.2.0"
+  resource_group_name = azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  name                = "demo"
+}
+```
+
+Let's also add an output block to display the AKS cluster name and the ACR login server. Add the following code to your `outputs.tf` file:
+
+````hcl
+output "aks_name" {
+  description = "The name of the AKS cluster"
+  value       = module.avm-ptn-aks-dev.resource.name
+}
+```
+
+Save the file and run the following command to initialize the module:
+
+```bash
+terraform init
+````
+
+Since you added a new module to your configuration, Terraform will need to download the module and its dependencies. The `terraform init` command will take care of this for you.
+
+You should see output indicating that the module has been successfully initialized.
+
+That should be enough to get started with the module. You can now run the following commands to format, validate, and create the AKS cluster:
+
+```bash
+terraform fmt
+terraform validate
+terraform apply
+```
+
+Within a few minutes, Terraform will create the AKS cluster and the ACR in Azure. You can verify that the resources were created by checking the Azure portal or by running the following command in the Azure CLI:
+
+```bash
+az resource list \
+--resource-group example-resource-group \
+--output table
+```
+
+Now, let's connect to the AKS cluster using the Azure CLI. You can do this by running the following command to pass Terraform outputs to the Azure CLI command:
+
+```bash
+az aks get-credentials \
+--resource-group $(terraform output -raw rg_name) \
+--name $(terraform output -raw aks_name)
+```
+
+This command will configure your local `kubectl` to use the AKS cluster you just created. You can verify that you are connected to the cluster by running the following command:
+
+```bash
+kubectl get nodes
+```
+
+You should see a list of nodes in the AKS cluster, indicating that you are successfully connected to the cluster.
+
+## Tips, tricks, and best practices
+
+The content above is a good starting point for working with Terraform on Azure, but there are many more advanced topics and best practices to consider as you become more familiar with Terraform. Over time, you will learn more about what works best for you and your team, but here are some of my tips and tricks that might be helpful:
+
+- If you are working in a team, consider using a version control system like Git to manage your Terraform configuration files.
+- Use modules to organize your Terraform configuration files and reuse code -- keeping your code nice and DRY (Don't Repeat Yourself).
+- Use counters or for loops to create multiple resources of the same type.
+- Want to conditionally create resources? Use the `count` or `for_each` meta-arguments to conditionally create resources based on variables values.
+- Inherited an existing resources and want to use Terraform to manage it? If you can, delete the resource and recreate it using Terraform. If you can't delete the resource, you can import it into Terraform state using the following steps:
+  - Use the `terraform import` command to import existing resources into your Terraform state.
+  - After importing, create a resource block in your configuration file that matches the imported resource's properties.
+  - Run `terraform plan` to see the changes that will be made to the resource.
+  - Modify the resource block as needed to match the deployed state.
+  - Repeat the process until the Terraform configuration matches the deployed state and there are no changes to be made.
+- You can deploy applications to your AKS cluster using the [Kubernetes provider](https://registry.terraform.io/providers/hashicorp/kubernetes/latest) or the [Helm provider](https://registry.terraform.io/providers/hashicorp/helm/latest). These providers allow you to manage Kubernetes resources and Helm charts using Terraform.
+  - Check out the [KAITO project](https://github.com/kaito-project/kaito/tree/main/terraform) for an example of how to various providers to deploy applications to AKS.
+
+### Read the docs
+
+[Terraform Registry docs](https://registry.terraform.io/) are a gold mine of information. You can find documentation for all the available providers, modules, and resources. The documentation is well-organized and easy to navigate, so you can quickly find the information you need including examples of how to use the resources and modules. If you know the resource type you want to use, you can search for it in the registry and find the documentation for that resource.
+
+### Agents and MCP
+
+Navigating docs isn't always easy, especially if you don't know what you are looking for. There is where Visual Studio Code and GitHub Copilot can help. You can use the [Copilot Chat](https://docs.github.com/copilot/how-tos/chat) in [Agent mode](https://docs.github.com/copilot/how-tos/agents) and [use MCP servers in VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers). HashiCorp has a [Terraform MCP server](https://developer.hashicorp.com/terraform/docs/tools/mcp-server) that you can use to get help with Terraform. This server can help you find documentation resources, examples, and even generate code snippets for you.
+
+Be sure to check out the [Terraform MCP server documentation](https://developer.hashicorp.com/terraform/docs/tools/mcp-server) for more information on how to set it up and use it.
+
+Once the MCP server is set up, you can use the Copilot Chat in Agent mode to ask questions about Terraform and get help with your configuration. For example, let's say you want to move away from the module code and write your own, you can ask:
+
+```text
+I'd like to replace the module code in my main.tf file with the equivalent azurerm resources but I need help deploying an AKS cluster and Azure Container Registry then linking the two using the azurerm provider.
+```
+
+### AzAPI provider
+
+Lastly, one common challenge with using Terraform for Azure is that the `azurerm` provider can be slow to update with new Azure features and resources. If you encounter a situation where a resource or feature you need is not yet available in the `azurerm` provider, you can use the [AzAPI provider](https://registry.terraform.io/providers/Azure/azapi/latest/docs) which is aligned with the Azure Resource Manager API and provides access to all Azure resources and features as soon as they are available.
+
+To view the available resources in the AzAPI provider, you can visit the [Azure Resource Manager template reference documentation](https://learn.microsoft.com/azure/templates/) and search for the resource type you are interested in. This documentation provides a comprehensive list of all the available resources and their properties, which you can use to create your Terraform configuration.
+
+For example, if you wanted to create an AKS cluster using the AzAPI provider, navigate to the [Microsoft.ContainerService.managedClusters](https://learn.microsoft.com/azure/templates/microsoft.containerservice/managedclusters?pivots=deployment-language-terraform) and make sure the **Terraform** tab is selected. You will see the Terraform resource block for the AKS cluster, which provides an example of how to use the AzAPI provider.
+
+## Summary
+
+In this workshop, you gained hands-on experience with Terraform as an Infrastructure as Code (IaC) solution for Azure. You learned the fundamental difference between imperative and declarative approaches to infrastructure management, with Terraform using the latter to define desired states rather than step-by-step commands.
+
+Key accomplishments include:
+
+- **Environment Setup**: Configured Terraform CLI and established Azure authentication using environment variables
+- **Infrastructure Definition**: Created reusable Terraform configurations using HCL with proper variable and output management
+- **Remote State Management**: Implemented Azure Storage backend for secure, collaborative state file management
+- **Resource Deployment**: Successfully deployed Azure resources using both basic `azurerm` provider resources and Azure Verified Modules (AVM)
+- **AKS Cluster Creation**: Leveraged the `avm-ptn-aks-dev` pattern module to deploy a complete AKS cluster with integrated Azure Container Registry
+
+You also discovered advanced capabilities like the Terraform MCP server for enhanced developer experience and the `azapi` provider for accessing the latest Azure features when the standard `azurerm` provider hasn't yet been updated.
+
+The workshop emphasized best practices including code organization, version control integration, module reusability, and the importance of understanding provider documentation. These foundational skills prepare you to manage complex Azure environments using Infrastructure as Code principles.
+
+## Additional Resources
+
+For further learning and exploration, consider the following resources:
+
+- [Terraform Tutorials - Get Started - Azure](https://developer.hashicorp.com/terraform/tutorials/azure-get-started)
+- [Overview of Terraform on Azure](https://learn.microsoft.com/en-us/azure/developer/terraform/overview)
+- [Overview of the Terraform AzAPI provider](https://learn.microsoft.com/en-us/azure/developer/terraform/overview-azapi-provider)
+- [Authenticate Terraform to Azure](https://learn.microsoft.com/en-us/azure/developer/terraform/authenticate-to-azure?tabs=bash)
+- [Store Terraform state in Azure Storage](https://learn.microsoft.com/en-us/azure/developer/terraform/store-state-in-azure-storage?tabs=azure-cli)
+- [Kubernetes provider](https://registry.terraform.io/providers/hashicorp/kubernetes/latest)
+- [Helm provider](https://registry.terraform.io/providers/hashicorp/helm/latest)

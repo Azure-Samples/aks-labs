@@ -1,0 +1,51 @@
+### Setup Resource Group
+
+In this workshop, we will set environment variables for the resource group name and location.
+
+:::danger Important
+
+The following commands will set the environment variables for your current terminal session. If you close the current terminal session, you will need to set the environment variables again.
+
+:::
+
+To keep the resource names unique, we will use a random number as a suffix for the resource names. This will also help you to avoid naming conflicts with other resources in your Azure subscription.
+
+Run the following command to generate a random number.
+
+```bash
+RAND=$RANDOM
+export RAND
+echo "Random resource identifier will be: ${RAND}"
+```
+
+Set the location to a region of your choice. For example, `eastus` or `westeurope` but you should make sure this region supports [availability zones](https://learn.microsoft.com/azure/aks/availability-zones-overview).
+
+```bash
+export LOCATION=eastus
+```
+
+Create a resource group name using the random number.
+
+```bash
+export RG_NAME=myresourcegroup$RAND
+```
+
+:::tip
+
+You can list the regions that support availability zones with the following command:
+
+```bash
+az account list-locations \
+--query "[?metadata.regionType=='Physical' && metadata.supportsAvailabilityZones==true].{Region:name}" \
+--output table
+```
+
+:::
+
+Run the following command to create a resource group using the environment variables you just created.
+
+```bash
+az group create \
+--name ${RG_NAME} \
+--location ${LOCATION}
+```
