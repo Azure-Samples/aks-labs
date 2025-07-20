@@ -646,7 +646,7 @@ A **Gateway** only defines how traffic enters the cluster. We also need a **Virt
 Apply the VirtualService inline to route traffic to `store-front`:
 
 ```bash
-cat <<EOF>> pets-route.yaml 
+cat <<EOF> pets-route.yaml 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
