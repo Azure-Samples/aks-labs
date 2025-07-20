@@ -629,7 +629,7 @@ Expected output:
 
 ```bash
 Name:                     aks-istio-ingressgateway-external
-Namespace:                aks-istio-ingress]
+Namespace:                aks-istio-ingress
 Labels:                   app=aks-istio-ingressgateway-external
 
 [...]
