@@ -216,7 +216,7 @@ statefulset.apps/mongodb    1/1     78s
 statefulset.apps/rabbitmq   1/1     77s
 ```
 
-No that at this point, the application is running **without Istio sidecars**.
+Note that at this point, the application is running **without Istio sidecars**.
 
 ## Enable Sidecar Injection
 
