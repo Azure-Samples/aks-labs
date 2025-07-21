@@ -92,8 +92,9 @@ Now that we have saved the environment variables, you can always reload these va
 az group create \
   --name ${RG_NAME} \
   --location ${LOCATION}
+``` 
 
-1. Create a new AKS cluster with the Istio add-on
+2. Create a new AKS cluster with the Istio add-on
 
 ```bash
 az aks create \
@@ -105,7 +106,7 @@ az aks create \
   --generate-ssh-keys
 ```
 
-2. Get the credentials to access the cluster:
+3. Get the credentials to access the cluster:
 
 ```bash
 az aks get-credentials \
@@ -114,7 +115,7 @@ az aks get-credentials \
   --file aks-labs.config
 ```
 
-3. Use the retrieved aks-labs.config file as your KUBECONFIG and add it to your environment
+4. Use the retrieved aks-labs.config file as your KUBECONFIG and add it to your environment
 
 ```bash
 echo export KUBECONFIG=$PWD/aks-labs.config >> .envrc
@@ -125,14 +126,14 @@ source .envrc
 In this example, the `source` command in `bash` opens the `.envrc` file and adds the environment variables from that file to your current terminal, so you can use them right away.
 :::
 
-4. Check that the credential is working:
+5. Check that the credential is working:
 
 ```bash
 kubectl cluster-info
 kubectl get nodes
 ```
 
-5. Check if Istio components are running:
+6. Check if Istio components are running:
 
 ```bash
 kubectl get pods -n aks-istio-system
