@@ -284,7 +284,7 @@ deployment.apps/virtual-customer restarted
 deployment.apps/virtual-worker restarted
 ```
 
-If we re-run the get pods command for the `pets` namespace, you will notice all of the pods now have a **READY** state of **2/2**, meaning the pods now include the sidecar proxy for Istio. The RabbitMQ for the AKS Store application is not a Kubernetes deployment, but is a Stateful Set. We will need to redeploy the RabbitMQ stateful set to get the sidecar proxy injection.
+If we re-run the get pods command for the `pets` namespace, you will notice all of the pods now have a **READY** state of **2/2**, meaning the pods now include the sidecar proxy for Istio. The RabbitMQ and MongoDB for the AKS Store application is not a Kubernetes deployment, but is a Stateful Set. We will need to redeploy the RabbitMQ stateful set to get the sidecar proxy injection.
 
 ```bash
 kubectl rollout restart statefulset -n pets
