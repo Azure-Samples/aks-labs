@@ -84,8 +84,14 @@ source .envrc
 Now that we have saved the environment variables, you can always reload these variables later if needed by running `source .envrc` on this directory.
 :::
 
+### Step 2: Create a new resource group
 
-### Step 2: Create a new AKS cluster
+1. Run the following command to create a resource group using the environment variables you just created.
+
+```bash
+az group create \
+  --name ${RG_NAME} \
+  --location ${LOCATION}
 
 1. Create a new AKS cluster with the Istio add-on
 
