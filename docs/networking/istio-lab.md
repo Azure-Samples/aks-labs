@@ -222,6 +222,15 @@ statefulset.apps/mongodb    1/1     78s
 statefulset.apps/rabbitmq   1/1     77s
 ```
 
+When deploying the AKS Store Demo application using the `aks-store-all-in-one.yaml` manifest, it actually deploys the `store-front` and `store-admin` services as `LoadBalancer`. Before proceeding, we need to change these two services from `LoadBalancer` to `ClusterIP`. After that's done, you can check whether the changes were applied successfully:
+
+```bash
+ kubectl get svc store-front store-admin -n pets
+NAME          TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+store-front   ClusterIP   10.0.146.103   <none>        80/TCP    28m
+store-admin   ClusterIP   10.0.61.151    <none>        80/TCP    28m
+```
+
 Note that at this point, the application is running **without Istio sidecars**.
 
 ## Enable Sidecar Injection
@@ -557,7 +566,7 @@ An **Ingress Gateway** is an Istio-managed entry point that:
 
 ### Enabling Istio Ingress Gateway
 
-With the usage of the AKS Istio add-on we can easily enable the `Istio Ingress Gateway` controller, removing the need for manual steps.
+With the usage of the AKS Istio add-on we can easily enable the `Istio Ingress Gateway` controller, removing the need for manual steps. 
 
 Run the following command to enable Istio Ingress Gateway on your cluster:
 
