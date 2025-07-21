@@ -28,11 +28,11 @@ The AKS Istio add-on simplifies Istio deployment and management, removing the ne
 
 In this workshop, you will learn how to use the Istio service mesh with Azure Kubernetes Service (AKS). 
 
-* Enable the Istio add-on in AKS
+* Enable the Istio add-on in AKS.
 
 * Deploy services into the mesh, and configure mutual TLS (mTLS) to secure service-to-service communication. 
 
-* Expose an application to the Internet using the Istio Ingress Gateway and use Kiali to observe traffic within the mesh.
+* Expose an application to the Internet using the Istio Ingress Gateway.
 
 :::info
 Please be aware that the Istio addon for AKS does not provide the full functionality of the Istio upstream project. You can view the current limitations for this AKS Istio addon [here](https://learn.microsoft.com/azure/aks/istio-about#limitations) and what is currently [Allowed, supported, and blocked MeshConfig values](https://learn.microsoft.com/azure/aks/istio-meshconfig#allowed-supported-and-blocked-meshconfig-values)
