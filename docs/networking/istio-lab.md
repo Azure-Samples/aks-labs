@@ -41,7 +41,7 @@ Please be aware that the Istio addon for AKS does not provide the full functiona
 ---
 
 ### Prerequisites
-Before starting this lab, make sure your environment is set up correctly. Follow the guide here:
+Before starting this lab, make sure your environment is set up correctly. Follow the guide [Setting Up Lab Environment](https://azure-samples.github.io/aks-labs/docs/getting-started/setting-up-lab-environment)  
 
 - [Azure Subscription](https://azure.microsoft.com/)
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/) version 2.60.0 or later with the [aks-preview](https://github.com/Azure/azure-cli-extensions/tree/main/src/aks-preview) [Azure CLI extension](https://learn.microsoft.com/cli/azure/azure-cli-extensions-overview?view=azure-cli-latest) installed
