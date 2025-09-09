@@ -288,7 +288,11 @@ spec:
 EOF
 ```
 
-We can now expose the application as HTTPRoute. Note that :
+We can now expose the application as HTTPRoute. First, get the address assign to the Gateway resource:
+
+```bash
+export YOUR_GATEWAY_ADDRESS=$(kubectl -n test-infra get gateway gateway-01 -o jsonpath='{.status.addresses[0].value}')
+```
 
 ```yaml
 kubectl apply -f - <<EOF
@@ -301,7 +305,7 @@ spec:
   parentRefs:
   - name: gateway-01
   hostnames:
-  - <YOUR_GATEWAY_ADDRESS>
+  - $YOUR_GATEWAY_ADDRESS
   rules:
   - matches:
     - path:
@@ -316,7 +320,7 @@ EOF
 You can test the access to the application:
 
 ```bash
-curl http://<YOUR_GATEWAY_ADDRESS>
+curl http://$YOUR_GATEWAY_ADDRESS
 ```
 
 ## Expose an application over HTTPS
@@ -446,7 +450,6 @@ spec:
     kind: HTTPRoute
     name: https-example
     namespace: test-infra
-    sectionNames: ["pathA"]
   webApplicationFirewall: $WAF_POLICY_ID
 EOF
 ```
