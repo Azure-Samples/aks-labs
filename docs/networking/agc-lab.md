@@ -78,10 +78,9 @@ az extension add --name alb
 
 If you don't have Helm installed in your client machine, do so with the following command:
 
-```
+```bash
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 ```
-
 
 ## Expose an application over HTTP
 
@@ -143,7 +142,7 @@ kubectl get pods -n azure-alb-system
 
 Verify GatewayClass `azure-alb-external` is installed on your cluster. You should see that the GatewayClass has a condition that reads `Valid` GatewayClass:
 
-```
+```bash
 kubectl get gatewayclass azure-alb-external -o yaml
 ```
 
@@ -456,6 +455,10 @@ EOF
 
 Canary deployments are a release strategy where a new version of software is gradually rolled out to a small subset of users before a full rollout. This approach minimizes risk by allowing teams to monitor performance and catch issues early. Application Gateway for Containers enables you to perform canary deployments thanks to its [traffic splitting feature](https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/how-to-traffic-splitting-gateway-api?tabs=alb-managed). Traffic splitting is a technique which routes a portion of user traffic to the new version while the rest continues to use the stable one. This split can be adjusted dynamically; for example, starting with 5% of traffic and increasing as confidence grows. 
 
+```bash
+export USER_NODEPOOL_NAME=<YOUR_USER_NODEPOOL_NAME> # Input the name of the User nodepool you created during the lab environment setup
+```
+
 Let's first create two deployments with two services. While both will display the same information, one will display a red skuba mask, and the other one a blue one:
 
 ```yaml
@@ -477,7 +480,7 @@ spec:
         target: ngcolor-blue
     spec:
       nodeSelector:
-        agentpool: usrpool1
+        agentpool: $USER_NODEPOOL_NAME
       containers:
       - name: nginxcolordemo
         image: scubakiz/nginxcolordemo:blue-1.0
@@ -553,7 +556,7 @@ spec:
         target: ngcolor-red
     spec:
       nodeSelector:
-        agentpool: usrpool1
+        agentpool: $USER_NODEPOOL_NAME
       containers:
       - name: nginxcolordemo
         image: scubakiz/nginxcolordemo:red-1.0
@@ -612,7 +615,7 @@ spec:
     target: ngcolor-red
   type: ClusterIP
 EOF
-```    
+```
 
 You can now expose the application, and assign weights to each service. In the example below, 50% of requests will be sent to `ngcolor-blue` service, and the other 50% to `ngcolor-red`.
 
