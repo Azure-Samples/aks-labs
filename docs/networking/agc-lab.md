@@ -32,9 +32,10 @@ In this workshop, you will learn how to use Application Gateway for Containers w
 
 * Expose an application to the Internet over HTTPS.
 
+* Create a canary deployment by leveraging traffic splitting.
+
 * Apply Web Application Firewall Policies to your HTTPRoutes.
 
-* Create a canary deployment by leveraging traffic splitting.
 
 ---
 
@@ -48,7 +49,6 @@ Before starting this lab, make sure your environment is set up correctly. Follow
 
 
 ## Setup your environment
-
 
 ### Step 1: AKS Cluster Deployment
 
@@ -96,6 +96,10 @@ The ALB Controller is a Kubernetes deployment that orchestrates configuration an
 - IngressExtension
 - RoutePolicy
 - WebApplicationFirewallPolicy
+
+View the architecture of Application Gateway with Containers in the image below:
+
+![Application Gateway for Containers architecture](https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/media/overview/application-gateway-for-containers-kubernetes-conceptual.png)
 
 #### Identity configuration
 
@@ -361,13 +365,17 @@ You can test the access to the application:
 curl http://$MY_FRONTEND_ADDRESS
 ```
 
+Or open your browser and navigate to http://$MY_FRONTEND_ADDRESS:
+
+![Blue Service](./assets/agc-canary-blue-service.png)
+
 ## Expose an application over HTTPS
 
 In the previous section you learnt how to expose your Kubernetes workloads through HTTP with Application Gateway for Containers. While the previous method allows you to access your applications, you are doing so in an insecure way. In order to secure your application traffic, it is necessary to expose it through HTTPS (which requires the use of SSL/TLS certificates).
 
 ### Install and configure Cert-Manager
 
-[Cert-Manager](https://cert-manager.io/) is a powerful and extensible X.509 certificate controller for Kubernetes workloads, which obtains certificates from a variety of Issuers, both public or private, and ensure the certificates are valid and up-to-date. It will also attempt to renew certificates at a configured time before expiry. For the purposes of this lab, we have cert-manager configure certificates issued from Let's Encrypt to demonstrate an end-to-end deployment, where Application Gateway for Containers is providing TLS offloading.
+[Cert-Manager](https://cert-manager.io/) is a powerful and extensible X.509 certificate controller for Kubernetes workloads, which obtains certificates from a variety of Issuers, both public or private, and ensure the certificates are valid and up-to-date. It will also attempt to renew certificates at a configured time before expiry. For the purposes of this lab, we have cert-manager configure certificates issued from Let's Encrypt to demonstrate an end-to-end deployment, where Application Gateway for Containers is providing TLS offloading. View architecture below:
 
 ![Application Gateway for Containers and cert-manager architecture](https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/media/how-to-cert-manager-lets-encrypt-gateway-api/how-to-cert-manager-lets-encrypt-gateway-api.svg#lightbox)
 
@@ -564,11 +572,13 @@ EOF
 
 Open your browser and navigate to https://$MY_FRONTEND_ADDRESS:
 
+![Blue Service](./assets/agc-canary-blue-service.png)
+
+50% of the times you will be redirected to the `ngcolor-red` service instead:
+
 ![Red Service](./assets/agc-canary-red-service.png)
 
-50% of the times you will be redirected to the blue service instead:
-
-![Blue Service](./assets/agc-canary-blue-service.png)
+You can play around with the weights to see how many more requests get sent to one service vs. the other one.
 
 ## Protect your application with a Web Application Firewall Policy
 
@@ -617,7 +627,7 @@ az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principa
 
 ### Assign the policy
 
-You can assign the WAF Policy to the Gateway, so that all HTTPRoutes using that Gateway will be protected by the policy.
+You can assign the WAF Policy to the Gateway, so that all HTTPRoutes exposed through that Gateway will be protected by the policy.
 
 ```yaml
 kubectl apply -f - <<EOF
