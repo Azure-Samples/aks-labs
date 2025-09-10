@@ -109,13 +109,13 @@ MC_RG_ID=$(az group show --name ${MC_RG_NAME} --query id -o tsv)
 
 echo "Creating identity $IDENTITY_RESOURCE_NAME in resource group $RG_NAME"
 az identity create --resource-group $RG_NAME --name $IDENTITY_RESOURCE_NAME
-principalId="$(az identity show -g $RG_NAME -n $IDENTITY_RESOURCE_NAME --query principalId -otsv)"
+PRINCIPAL_ID=$(az identity show -g $RG_NAME -n $IDENTITY_RESOURCE_NAME --query principalId -otsv)
 
 echo "Waiting 60 seconds to allow for replication of the identity..."
 sleep 60
 
 echo "Apply Reader role to the AKS managed cluster resource group for the newly provisioned identity"
-az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --scope $MC_RG_ID --role "acdd72a7-3385-48ef-bd42-f606fba81ae7" # Reader role
+az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $MC_RG_ID --role "acdd72a7-3385-48ef-bd42-f606fba81ae7" # Reader role
 
 echo "Set up federation with AKS OIDC issuer"
 AKS_OIDC_ISSUER="$(az aks show -n $AKS_NAME -g $RG_NAME --query "oidcIssuerProfile.issuerUrl" -o tsv)"
@@ -173,13 +173,11 @@ ALB_SUBNET_ID=$(az network vnet subnet show --name $ALB_SUBNET_NAME --resource-g
 #### Delegate permissions to managed identity
 
 ```bash
-principalId=$(az identity show -g $RG_NAME -n $IDENTITY_RESOURCE_NAME --query principalId -otsv)
-
 # Delegate AppGw for Containers Configuration Manager role to AKS Managed Cluster RG
-az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --scope $MC_RG_ID --role "fbc52c3f-28ad-4303-a892-8a056630b8f1"
+az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $MC_RG_ID --role "fbc52c3f-28ad-4303-a892-8a056630b8f1"
 
 # Delegate Network Contributor permission for join to association subnet
-az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --scope $ALB_SUBNET_ID --role "4d97b98b-1d4f-4787-a291-c67834d212e7"
+az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $ALB_SUBNET_ID --role "4d97b98b-1d4f-4787-a291-c67834d212e7"
 ```
 
 
@@ -253,42 +251,85 @@ kubectl apply -f - <<EOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app
+  name: ngcolor-blue
   namespace: test-infra
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: my-app
+       target: ngcolor-blue
   template:
     metadata:
+      name: ngcolor-blue
       labels:
-        app: my-app
+        target: ngcolor-blue
     spec:
+      nodeSelector:
+        kubernetes.azure.com/mode: user
       containers:
-      - name: my-app
-        image: nginx 
+      - name: nginxcolordemo
+        image: scubakiz/nginxcolordemo:blue-1.0
         ports:
         - containerPort: 80
----
+          protocol: TCP
+        env:
+        - name: NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName 
+        - name: POD_CPU_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: nginxcolordemo
+              resource: requests.cpu
+        - name: POD_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: nginxcolordemo
+              resource: limits.cpu
+        - name: POD_MEM_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: nginxcolordemo
+              resource: requests.memory
+        - name: POD_MEM_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: nginxcolordemo
+              resource: limits.memory 
+        imagePullPolicy: Always
+---          
 apiVersion: v1
 kind: Service
 metadata:
-  name: my-app
+  name: ngcolor-blue
   namespace: test-infra
 spec:
-  selector:
-    app: my-app
   ports:
-  - port: 80
-    targetPort: 80
+    - port: 8080
+      targetPort: 80
+  selector:
+    target: ngcolor-blue
+  type: ClusterIP
 EOF
 ```
 
 We can now expose the application as HTTPRoute. First, get the address assign to the Gateway resource:
 
 ```bash
-export YOUR_GATEWAY_ADDRESS=$(kubectl -n test-infra get gateway gateway-01 -o jsonpath='{.status.addresses[0].value}')
+export MY_FRONTEND_ADDRESS=$(kubectl -n test-infra get gateway gateway-01 -o jsonpath='{.status.addresses[0].value}')
 ```
 
 ```yaml
@@ -296,28 +337,28 @@ kubectl apply -f - <<EOF
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: https-example
+  name: ngcolor-app
   namespace: test-infra
 spec:
   parentRefs:
   - name: gateway-01
   hostnames:
-  - $YOUR_GATEWAY_ADDRESS
+  - $MY_FRONTEND_ADDRESS
   rules:
   - matches:
     - path:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: my-app
-      port: 80
+    - name: ngcolor-blue
+      port: 8080
 EOF
 ```
 
 You can test the access to the application:
 
 ```bash
-curl http://$YOUR_GATEWAY_ADDRESS
+curl http://$MY_FRONTEND_ADDRESS
 ```
 
 ## Expose an application over HTTPS
@@ -344,7 +385,7 @@ helm install \
   --set crds.enabled=true
 ```
 
-Create a `ClusterIssuer` resource to define how cert-manager will communicate with Let's Encrypt. For this example, an HTTP challenge is used. During challenge, cert-manager creates an HTTPRoute resource and corresponding pod presenting a validation endpoint to prove ownership of the domain.
+Create a `ClusterIssuer` resource to define how cert-manager will communicate with Let's Encrypt. For this example, an HTTP challenge is used. During challenge, cert-manager creates an `HTTPRoute` resource and corresponding pod presenting a validation endpoint to prove ownership of the domain.
 
 ```yaml
 kubectl apply -f - <<EOF
@@ -404,141 +445,20 @@ spec:
 EOF
 ```
 
-
-## Protect your application with a Web Application Firewall Policy
-
-Azure Web Application Firewall on Azure Application Gateway for Containers provides comprehensive protection for your Kubernetes workloads against common web vulnerabilities and attacks. For example, it addresses SQL injection, cross-site scripting (XSS), and other Open Web Application Security Project (OWASP) top 10 threats.
-
-Let's start by creating a WAF Policy, and get the ID for future use:
+You should now be able to access your application via HTTPS, without modifying the HTTPRoute:
 
 ```bash
-export WAF_POLICY_NAME=waf-akslabs-agwc
-
-az network application-gateway waf-policy create \
-  --name ${WAF_POLICY_NAME} \
-  --resource-group ${MC_RG_NAME} \
-  --location $LOCATION \
-  --enabled true \
-  --firewall-mode Prevention
-
-export WAF_POLICY_ID=$(az network application-gateway waf-policy show -n ${WAF_POLICY_NAME} -g ${MC_RG_NAME} --query id)
-```
-
-### Assign permissions to the managed identity
-
-While the current permissions are sufficient for creating the WAF Policy, the ALB controller is unable to join the policy to the HTTP route. Add a Network Contributor role with a scope matching the WAF Policy you just created:
-
-```bash
-az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --scope $WAF_POLICY_ID --role "4d97b98b-1d4f-4787-a291-c67834d212e7" # Network Contributor
-```
-
-Assign the WAF Policy to the HTTPRoute:
-
-```yaml
-kubectl apply -f - <<EOF
-apiVersion: alb.networking.azure.io/v1
-kind: WebApplicationFirewallPolicy
-metadata:
-  name: sample-waf-policy
-  namespace: test-infra
-spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    name: https-example
-    namespace: test-infra
-  webApplicationFirewall: $WAF_POLICY_ID
-EOF
+curl https://$MY_FRONTEND_ADDRESS
 ```
 
 ## Implementing Canary deployments with Traffic Splitting
 
 Canary deployments are a release strategy where a new version of software is gradually rolled out to a small subset of users before a full rollout. This approach minimizes risk by allowing teams to monitor performance and catch issues early. Application Gateway for Containers enables you to perform canary deployments thanks to its [traffic splitting feature](https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/how-to-traffic-splitting-gateway-api?tabs=alb-managed). Traffic splitting is a technique which routes a portion of user traffic to the new version while the rest continues to use the stable one. This split can be adjusted dynamically; for example, starting with 5% of traffic and increasing as confidence grows. 
 
-```bash
-export USER_NODEPOOL_NAME=<YOUR_USER_NODEPOOL_NAME> # Input the name of the User nodepool you created during the lab environment setup
-```
-
-Let's first create two deployments with two services. While both will display the same information, one will display a red skuba mask, and the other one a blue one:
+In previous steps, you deployed an application with displayed a blue skuba mask, as well as some information about the pod. Let's now deploy a "newer" version, in which the skuba mask is painted in red:
 
 ```yaml
 kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ngcolor-blue
-  namespace: test-infra
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-       target: ngcolor-blue
-  template:
-    metadata:
-      name: ngcolor-blue
-      labels:
-        target: ngcolor-blue
-    spec:
-      nodeSelector:
-        agentpool: $USER_NODEPOOL_NAME
-      containers:
-      - name: nginxcolordemo
-        image: scubakiz/nginxcolordemo:blue-1.0
-        ports:
-        - containerPort: 80
-          protocol: TCP
-        env:
-        - name: NODE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: POD_SERVICE_ACCOUNT
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.serviceAccountName 
-        - name: POD_CPU_REQUEST
-          valueFrom:
-            resourceFieldRef:
-              containerName: nginxcolordemo
-              resource: requests.cpu
-        - name: POD_CPU_LIMIT
-          valueFrom:
-            resourceFieldRef:
-              containerName: nginxcolordemo
-              resource: limits.cpu
-        - name: POD_MEM_REQUEST
-          valueFrom:
-            resourceFieldRef:
-              containerName: nginxcolordemo
-              resource: requests.memory
-        - name: POD_MEM_LIMIT
-          valueFrom:
-            resourceFieldRef:
-              containerName: nginxcolordemo
-              resource: limits.memory 
-        imagePullPolicy: Always
----          
-apiVersion: v1
-kind: Service
-metadata:
-  name: ngcolor-blue
-  namespace: test-infra
-spec:
-  ports:
-    - port: 8080
-      targetPort: 80
-  selector:
-    target: ngcolor-blue
-  type: ClusterIP
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -556,7 +476,7 @@ spec:
         target: ngcolor-red
     spec:
       nodeSelector:
-        agentpool: $USER_NODEPOOL_NAME
+        kubernetes.azure.com/mode: user
       containers:
       - name: nginxcolordemo
         image: scubakiz/nginxcolordemo:red-1.0
@@ -617,20 +537,20 @@ spec:
 EOF
 ```
 
-You can now expose the application, and assign weights to each service. In the example below, 50% of requests will be sent to `ngcolor-blue` service, and the other 50% to `ngcolor-red`.
+Let's now add the `ngcolor-red` service to the HTTPRoute, so that a percentage of requests get forwarded to that service instead. In the example below, 50% of requests will be sent to `ngcolor-blue` service, and the other 50% to `ngcolor-red`.
 
 ```yaml
 kubectl apply -f - <<EOF
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: canary-ngcolor
+  name: ngcolor-app
   namespace: test-infra
 spec:
   parentRefs:
   - name: gateway-01
   hostnames:
-  - $YOUR_FRONTEND_ADDRESS
+  - $MY_FRONTEND_ADDRESS
   rules:
   - backendRefs:
     - name: ngcolor-blue
@@ -642,13 +562,179 @@ spec:
 EOF
 ```
 
-Open your browser and navigate to https://$YOUR_FRONTEND_ADDRESS:
+Open your browser and navigate to https://$MY_FRONTEND_ADDRESS:
 
 ![Red Service](./assets/agc-canary-red-service.png)
 
 50% of the times you will be redirected to the blue service instead:
 
 ![Blue Service](./assets/agc-canary-blue-service.png)
+
+## Protect your application with a Web Application Firewall Policy
+
+Azure Web Application Firewall on Azure Application Gateway for Containers provides comprehensive protection for your Kubernetes workloads against common web vulnerabilities and attacks. For example, it addresses SQL injection, cross-site scripting (XSS), and other Open Web Application Security Project (OWASP) top 10 threats.
+
+Let's start by creating a WAF Policy, and get the ID for future use:
+
+```bash
+export WAF_POLICY_NAME=waf-akslabs-agwc
+
+az network application-gateway waf-policy create \
+  --name $WAF_POLICY_NAME \
+  --resource-group $MC_RG_NAME \
+  --location $LOCATION \
+  --policy-settings state=Enabled mode=Prevention
+
+export WAF_POLICY_ID=$(az network application-gateway waf-policy show -n ${WAF_POLICY_NAME} -g ${MC_RG_NAME} --query id)
+```
+
+### Block traffic from your Public IP Address
+
+Let's create an example policy:
+
+```bash
+export MY_PUBLIC_IP=$(curl ifconfig.me)
+
+az network application-gateway waf-policy custom-rule create  \
+  --resource-group $MC_RG_NAME \
+  --policy-name $WAF_POLICY_NAME \
+  --rule-type MatchRule \
+  --name blockmyip \
+  --action Block \
+  --priority 50 \
+  --match-conditions "[{"variables":[{"variableName":"RemoteAddr"}],"operator":"Equal","values":["$MY_PUBLIC_IP"]}]"
+```
+
+When assigned, this policy will block traffic originating from your Public IP address.
+
+### Assign permissions to the managed identity
+
+While the current permissions are sufficient for creating the WAF Policy, the ALB controller is unable to join the policy to the HTTP route. Add a Network Contributor role with a scope matching the WAF Policy you just created:
+
+```bash
+az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $WAF_POLICY_ID --role "4d97b98b-1d4f-4787-a291-c67834d212e7" # Network Contributor
+```
+
+### Assign the policy
+
+You can assign the WAF Policy to the Gateway, so that all HTTPRoutes using that Gateway will be protected by the policy.
+
+```yaml
+kubectl apply -f - <<EOF
+apiVersion: alb.networking.azure.io/v1
+kind: WebApplicationFirewallPolicy
+metadata:
+  name: sample-waf-policy
+  namespace: test-infra
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway-01
+    namespace: test-infra
+  webApplicationFirewall: 
+    id: $WAF_POLICY_ID
+EOF
+```
+
+Alternatively, you can configure the `WebApplicationFirewallPolicy` to only apply to a specific `HTTPRoute`:
+
+```yaml
+kubectl apply -f - <<EOF
+apiVersion: alb.networking.azure.io/v1
+kind: WebApplicationFirewallPolicy
+metadata:
+  name: sample-waf-policy
+  namespace: test-infra
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: ngcolor-app
+    namespace: test-infra
+  webApplicationFirewall: 
+    id: $WAF_POLICY_ID
+EOF
+```
+
+Given that we have previously exposed the application both through HTTP and HTTPs, let's now block HTTP traffic with a `WebApplicationFirewallPolicy`, without needing to remove the listener from the `HTTPRoute`. We do so by adding `sectionNames` matching the name of the listener configured in the `Gateway` resource:
+
+```yaml
+kubectl apply -f - <<EOF
+apiVersion: alb.networking.azure.io/v1
+kind: WebApplicationFirewallPolicy
+metadata:
+  name: sample-waf-policy
+  namespace: test-infra
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway-01
+    namespace: test-infra
+    sectionNames: 
+      - http-listener
+  webApplicationFirewall: 
+    id: $WAF_POLICY_ID
+EOF
+```
+
+You can now test the access to the application:
+
+```bash
+curl http://$MY_FRONTEND_ADDRESS
+```
+
+Will return `Access Forbidden`. Meanwhile:
+
+```bash
+curl https://$MY_FRONTEND_ADDRESS
+```
+
+Will return something similar to the output below (mind that your Pod and Node IPs will differ):
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Welcome to Color Demo</title>
+    <link href="https://docs.nginx.com/_static/nginx-favicon.png" rel="icon" type="image/png">
+    <link href="default.css" rel="stylesheet" type="text/css">
+  </head>
+
+  <body onload="Refresh();">
+    <div class="container">
+      <img src="diver_helmet_blue.png" width="700px" >
+      <div class="centered info">
+        <p ><span>Node IP:</span> <span><font >10.224.0.8</font></span></p>               
+
+        <p ><span>POD IP:</span> <span><font >10.244.4.209:80</font></span></p>
+        <div class="smaller"><span>Request Date:</span> <span>10/Sep/2025:17:46:32 +0000</span></div>
+        <div class="smaller"><span>Request ID:</span> <span>b28542c5f70c9268809860d3a9eb1ae7</span></div>
+      </div>
+      <div class="top-right additional">
+        <h3>Additional Info:</h3>
+        <p ><span>Node Name: </span> <span><font >aks-usrpool1-95676513-vmss000000</font></span></p>
+        <p ><span>POD Name: </span> <span><font >ngcolor-blue-7758b6fccb-v9hmb</font></span></p>
+        <p ><span>Namespace: </span> <span><font >test-infra</font></span></p>
+        <p ><span>Service Account: </span> <span><font >default</font></span></p>
+        <p ><span>CPU Request: </span> <span><font >0</font></span></p>
+        <p ><span>CPU Limit: </span> <span><font >2</font></span></p>
+        <p ><span>MEM Request: </span> <span><font >0</font></span></p>
+        <p ><span>MEM Limit: </span> <span><font >7533256704</font></span></p>
+      </div>
+Downward API</a></span></p>
+        <p ><span><a target="_blank" href="https://docs.nginx.com/nginx/deployment-guides/setting-up-nginx-demo-environment/">NGINX Demo Environment</a></span></p>
+      </div>
+    </div>
+  </body>
+  <script type="text/javascript">
+    function Refresh() {
+                  setTimeout( function() { location.reload(true); }, 3000 );
+          }
+  </script>
+</html>
+```
 
 ---
 
