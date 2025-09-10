@@ -630,7 +630,7 @@ spec:
   parentRefs:
   - name: gateway-01
   hostnames:
-  - bbaeevezcnecffd0.fz64.alb.azure.com
+  - $YOUR_FRONTEND_ADDRESS
   rules:
   - backendRefs:
     - name: ngcolor-blue
