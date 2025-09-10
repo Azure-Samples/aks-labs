@@ -299,7 +299,7 @@ kubectl apply -f - <<EOF
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: my-app-http-route
+  name: https-example
   namespace: test-infra
 spec:
   parentRefs:
