@@ -103,7 +103,7 @@ The ALB Controller is a Kubernetes deployment that orchestrates configuration an
 Create a user managed identity for ALB controller and federate the identity as Workload Identity to use in the AKS cluster.
 
 ```bash
-IDENTITY_RESOURCE_NAME='azure-alb-identity2'
+IDENTITY_RESOURCE_NAME='azure-alb-identity'
 
 MC_RG_NAME=$(az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query "nodeResourceGroup" -o tsv)
 MC_RG_ID=$(az group show --name ${MC_RG_NAME} --query id -o tsv)
@@ -120,7 +120,7 @@ az role assignment create --assignee-object-id $principalId --assignee-principal
 
 echo "Set up federation with AKS OIDC issuer"
 AKS_OIDC_ISSUER="$(az aks show -n $AKS_NAME -g $RG_NAME --query "oidcIssuerProfile.issuerUrl" -o tsv)"
-az identity federated-credential create --name "azure-alb-identity2" --identity-name "$IDENTITY_RESOURCE_NAME" --resource-group $RG_NAME --issuer "$AKS_OIDC_ISSUER" --subject "system:serviceaccount:azure-alb-system:alb-controller-sa"
+az identity federated-credential create --name $IDENTITY_RESOURCE_NAME --identity-name "$IDENTITY_RESOURCE_NAME" --resource-group $RG_NAME --issuer "$AKS_OIDC_ISSUER" --subject "system:serviceaccount:azure-alb-system:alb-controller-sa"
 ```
 
 #### ALB Controller Installation with Helm
@@ -131,7 +131,7 @@ When the helm install command is run, it deploys the helm chart to the default n
 HELM_NAMESPACE='azure-alb-helm'
 CONTROLLER_NAMESPACE='azure-alb-system'
 az aks get-credentials --resource-group $RG_NAME --name $AKS_NAME
-CLIENT_ID=$(az identity show -g $RG_NAME -n azure-alb-identity2 --query clientId -o tsv)
+CLIENT_ID=$(az identity show -g $RG_NAME -n $IDENTITY_RESOURCE_NAME --query clientId -o tsv)
 helm install alb-controller oci://mcr.microsoft.com/application-lb/charts/alb-controller --namespace $HELM_NAMESPACE --version 1.7.9 --set albController.namespace=$CONTROLLER_NAMESPACE --set albController.podIdentity.clientID=$CLIENT_ID --create-namespace
 ```
 
@@ -173,9 +173,7 @@ ALB_SUBNET_ID=$(az network vnet subnet show --name $ALB_SUBNET_NAME --resource-g
 
 #### Delegate permissions to managed identity
 
-```
-IDENTITY_RESOURCE_NAME='azure-alb-identity2'
-
+```bash
 principalId=$(az identity show -g $RG_NAME -n $IDENTITY_RESOURCE_NAME --query principalId -otsv)
 
 # Delegate AppGw for Containers Configuration Manager role to AKS Managed Cluster RG
@@ -212,7 +210,7 @@ EOF
 The ALB Controller deployed in Kubernetes is responsible for the lifecycle of the Application Gateway for Containers resource and its sub resources. ALB Controller creates the Application Gateway for Containers resource when an ApplicationLoadBalancer custom resource is defined on the cluster and its lifecycle is based on the lifecycle of the custom resource.
 
 
-```
+```bash
 kubectl get applicationloadbalancer alb-test -n alb-test-infra -o yaml -w
 ```
 
@@ -270,7 +268,7 @@ spec:
     spec:
       containers:
       - name: my-app
-        image: nginx # or your app image
+        image: nginx 
         ports:
         - containerPort: 80
 ---
