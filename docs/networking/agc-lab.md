@@ -595,7 +595,7 @@ az network application-gateway waf-policy create \
   --location $LOCATION \
   --policy-settings state=Enabled mode=Prevention
 
-export WAF_POLICY_ID=$(az network application-gateway waf-policy show -n ${WAF_POLICY_NAME} -g ${MC_RG_NAME} --query id)
+export WAF_POLICY_ID=$(az network application-gateway waf-policy show -n ${WAF_POLICY_NAME} -g ${MC_RG_NAME} --query id -o tsv)
 ```
 
 ### Block traffic from your Public IP Address
