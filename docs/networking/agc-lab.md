@@ -359,7 +359,7 @@ spec:
 EOF
 ```
 
-For using a custom domain, you can also replace <MY_FRONTEND_ADDRESS> by <MY_CUSTOM_FQDN>, but you must be able to resolve the address, or to pass the "Host" http header. You can test the access to the application:
+For using a custom domain, you can also replace <MY_FRONTEND_ADDRESS> by <MY_CUSTOM_FQDN>, but you must be able to resolve the address, or to pass the "Host" http header. You can test the access to the application: 
 
 ```bash
 curl http://<MY_FRONTEND_ADDRESS>
