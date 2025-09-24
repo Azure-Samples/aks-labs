@@ -162,7 +162,7 @@ In this deployment strategy, ALB Controller deployed in Kubernetes is responsibl
 
 ```bash
 CLUSTER_SUBNET_ID=$(az vmss list --resource-group $MC_RG_NAME --query '[0].virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0].ipConfigurations[0].subnet.id' -o tsv)
-read -d '' VNET_NAME VNET_RG_NAME VNET_ID <<< $(az network vnet show --ids $CLUSTER_SUBNET_ID --query '[name, resourceGroup, id]' -o tsv
+read -d '' VNET_NAME VNET_RG_NAME VNET_ID <<< $(az network vnet show --ids $CLUSTER_SUBNET_ID --query '[name, resourceGroup, id]' -o tsv)
 ```
 
 Run the following command to create a new subnet containing at least 250 available IP addresses and enable subnet delegation for the Application Gateway for Containers association resource:
@@ -468,7 +468,7 @@ curl https://$MY_FRONTEND_ADDRESS
 
 Canary deployments are a release strategy where a new version of software is gradually rolled out to a small subset of users before a full rollout. This approach minimizes risk by allowing teams to monitor performance and catch issues early. Application Gateway for Containers enables you to perform canary deployments thanks to its [traffic splitting feature](https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/how-to-traffic-splitting-gateway-api?tabs=alb-managed). Traffic splitting is a technique which routes a portion of user traffic to the new version while the rest continues to use the stable one. This split can be adjusted dynamically; for example, starting with 5% of traffic and increasing as confidence grows. 
 
-In previous steps, you deployed an application with displayed a blue skuba mask, as well as some information about the pod. Let's now deploy a "newer" version, in which the skuba mask is painted in red:
+In previous steps, you deployed an application that displayed a blue scuba mask, as well as some information about the pod. Let's now deploy a "newer" version, in which the scuba mask is painted in red:
 
 ```yaml
 kubectl apply -f - <<EOF
@@ -600,7 +600,7 @@ az network application-gateway waf-policy create \
   --location $LOCATION \
   --policy-settings state=Enabled mode=Prevention
 
-export WAF_POLICY_ID=$(az network application-gateway waf-policy show -n ${WAF_POLICY_NAME} -g ${MC_RG_NAME} --query id)
+export WAF_POLICY_ID=$(az network application-gateway waf-policy show -n ${WAF_POLICY_NAME} -g ${MC_RG_NAME} --query id -o tsv)
 ```
 
 ### Block traffic from your Public IP Address
