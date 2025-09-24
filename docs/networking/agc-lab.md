@@ -359,10 +359,15 @@ spec:
 EOF
 ```
 
-You can test the access to the application:
+For using a custom domain, you can also replace <MY_FRONTEND_ADDRESS> by <MY_CUSTOM_FQDN>, but you must be able to resolve the address, or to pass the "Host" http header. You can test the access to the application:
 
 ```bash
-curl http://$MY_FRONTEND_ADDRESS
+curl http://<MY_FRONTEND_ADDRESS>
+
+# if using a custom domain
+curl http://<MY_CUSTOM_FQDN>
+# or
+curl http://<MY_FRONTEND_ADDRESS> -H "Host: <MY_CUSTOM_FQDN>"
 ```
 
 Or open your browser and navigate to http://$MY_FRONTEND_ADDRESS:
