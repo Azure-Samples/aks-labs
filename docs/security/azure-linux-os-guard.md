@@ -27,7 +27,7 @@ In this lab, you will learn how to:
 - Demonstrate immutability enforcement in the /usr directory 
 - Explore advanced SELinux and IPE security policies 
 - Inspect and compare the package count between the Azure Linux Container Host and OS Guard on AKS
-- Perform upgrade and rollback operations
+- Perform migration and rollback operations
 
 ## Limitations and Considerations
 
@@ -147,7 +147,7 @@ kubectl get nodes -o wide
 Now, use the `kubectl debug` command to start a privileged container on your node and connect to it: 
 
 ```bash 
-kubectl debug node/aks-nodepool1-37663765-vmss000000 -it --image=mcr.microsoft.com/cbl-mariner/busybox:2.0
+kubectl debug node/aks-nodepool1-37663765-vmss000000 -it --image=mcr.microsoft.com/azurelinux/busybox:1.36
 ```
 
 The output of the command should resemble the following: 
@@ -191,7 +191,14 @@ Azure Linux with OS Guard’s immutable /usr directory provides strong protectio
 
 In this scenario we will validate that Azure Linux with OS Guard is immutable. First, ensure you still have access to your node through a privileged container as a debugging pod. 
 
-We will begin by running the following command to list all installed RPM packages on the Azure Linux with OS Guard system: 
+We will begin by running the following command to confirm that /usr is mounted as a read-only filesystem:
+
+```bash 
+rpm -qa
+```
+You will see in the output that /usr is `ro` (read-only).
+
+Next, run the following command to list all installed RPM packages on the Azure Linux with OS Guard system: 
 
 ```bash 
 rpm -qa
@@ -258,8 +265,15 @@ If you prefer to see a more detailed summary of the SELinux status with informat
 sestatus
 ```
 
-You will now verify that IPE is in `audit` mode on your node. You can do so by running the following command (*Note: an output of 0 indicates that IPE is in audit mode*):
+You will now verify that IPE is in `audit` mode on your node. *Note: an output of 0 indicates that IPE is in audit mode.*
 
+Let's start by checking if IPE was enabled at boot time by running the following command:
+```bash 
+ cat /proc/cmdline
+ ```
+You should see `ipe.enforce=0` in the output, indicating that IPE is enabled in audit mode. *Note: this command can also be used to verify if SELinux was enabled in permissive mode at boot time by looking for `selinux=1` in the output.*
+
+You can also check the current IPE mode by running the following command:
 ```bash
 cat /sys/kernel/security/ipe/enforce
 ```
@@ -296,41 +310,41 @@ Audit mode only logs integrity violations when they occur. Since /usr/bin/true i
 
 The previous commands showed that `/usr/bin/true` is a trusted binary coming from a dm-verity protected volume, and thus execution does not violate SELinux or IPE policies. Let's now observe how Azure Linux with OS Guard behaves when a binary coming from an untrusted source is executed on the system.
 
-You will begin by copying `true` from the `/usr` directory to `/dev/shm` which is *not* dm-verity protected.
+You will begin by copying `true` from the `/usr` directory to `/var/tmp` which is *not* dm-verity protected.
 
 ```bash
-cp /usr/bin/true /dev/shm/true
+cp /usr/bin/true /var/tmp/true
 ```
 
-You will now execute the binary coming from an untrusted domain, `/dev/shm`. To do so, run the following command:
- 
+You will now execute the binary coming from an untrusted domain, `/var/tmp`. To do so, run the following command:
+
 ```bash
-/dev/shm/true && echo "Binary has executed"
+/var/tmp/true && echo "Binary has executed"
 ```
-Now let's inspect journalctl to see if IPE or SELinux logged any events following the execution of `/dev/shm/true`.
+Now let's inspect journalctl to see if IPE or SELinux logged any events following the execution of `/var/tmp/true`.
 
 First, inspect the SELinux logs by running the following command:
 ```bash
-journalctl -g 'AVC.*path="/dev/shm/true"' | tail -n 30
+journalctl -g 'AVC.*path="/var/tmp/true"' | tail -n 30
 ```
 You should see the following output:
 ```
-Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: AVC avc:  denied  { execute_no_trans } for  pid=1204583 comm="bash" path="/dev/shm/true" dev="tmpfs" ino=2 scontext=system_u:system_r:spc_t:s0 tcontext=system_u:object_r:container_tmpfs_t:s0 tclass=file permissive=1
+Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: AVC avc:  denied  { execute_no_trans } for  pid=1204583 comm="bash" path="/var/tmp/true" dev="tmpfs" ino=2 scontext=system_u:system_r:spc_t:s0 tcontext=system_u:object_r:container_tmpfs_t:s0 tclass=file permissive=1
 ```
-SELinux policies for OS Guard expect binaries to execute from immutable, trusted paths like /usr. Executing from /dev/shm bypasses these assumptions, triggering an AVC denial.
+SELinux policies for OS Guard expect binaries to execute from immutable, trusted paths like /usr. Executing from /var/tmp bypasses these assumptions, triggering an AVC denial.
 
 Since SELinux is in permissive mode, this is logged for visibility but not blocked. If SELinux were in enforcing mode, this execution would fail along with generating an alert.
 
 Next, inspect the IPE logs by running the following command:
 ```bash
-journalctl -g 'IPE_ACCESS.*path="/dev/shm/true"' | tail -n 30
+journalctl -g 'IPE_ACCESS.*path="/var/tmp/true"' | tail -n 30
 ```
 You should see the following output:
 ```
-Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: IPE_ACCESS ipe_op=EXECUTE ipe_hook=BPRM_CHECK enforcing=0 pid=1204583 comm="bash" path="/dev/shm/true" dev="tmpfs" ino=2 rule="DEFAULT op=EXECUTE action=DENY"
-Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: IPE_ACCESS ipe_op=EXECUTE ipe_hook=MMAP enforcing=0 pid=1204583 comm="true" path="/dev/shm/true" dev="tmpfs" ino=2 rule="DEFAULT op=EXECUTE action=DENY"
+Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: IPE_ACCESS ipe_op=EXECUTE ipe_hook=BPRM_CHECK enforcing=0 pid=1204583 comm="bash" path="/var/tmp/true" dev="tmpfs" ino=2 rule="DEFAULT op=EXECUTE action=DENY"
+Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: IPE_ACCESS ipe_op=EXECUTE ipe_hook=MMAP enforcing=0 pid=1204583 comm="true" path="/var/tmp/true" dev="tmpfs" ino=2 rule="DEFAULT op=EXECUTE action=DENY"
 ```
-This output indicates that the execution of /dev/shm/true violated OS Guard's integrity policy because the binary was located outside a trusted source. Azure Linux with OS Guard detected that /dev/shm/true is not from a verified, dm-verity backed source and flagged it as a violation. This demonstrates IPE's role in runtime integrity: even if the binary originated from a trusted /usr path, moving it to an unprotected location invalidates its trust. Since IPE is in audit mode, this is logged for visibility but not blocked. If IPE was in Enforce mode this execution would be blocked along with generating an alert.
+This output indicates that the execution of /var/tmp/true violated OS Guard's integrity policy because the binary was located outside a trusted source. Azure Linux with OS Guard detected that /var/tmp/true is not from a verified, dm-verity backed source and flagged it as a violation. This demonstrates IPE's role in runtime integrity: even if the binary originated from a trusted /usr path, moving it to an unprotected location invalidates its trust. Since IPE is in audit mode, this is logged for visibility but not blocked. If IPE was in Enforce mode this execution would be blocked along with generating an alert.
 
 You have now successfully completed scenario 4: exploring how SELinux and IPE work in tandem to provide defense in depth.
 
@@ -399,7 +413,7 @@ kubectl get nodes -o wide
 Now, use the `kubectl debug` command to start a privileged container on one of your Azure Linux container host nodes and connect to it: 
 
 ```bash 
-kubectl debug node/aks-nodepool1-37663765-vmss000000 -it --image=mcr.microsoft.com/cbl-mariner/busybox:2.0
+kubectl debug node/aks-nodepool1-37663765-vmss000000 -it --image=mcr.microsoft.com/azurelinux/busybox:1.36
 ```
 
 The output of the command should resemble the following: 
