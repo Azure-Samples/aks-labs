@@ -466,7 +466,7 @@ To upgrade an existing node pool to Azure Linux with OS Guard, you can use the `
 We will update the Azure Linux container host node pool we created in Scenario 5 to Azure Linux with OS Guard by running the following command. This command doesn't require the creation of new node pools; instead, your existing node pools automatically reimage.
 
 ```bash 
-az aks nodepool update --resource-group $RESOURCE_GROUP --cluster-name $CLUSTER_NAME --name $NODE_POOL_NAME --os-sku AzureLinuxOSGuard --node-osdisk-type Managed --enable-fips-image --enable-secure-boot --enable-vtpm
+az aks nodepool update --resource-group ${RG_NAME} --cluster-name ${AKS_NAME} --name $NODEPOOL_NAME --os-sku AzureLinuxOSGuard --node-osdisk-type Managed --enable-fips-image --enable-secure-boot --enable-vtpm
 ``` 
 
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that the node pools in the cluster are running on Azure Linux with OS Guard by running the following command: 
