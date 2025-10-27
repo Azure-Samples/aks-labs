@@ -437,7 +437,7 @@ rpm -qa | wc -l
 
 You should see that there are **382 packages** in the Azure Linux with OS Guard image.
 
-Although the Azure Linux container host image is already optimized to minimize the attack surface, the Azure Linux with OS Guard image goes even further—removing 85 additional binaries to reduce potential vulnerabilities.
+Although the Azure Linux container host image is already optimized to minimize the attack surface, the Azure Linux with OS Guard image goes even further—removing 85 additional packages to reduce potential vulnerabilities.
 
 You’ve successfully completed Scenario 5: comparing the footprint of the Azure Linux with OS Guard image on AKS against other node images.
 
