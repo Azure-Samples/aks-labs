@@ -448,7 +448,7 @@ Finally, run the following command to count the number of RPM packages installed
 rpm -qa | wc -l
 ```
 
-You should see that there are **382 packages** in the Azure Linux with OS Guard image.
+You should see that there are **382 packages** in the Azure Linux container host image.
 
 Although the Azure Linux container host image is already optimized to minimize the attack surface, the Azure Linux with OS Guard image goes even further—removing 85 additional packages to reduce potential vulnerabilities. *Note: the difference in package count may vary as newer versions of the OS Guard image are released.*
 
