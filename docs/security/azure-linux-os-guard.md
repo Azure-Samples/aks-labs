@@ -359,7 +359,7 @@ Run the following command to count the number of RPM packages installed on the A
 ```bash 
 rpm -qa | wc -l
 ```
-You should see that there are **297 binaries** in the Azure Linux with OS Guard image.
+You should see that there are **297 packages** in the Azure Linux with OS Guard image.
 
 Let's compare this to the Azure Linux container host image on AKS. To do so, you will first need to add an Azure Linux node pool to your existing AKS cluster. Exit out of your debugging pod by running: 
 
