@@ -34,7 +34,7 @@ In this lab, you will learn how to:
 Azure Linux with OS Guard is currently in Public Preview. It's important to be aware of the following limitations and considerations: 
 - Kubernetes version 1.32.0 or higher is required for Azure Linux with OS Guard.
 - All Azure Linux with OS Guard images have [Federal Information Process Standard (FIPS)](/azure/aks/enable-fips-nodes) and [Trusted Launch](/azure/aks/use-trusted-launch) enabled.
-- Azure CLI and ARM templates are the only supported deployment methods for Azure Linux with OS Guard on AKS in preview. PowerShell and Terraform aren't supported.
+- Azure CLI and ARM/Bicep templates are the only supported deployment methods for Azure Linux with OS Guard on AKS in preview. PowerShell and Terraform aren't supported.
 - [Arm64](/azure/aks/use-arm64-vms) images aren't supported with Azure Linux with OS Guard on AKS in preview.
 - `NodeImage` and `None` are the only supported [OS Upgrade channels](/azure/aks/auto-upgrade-node-os-image) for Azure Linux with OS Guard on AKS. `Unmanaged` and `SecurityPatch` are incompatible with Azure Linux with OS Guard due to the immutable /usr directory.
 - [Artifact Streaming](/azure/aks/artifact-streaming) isn't supported.
