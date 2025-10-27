@@ -45,6 +45,19 @@ Azure Linux with OS Guard is currently in Public Preview. It's important to be a
 <Prerequisites />
 <ProvisionResourceGroup />
 
+### Install the aks-preview Azure CLI extension
+
+To install the aks-preview extension, run the following command:
+
+```bash
+az extension add --name aks-preview
+```
+Run the following command to update to the latest version of the extension released:
+
+```bash
+az extension update --name aks-preview
+```
+
 ### Scenario 1: Create an Azure Linux with OS Guard on AKS Cluster
 You can either spin up a new cluster or add node pools to an existing cluster to experiment with Azure Linux with OS Guard on AKS. For the purposes of this lab, we will create a new Azure Linux with OS Guard cluster.
 
@@ -359,7 +372,7 @@ Run the following command to count the number of RPM packages installed on the A
 ```bash 
 rpm -qa | wc -l
 ```
-You should see that there are **297 packages** in the Azure Linux with OS Guard image.
+You should see that there are **297 packages** in the Azure Linux with OS Guard image. *Note: this number is subject to change as new versions of the OS Guard image are released.*
 
 Let's compare this to the Azure Linux container host image on AKS. To do so, you will first need to add an Azure Linux node pool to your existing AKS cluster. Exit out of your debugging pod by running: 
 
@@ -437,7 +450,7 @@ rpm -qa | wc -l
 
 You should see that there are **382 packages** in the Azure Linux with OS Guard image.
 
-Although the Azure Linux container host image is already optimized to minimize the attack surface, the Azure Linux with OS Guard image goes even further—removing 85 additional packages to reduce potential vulnerabilities.
+Although the Azure Linux container host image is already optimized to minimize the attack surface, the Azure Linux with OS Guard image goes even further—removing 85 additional packages to reduce potential vulnerabilities. *Note: the difference in package count may vary as newer versions of the OS Guard image are released.*
 
 You’ve successfully completed Scenario 5: comparing the footprint of the Azure Linux with OS Guard image on AKS against other node images.
 
@@ -528,7 +541,3 @@ If you are finished with your AKS resources and no longer need them, you can sim
 ```bash
 az group delete --resource-group ${RG_NAME}
 ```
-
-
-
-
