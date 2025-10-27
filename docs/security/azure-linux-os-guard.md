@@ -393,7 +393,7 @@ The output of the command should resemble the following:
 Name       ImageVersion
 ---------  ---------------------------------------------
 nodepool1  AKSAzureLinux-OSGuardV3gen2fipsTL-202510.03.0
-nodepool   AKSAzureLinux-V3gen2CVM-202510.03.0
+nodepool   AKSAzureLinux-V3gen2-202510.03.0
 ```
 
 Next, connect to the cluster using the `az aks get-credentials` command: 
