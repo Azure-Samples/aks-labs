@@ -194,7 +194,7 @@ In this scenario we will validate that Azure Linux with OS Guard is immutable. F
 We will begin by running the following command to confirm that /usr is mounted as a read-only filesystem:
 
 ```bash 
-rpm -qa
+grep "/usr" /proc/mounts
 ```
 You will see in the output that /usr is `ro` (read-only).
 
