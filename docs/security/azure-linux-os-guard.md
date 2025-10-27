@@ -265,7 +265,7 @@ If you prefer to see a more detailed summary of the SELinux status with informat
 sestatus
 ```
 
-You will now verify that IPE is in `audit` mode on your node. *Note: an output of 0 indicates that IPE is in audit mode.*
+You will now verify that IPE is in `audit` mode on your node. 
 
 Let's start by checking if IPE was enabled at boot time by running the following command:
 ```bash 
