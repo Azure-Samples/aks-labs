@@ -375,7 +375,7 @@ az aks nodepool add \
     --resource-group ${RG_NAME} \
     --cluster-name ${AKS_NAME} \
     --name $NODEPOOL_NAME \
-    --node-count 3 \
+    --node-count 1 \
     --os-sku AzureLinux
 ```
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that there are Azure Linux with OS Guard and Azure Linux container host node pools running side by side in the same cluster: 
