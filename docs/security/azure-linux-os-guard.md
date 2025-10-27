@@ -52,7 +52,7 @@ You can either spin up a new cluster or add node pools to an existing cluster to
 Azure Linux with OS Guard for AKS is currently in Public Preview, so you will need to register the following preview feature flag using Azure CLI.
 
 ```bash
-az feature register --namespace Microsoft.ContainerService --name AzureLinuxOSGuard
+az feature register --namespace Microsoft.ContainerService --name AzureLinuxOSGuardPreview
 ```
 
 It takes a few minutes for the status to show *Registered*. Verify the registration status by using the `az feature show` command:
