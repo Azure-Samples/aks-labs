@@ -354,7 +354,7 @@ The Azure Linux with OS Guard image on AKS is small, containing only packages th
 
 In this scenario we will take a closer look at the footprint of Azure Linux with OS Guard compared to the Azure Linux container host on AKS. First, ensure you still have access to your node through a privileged container as a debugging pod. 
 
-Run the following command to count the number of RPM binaries installed on the Azure Linux with OS Guard image:
+Run the following command to count the number of RPM packages installed on the Azure Linux with OS Guard image:
 
 ```bash 
 rpm -qa | wc -l
