@@ -429,7 +429,7 @@ You now have access to the Azure Linux container host node through a privileged 
 ```bash 
 chroot /host
 ```
-Finally, run the following command to count the number of RPM binaries installed on the Azure Linux container host image:
+Finally, run the following command to count the number of RPM packages installed on the Azure Linux container host image:
 
 ```bash 
 rpm -qa | wc -l
