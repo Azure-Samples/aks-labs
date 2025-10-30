@@ -265,7 +265,7 @@ Complementing this, SELinux enforces mandatory access control policies to confin
 
 Together, IPE and SELinux provide defense in depth: preventing execution of tampered or unauthorized code, blocking privilege escalation, and maintaining strong isolation between workloads.
 
-To begin exploring these security modules in more depth, ensure you still have access to the node from Scenario 2 through a privileged container as a debugging pod. 
+To begin exploring these security modules in more depth, ensure you still have access to the node from Scenario 2 through a privileged container as a debugging pod and can interact with the node session by running `chroot /host`. 
 
 You will first verify that SELinux is in `permissive` mode on your node. You can do so by running the following command:
 
