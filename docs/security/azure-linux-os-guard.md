@@ -365,7 +365,7 @@ You have now successfully completed scenario 4: exploring how SELinux and IPE wo
 
 The Azure Linux with OS Guard image on AKS is small, containing only packages that are strictly necessary for running containerized workloads. Since every installed package on the host introduces potential vulnerabilities, a reduced footprint with fewer packages means fewer entry points for potential attackers. Further, Azure Linux with OS Guard removes unnecessary components like text editors (as you discovered in scenario 3), GUIs, unused drivers, etc. which minimizes exposure to potentially compromised dependencies. 
 
-In this scenario we will take a closer look at the footprint of Azure Linux with OS Guard compared to the Azure Linux container host on AKS. First, ensure you still have access to your node through a privileged container as a debugging pod. 
+In this scenario we will take a closer look at the footprint of Azure Linux with OS Guard compared to the Azure Linux container host on AKS. First, ensure you still have access to the node from Scenario 2 through a privileged container as a debugging pod and can interact with the node session by running `chroot /host`.
 
 Run the following command to count the number of RPM packages installed on the Azure Linux with OS Guard image:
 
