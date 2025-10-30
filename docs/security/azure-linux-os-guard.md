@@ -340,7 +340,7 @@ First, inspect the SELinux logs by running the following command:
 ```bash
 journalctl -g 'AVC.*path="/var/tmp/true"' | tail -n 30
 ```
-You should see the following output:
+You should see an output similar to the following:
 ```
 Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: AVC avc:  denied  { execute_no_trans } for  pid=1204583 comm="bash" path="/var/tmp/true" dev="tmpfs" ino=2 scontext=system_u:system_r:spc_t:s0 tcontext=system_u:object_r:container_tmpfs_t:s0 tclass=file permissive=1
 ```
