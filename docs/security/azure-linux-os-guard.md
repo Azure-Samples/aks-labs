@@ -363,7 +363,7 @@ You have now successfully completed scenario 4: exploring how SELinux and IPE wo
 
 ### Scenario 5: Reduced Attack Surface 
 
-The Azure Linux with OS Guard image on AKS is small, containing only packages that are strictly necessary for running containerized workloads. Since every installed package on the host introduces potential vulnerabilities, a reduced footprint with fewer packages means fewer entry points for potential attackers. Further, Azure Linux with OS Guard removed unnecessary components like text editors (as you discovered in scenario 3), GUIs, unused drivers, etc. which minimizes exposure to potentially compromised dependencies. 
+The Azure Linux with OS Guard image on AKS is small, containing only packages that are strictly necessary for running containerized workloads. Since every installed package on the host introduces potential vulnerabilities, a reduced footprint with fewer packages means fewer entry points for potential attackers. Further, Azure Linux with OS Guard removes unnecessary components like text editors (as you discovered in scenario 3), GUIs, unused drivers, etc. which minimizes exposure to potentially compromised dependencies. 
 
 In this scenario we will take a closer look at the footprint of Azure Linux with OS Guard compared to the Azure Linux container host on AKS. First, ensure you still have access to your node through a privileged container as a debugging pod. 
 
