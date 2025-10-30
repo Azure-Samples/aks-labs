@@ -202,7 +202,7 @@ Azure Linux with OS Guard mounts /usr as a dm-verity protected volume with a sig
 
 Azure Linux with OS Guard’s immutable /usr directory provides strong protection against multiple attack vectors. It prevents rootkits and user-space tampering by blocking injection of malicious code into system binaries. It also mitigates privilege escalation attempts through modified tools and stops persistence mechanisms by preventing unauthorized software or backdoor installation. Finally, it safeguards container isolation by blocking attacks that rely on altering host binaries.
 
-In this scenario we will validate that Azure Linux with OS Guard is immutable. First, ensure you still have access to your node through a privileged container as a debugging pod. 
+In this scenario we will validate that Azure Linux with OS Guard is immutable. First, ensure you still have access to your node through a privileged container as a debugging pod and can interact with the node session by running `chroot /host`.
 
 We will begin by running the following command to confirm that /usr is mounted as a read-only filesystem:
 
