@@ -8,9 +8,9 @@ import Prerequisites from "../../src/components/SharedMarkdown/_prerequisites.md
 import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provision_resource_group.mdx";
 
 
-[Azure Linux with OS Guard on AKS](https://learn.microsoft.com/azure/azure-linux/intro-azure-linux-os-guard), currently in Public Preview, is a hardened, immutable variant of Azure Linux on AKS. Azure Linux with OS Guard builds on the FedRAMP-certified Azure Linux 3.0 base and its sovereign supply chain, and adds kernel and runtime features that enforce immutability, code integrity and mandatory access control. 
+[Azure Linux with OS Guard on AKS](https://learn.microsoft.com/azure/azure-linux/intro-azure-linux-os-guard), currently in Public Preview, is a hardened, immutable variant of Azure Linux for AKS. Built on the FedRAMP-certified Azure Linux 3.0 base and its sovereign supply chain, it adds kernel and runtime features that enforce immutability, code integrity and mandatory access control. 
 
-Azure Linux with OS Guard on AKS introduces the following key security features: 
+Key security features include:
 
 - **Immutability**: The /usr directory is mounted as a read-only volume protected by dm-verity. At runtime, the kernel validates a signed root hash to detect and block tampering.
 - **Code integrity**: OS Guard integrates the [Integrity Policy Enforcement (IPE) Linux Security Module](https://docs.kernel.org/next/admin-guide/LSM/ipe.html) to ensure that only binaries from trusted, signed volumes are allowed to execute. This helps prevent tampered or untrusted code from executing, including within container images. *Note: IPE is running in audit mode during Public Preview.*
