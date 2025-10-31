@@ -7,7 +7,6 @@ sidebar_position: 5
 import Prerequisites from "../../src/components/SharedMarkdown/_prerequisites.mdx";
 import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provision_resource_group.mdx";
 
-## Azure Linux with OS Guard on AKS 
 
 [Azure Linux with OS Guard on AKS](https://learn.microsoft.com/azure/azure-linux/intro-azure-linux-os-guard), currently in Public Preview, is a hardened, immutable variant of Azure Linux on AKS. Azure Linux with OS Guard builds on the FedRAMP-certified Azure Linux 3.0 base and its sovereign supply chain, and adds kernel and runtime features that enforce immutability, code integrity and mandatory access control. 
 
