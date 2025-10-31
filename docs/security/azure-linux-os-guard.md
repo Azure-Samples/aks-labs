@@ -13,8 +13,21 @@ import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provisi
 Key security features include:
 
 - **Immutability**: The /usr directory is mounted as a read-only volume protected by dm-verity. At runtime, the kernel validates a signed root hash to detect and block tampering.
-- **Code integrity**: OS Guard integrates the [Integrity Policy Enforcement (IPE) Linux Security Module](https://docs.kernel.org/next/admin-guide/LSM/ipe.html) to ensure that only binaries from trusted, signed volumes are allowed to execute. This helps prevent tampered or untrusted code from executing, including within container images. *Note: IPE is running in audit mode during Public Preview.*
-- **Mandatory access control**: OS Guard integrates SELinux to limit which processes can access sensitive resources in the system. *Note: SELinux is operating in permissive mode during Public Preview.* 
+- **Code integrity**: OS Guard integrates the [Integrity Policy Enforcement (IPE) Linux Security Module](https://docs.kernel.org/next/admin-guide/LSM/ipe.html) to ensure that only binaries from trusted, signed volumes are allowed to execute. This helps prevent tampered or untrusted code from executing, including within container images. 
+
+  :::note
+
+  IPE is running in audit mode during Public Preview.
+  
+  :::
+
+- **Mandatory access control**: OS Guard integrates SELinux to limit which processes can access sensitive resources in the system.
+
+  :::note
+
+  SELinux is operating in permissive mode during Public Preview.
+  
+  :::
 - **Measured boot and Trusted Launch**: OS Guard supports measured boot and integrates with [Trusted Launch](/azure/aks/use-trusted-launch) to provide cryptographic measurements of boot components stored in a virtual TPM (vTPM). This is achieved using a Unified Kernel Image (UKI), which bundles the kernel, initramfs, and kernel command line into a single signed artifact. During boot, the UKI is measured and recorded in the vTPM, ensuring integrity from the earliest stage. 
 - **Reduced attack surface**: OS Guard is a slimmed down version of the Azure Linux Container Host, containing only packages that are absolutely necessary for running containerized workloads.
 
