@@ -41,7 +41,7 @@ In this lab, you will learn how to:
 - Inspect and compare the package count between the Azure Linux Container Host and OS Guard on AKS
 - Perform migration and rollback operations
 
-## Limitations and Considerations
+:::important Limitations and Considerations
 
 Azure Linux with OS Guard is currently in Public Preview. It's important to be aware of the following limitations and considerations: 
 - Kubernetes version 1.32.0 or higher is required for Azure Linux with OS Guard.
@@ -53,6 +53,8 @@ Azure Linux with OS Guard is currently in Public Preview. It's important to be a
 - [Pod Sandboxing](/azure/aks/use-pod-sandboxing) isn't supported.
 - [Confidential Virtual Machines (CVMs)](/azure/aks/confidential-containers-overview) aren't supported.
 - [Gen 1 virtual machines (VMs)](/azure/aks/aks-virtual-machine-sizes#vm-support-on-aks) aren't supported.
+
+:::
 
 <Prerequisites />
 <ProvisionResourceGroup />
