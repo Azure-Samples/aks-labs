@@ -75,25 +75,6 @@ az extension update --name aks-preview
 ### Scenario 1: Create an Azure Linux with OS Guard on AKS Cluster
 You can either spin up a new cluster or add node pools to an existing cluster to experiment with Azure Linux with OS Guard on AKS. For the purposes of this lab, we will create a new Azure Linux with OS Guard cluster.
 
-::: important
-Azure Linux with OS Guard for AKS is currently in Public Preview, so you will need to register the following preview feature flag using Azure CLI.
-
-```bash
-az feature register --namespace Microsoft.ContainerService --name AzureLinuxOSGuardPreview
-```
-
-It takes a few minutes for the status to show *Registered*. Verify the registration status by using the `az feature show` command:
-
-```bash
-az feature show --namespace "Microsoft.ContainerService" --name "AzureLinuxOSGuardPreview"
-```
-
-When the status reflects *Registered*, refresh the registration of the *Microsoft.ContainerService* resource provider by using the `az provider register` command:
-
-```bash
-az provider register --namespace "Microsoft.ContainerService"
-```
-:::
 
 Set the AKS cluster name.
 
