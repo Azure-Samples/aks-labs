@@ -95,8 +95,8 @@ This workshop uses the [GitOps Bridge Pattern](https://github.com/gitops-bridge-
 Before we begin lets create a new directory that can be a placeholder for all of our files created during this lab:
 
 ```bash
-mkdir aks-labs
-cd aks-labs
+mkdir -p ~/aks-labs/platform-engineering/aks-capz-aso
+cd ~/aks-labs/platform-engineering/aks-capz-aso
 ```
 
 Next, proceed by declaring the following environment variables:
@@ -112,6 +112,7 @@ export AKS_CLUSTER_NAME="aks-labs"
 export RESOURCE_GROUP="rg-aks-labs"
 export LOCATION="westus3"
 export MANAGED_IDENTITY_NAME="akspe"
+export KUBECONFIG=${HOME}/aks-labs/platform-engineering/aks-capz-aso/aks-labs.config
 EOF
 ```
 
@@ -306,6 +307,23 @@ After you successfully login, you should see the Argo CD Applications - which at
 
 This section walks you through installing **Cluster API Provider for Azure (CAPZ)** through the Cluster API Operator (capi-operator). This step is need in order to prepare your environment for provisioning AKS clusters using GitOps workflows.
 
+:::warning
+**Important: CAPI Provider Version Consistency**
+
+All core CAPI providers (core, bootstrap, controlPlane) MUST be installed with the same version. Installing mismatched versions (e.g., core v1.9.6 with bootstrap v1.11.2) will result in CRD API version incompatibilities and controller crashes.
+
+Always ensure:
+- `core.cluster-api.version`
+- `bootstrap.kubeadm.version` 
+- `controlPlane.kubeadm.version`
+
+...are set to the **exact same version**.
+
+The infrastructure provider (CAPZ/Azure) and addon provider (Helm) can use different versions.
+
+For detailed troubleshooting of version mismatches, see the [Troubleshooting Guide](#troubleshooting-guide) at the end of this document.
+:::
+
 #### Prerequisite: cert-manager
 
 `cert-manager` is required for capi/capz/aso and it plays a critical role in automating the lifecycle of TLS certificates required for the communications between controllers, validating and mutating webhooks and the Kubernetes API server. Without cert-manager, a kubernetes operator would have to manually create, distribute and rotate these certificates, making for a very complex day-2 operations.
@@ -349,6 +367,12 @@ cat <<EOF> capi-operator-values.yaml
 core:
   cluster-api:
     version: v1.9.6
+bootstrap:
+  kubeadm:
+    version: v1.9.6
+controlPlane:
+  kubeadm:
+    version: v1.9.6
 infrastructure:
   azure:
     version: v1.19.2
@@ -388,7 +412,7 @@ If you need to modify or reinstall the cluster-api-operator, you can do it so by
 to upgrade/update the chart (e.g.: after modifying the `capi-operator-values.yaml` file):
 
 ```bash
-  helm upgrade --install install capi-operator capi-operator/cluster-api-operator \
+  helm upgrade --install capi-operator capi-operator/cluster-api-operator \
   --create-namespace -n capi-operator-system \
   --wait \
   --timeout=300s \
@@ -568,6 +592,8 @@ This method allows platform teams to bootstrap new environments on demand, using
 ```bash
 export DEV_CLUSTER_NAME=dev-cluster
 export DEV_CLUSTER_LOCATION=eastus
+export CHART_REVISION="0.4.3"
+export KUBERNETES_VERSION="1.32.7"
 ```
 
 2. Create the Argo CD Application that declares the cluster:
@@ -591,7 +617,7 @@ spec:
   source:
     repoURL: 'https://mboersma.github.io/cluster-api-charts'
     chart: azure-aks-aso
-    targetRevision: v0.4.2
+    targetRevision: v${CHART_REVISION}
     helm:
       valuesObject:
         clusterName: "${DEV_CLUSTER_NAME}"
@@ -600,8 +626,10 @@ spec:
         clientID: "${AZURE_CLIENT_ID}"
         tenantID: "${AZURE_TENANT_ID}"
         authMode: "workloadidentity"
-        kubernetesVersion: v1.30.10
+        kubernetesVersion: v${KUBERNETES_VERSION}
         clusterNetwork: "overlay"
+        withClusterClass: true
+        withClusterTopology: true
         managedMachinePoolSpecs:
           pool0:
             count: 1
@@ -753,7 +781,7 @@ You should now see the new resources in the Argo CD UI
 Verify that it was created:
 
 ```bash
- az keyvault list -o table
+az keyvault list -o table
 ```
 
 Expect:
@@ -765,6 +793,154 @@ westus3     app-keyvault-2199  rg-dev-app
 ```
 
 Congratulations ! You have successfully created Azure resources using ASOv2. Next, lets look into how to [Build a GitOps-Driven Platform on AKS with the App of Apps Pattern](./app-of-apps.md).
+
+---
+
+## Troubleshooting Guide
+
+### CAPI Provider Version Mismatches
+
+**Symptom**: Bootstrap provider controller pod is crashing with errors like:
+```
+no matches for kind "Cluster" in version "cluster.x-k8s.io/v1beta2"
+```
+
+**Cause**: This occurs when CAPI providers are installed with different versions. For example, core provider v1.9.6 with bootstrap provider v1.11.2 create API version incompatibilities because different provider versions may have different CRD schemas.
+
+**Solution**: Ensure ALL CAPI providers are installed with the **same version**. In the `capi-operator-values.yaml`, all provider versions should match:
+
+```yaml
+core:
+  cluster-api:
+    version: v1.9.6  # Core version
+bootstrap:
+  kubeadm:
+    version: v1.9.6  # Must match core version
+controlPlane:
+  kubeadm:
+    version: v1.9.6  # Must match core version
+infrastructure:
+  azure:
+    version: v1.19.2  # Infrastructure provider can differ
+addon:
+  helm:
+    version: v0.3.1  # Addon provider can differ
+```
+
+**Recovery steps if you hit this issue:**
+
+1. Delete the incompatible providers:
+   ```bash
+   kubectl delete namespace capi-kubeadm-bootstrap-system
+   kubectl delete namespace capi-kubeadm-control-plane-system
+   kubectl delete namespace capi-system
+   ```
+
+2. Delete the old CRDs:
+   ```bash
+   kubectl delete crd --all -l cluster.x-k8s.io/v1=v1
+   ```
+
+3. Update `capi-operator-values.yaml` to use consistent versions
+
+4. Reinstall via helm:
+   ```bash
+   helm upgrade --install capi-operator capi-operator/cluster-api-operator \
+     --create-namespace -n capi-operator-system \
+     --wait \
+     --timeout=300s \
+     -f capi-operator-values.yaml
+   ```
+
+5. Verify all providers are running:
+   ```bash
+   kubectl get pods -n azure-infrastructure-system
+   ```
+
+### CRD Conflicts During Reinstallation
+
+**Symptom**: Helm install/upgrade fails with messages about CRD ownership or validation errors.
+
+**Cause**: Old CRD instances from previous installations persist with Helm metadata that conflicts with new installations.
+
+**Solution**: 
+
+1. Identify problematic CRDs:
+   ```bash
+   kubectl get crd -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.annotations.meta\.helm\.sh/release-namespace}{"\n"}{end}'
+   ```
+
+2. Remove Helm annotations from CRDs:
+   ```bash
+   kubectl annotate crd <crd-name> \
+     helm.sh/resource-policy- \
+     meta.helm.sh/release-name- \
+     meta.helm.sh/release-namespace- \
+     --overwrite
+   ```
+
+3. For cluster-scoped CRDs causing issues on workload clusters:
+   ```bash
+   kubectl delete crd applications.argoproj.io appprojects.argoproj.io
+   ```
+
+### Cluster Creation Stuck in Provisioning
+
+**Symptom**: Dev cluster stays in `Provisioning` phase indefinitely.
+
+**Cause**: CAPZ controller may be waiting for dependencies or Azure API quota limits.
+
+**Solution**:
+
+1. Check CAPZ controller logs:
+   ```bash
+   kubectl logs -n azure-infrastructure-system -l control-plane=capz-controller-manager --tail=50
+   ```
+
+2. Verify cluster status:
+   ```bash
+   kubectl describe cluster dev-cluster
+   ```
+
+3. Check Azure resources are being created:
+   ```bash
+   az resource list --resource-group <resource-group> --output table
+   ```
+
+4. If stuck, delete and recreate:
+   ```bash
+   kubectl delete cluster dev-cluster
+   # Fix any configuration issues
+   kubectl apply -f your-cluster-manifest.yaml
+   ```
+
+### CAPZ Provider Not Installing
+
+**Symptom**: `capz-controller-manager` pod never starts or shows as pending.
+
+**Cause**: Often due to missing Azure credentials or cert-manager not ready.
+
+**Solution**:
+
+1. Verify cert-manager is ready:
+   ```bash
+   kubectl get pods -n cert-manager
+   ```
+
+2. Verify Azure credentials are set:
+   ```bash
+   kubectl get secret -n azure-infrastructure-system
+   ```
+
+3. Check CAPZ pod events:
+   ```bash
+   kubectl describe pod -n azure-infrastructure-system -l control-plane=capz-controller-manager
+   ```
+
+4. Ensure the AzureClusterIdentity is applied:
+   ```bash
+   kubectl get azureclusteridentity -n azure-infrastructure-system
+   ```
 
 ---
 

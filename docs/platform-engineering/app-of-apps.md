@@ -58,7 +58,15 @@ This lab builds on the [Platform Engineering lab using AKS, GitOps, CAPZ, and AS
 2. Load the required environment variables:
 
 ```bash
-source .envrc
+source ~/aks-labs/platform-engineering/aks-capz-aso/.envrc
+export KUBECONFIG=~/aks-labs/platform-engineering/aks-capz-aso/aks-labs.config 
+```
+
+3. Create a directory to store the artifacts for this lab:
+
+```bash
+mkdir -p ~/aks-labs/platform-engineering/app-of-apps
+cd ~/aks-labs/platform-engineering/app-of-apps
 ```
 
 ---
@@ -149,13 +157,20 @@ Since we have already installed `cert-manager` on the [Platform Engineering on A
 Lets start by creating some environment variables that will be used in the Argo CD secret:
 
 ```bash
-cat <<EOF > .envrc
+cd ~/aks-labs/platform-engineering/app-of-apps
+cat <<EOF > gitops.env
 export GITOPS_ADDONS_ORG="https://github.com/Azure-Samples"
 export GITOPS_ADDONS_REPO="aks-platform-engineering"
 export GITOPS_ADDONS_BASEPATH="gitops/"
 export GITOPS_ADDONS_PATH="bootstrap/control-plane/addons"
 export GITOPS_ADDONS_REVISION="main"
 EOF
+```
+
+Load these environment variables:
+
+```bash
+source gitops.env
 ```
 
 **Variable reference:**
@@ -293,12 +308,28 @@ At the end, you will have built this:
 ![End-to-End](./assets/end-to-end.png)
 
 :::important
-Before you proceed, verify that you are running these commands from your local GitHub repo. If you have started this lab at the `$HOME` directory of your user, that should be at `~/aks-labs/app-project-env`. If not, look at where you have cloned the `app-project-env` directory.
+Before you proceed, verify that you are running these commands from your local GitHub repo. If you have started this lab at the `$HOME` directory of your user, that should be at `~/aks-labs/aks-labs/platform-engineering/aks-capz-aso/app-project-env`. If not, look at where you have cloned the `app-project-env` directory.
 ::::
 
 #### Adding the HelmChartProxy and AKS Store Application
 
-1. Create the `HelmChartProxy`:
+1. Go back to the `~/aks-labs/aks-labs/platform-engineering/aks-capz-aso/app-project-env`  directory:
+
+```bash
+cd ~/aks-labs/aks-labs/platform-engineering/aks-capz-aso/app-project-env
+```
+
+**Important: Label the Dev Cluster for HelmChartProxy Discovery**
+
+Before creating the HelmChartProxy, you must label your dev cluster so that the HelmChartProxy can discover and target it. The HelmChartProxy uses a `clusterSelector` with label matching to find clusters.
+
+```bash
+kubectl label cluster dev-cluster deploy-argocd="true"
+```
+
+This label must match the `clusterSelector.matchLabels` in the HelmChartProxy spec (see step 2 below). Additionally, **the HelmChartProxy must be created in the same namespace as your clusters** (typically the `default` namespace where clusters are registered).
+
+2. Create the `HelmChartProxy`:
 
 ```bash
 cat <<EOF> samples/sample-1/argo-helmchartproxy.yaml
@@ -309,9 +340,12 @@ metadata:
   namespace: default
 spec:
   clusterSelector:
-    matchLabels: {}
+    matchLabels:
+      deploy-argocd: "true"
   repoURL: https://argoproj.github.io/argo-helm
   chartName: argo-cd
+  releaseName: argocd
+  namespace: argocd
   options:
     waitForJobs: true
     wait: true
@@ -326,9 +360,12 @@ metadata:
   namespace: default
 spec:
   clusterSelector:
-    matchLabels: {}
+    matchLabels:
+      deploy-argocd: "true"
   repoURL: https://argoproj.github.io/argo-helm
   chartName: argocd-apps
+  releaseName: argocd-apps
+  namespace: argocd
   options:
     waitForJobs: true
     wait: true
@@ -343,38 +380,79 @@ spec:
           - resources-finalizer.argocd.argoproj.io
         project: default
         sources:
-          - repoURL: https://github.com/${GITHUB_USERNAME}/app-project-env.git
+          - repoURL: https://github.com/dcasati/app-project-env-kubecon.git
             path: argocd-apps
             targetRevision: HEAD
             directory:
               recurse: true
+              exclude: namespaces/**
+        destination:
+          server: https://kubernetes.default.svc
+          namespace: argocd
+      cluster-namespaces:
+        namespace: argocd
+        project: default
+        source:
+          repoURL: https://github.com/dcasati/app-project-env-kubecon.git
+          path: argocd-apps/namespaces
+          targetRevision: HEAD
         destination:
           server: https://kubernetes.default.svc
           namespace: default
         syncPolicy:
           automated:
-            prune: false
-            selfHeal: false
-          syncOptions:
-            - CreateNamespace=true
-        revisionHistoryLimit: 2
-        ignoreDifferences:
-          - group: apps
-            kind: Deployment
-            jsonPointers:
-              - /spec/replicas
-        info:
-          - name: url
-            value: https://argoproj.github.io/
+            prune: true
+            selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
 EOF
 ```
-2. Create the an ArgoCD Application directory:
+
+3. Create the an ArgoCD Application directory:
 
 ```bash
-mkdir -p argocd-apps/aks-store
+mkdir -p argocd-apps/{aks-store,namespaces}
 ```
 
-3. Create the an ArgoCD Application to be deployed to our Dev cluster:
+4. Create the ArgoCD namespace
+
+```bash
+cat <<EOF> argocd-apps/namespaces/namespaces.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pets
+EOF
+```
+
+5. Create the ArgoCD Application for the namespaces
+
+```bash
+cat <<EOF> argocd-apps/namespaces/cluster-namespaces-app.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-namespaces
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dcasati/app-project-env-kubecon.git
+    targetRevision: HEAD
+    path: argocd-apps/namespaces
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+  syncOptions:
+    - CreateNamespace=true
+EOF
+```
+
+6. Create the an ArgoCD Application to be deployed to our Dev cluster:
 
 ```bash
 cat <<EOF> argocd-apps/aks-store/aks-store-argocd-app.yaml
@@ -382,7 +460,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: aks-store-demo
-  namespace: default
+  namespace: argocd
 spec:
   project: default
   source:
@@ -391,13 +469,17 @@ spec:
     path: kustomize/overlays/dev
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: pets
   syncPolicy:
-    automated: {}
+    automated:
+      prune: true
+      selfHeal: true
+  syncOptions:
+    - CreateNamespace=true
 EOF
 ```
 
-4. Commit the files to GitHub
+7. Commit the files to GitHub
 
 ```bash
 git add .
@@ -415,7 +497,7 @@ Expect:
  create mode 100644 samples/sample-1/argo-helmchartproxy.yaml
 ```
 
-5. Push them to GitHub
+8. Push them to GitHub
 
 ```bash
 git push
@@ -428,11 +510,59 @@ Enumerating objects: 13, done.
 Counting objects: 100% (13/13), done.
 Delta compression using up to 12 threads
 Compressing objects: 100% (9/9), done.
-Writing objects: 100% (10/10), 1.96 KiB | 501.00 KiB/s, done.
-Total 10 (delta 0), reused 0 (delta 0), pack-reused 0
+Writing objects: 10/10, 1.96 KiB | 501.00 KiB/s, done.
+Total 10 (delta 0), reused 0 (delta 0), git push
 To github.com:dcasati/app-project-env.git
    3adefb8..5b8f70c  main -> main
 ```
+
+#### Verifying ArgoCD Deployment and Self-Healing
+
+After pushing to GitHub, the HelmChartProxy controller will detect your changes and deploy Argo CD to the dev cluster. This process includes:
+
+1. **HelmChartProxy finds the dev cluster** using the `deploy-argocd: "true"` label
+2. **Deploys Argo CD** via the `argo-cd` Helm chart to the `argocd` namespace
+3. **Creates Argo CD Applications** via the `argocd-apps` Helm chart, which includes:
+   - `cluster-namespaces`: Creates the `pets` namespace
+   - `shared-team-cluster-apps`: Parent application that discovers child apps from Git
+   - `aks-store-demo`: Deploys aks-store to the `pets` namespace
+
+**Verify the deployment:**
+
+```bash
+# Switch to dev cluster
+export KUBECONFIG=/path/to/dev-cluster-kubeconfig
+
+# Check that ArgoCD is running
+kubectl get pods -n argocd
+
+# Check that all applications are synced
+kubectl get applications -n argocd
+
+# Check that aks-store pods are running
+kubectl get pods -n pets
+```
+
+**Test Self-Healing (Optional):**
+
+To verify that your GitOps setup is truly self-healing, try deleting resources and watch Argo CD recreate them:
+
+```bash
+# Delete the pets namespace (and all resources in it)
+kubectl delete ns pets
+
+# Wait 30 seconds and check if it's recreated
+sleep 30
+kubectl get ns pets
+
+# ArgoCD should have recreated it automatically!
+kubectl get pods -n pets
+```
+
+This demonstrates the power of GitOps: your cluster always matches Git, regardless of manual changes or deletions.
+
+---
+
 In the `Management Cluster`, you should now see the new `HelmChartProxy` objects. The `HelmChartProxy` will deploy `Argo CD` _and_ the `AKS-Store` demo directly to the `Dev Cluster`:
 
 ![HelmChartProxy](./assets/helmchartproxy.png)
@@ -496,3 +626,91 @@ In this module, you:
 * Bootstrapped a GitOps management plane using Argo CD and ApplicationSets
 * Provisioned AKS clusters declaratively with CAPZ
 * Deployed workloads to managed clusters via GitOps
+
+---
+
+## Troubleshooting Guide
+
+### HelmChartProxy not finding clusters
+
+**Symptom**: HelmReleaseProxy shows "No matching clusters" or remains in `Ready: False` state.
+
+**Causes & Solutions**:
+
+1. **Cluster label missing**: The HelmChartProxy uses `clusterSelector.matchLabels` to find clusters. Verify your cluster has the required label:
+   ```bash
+   kubectl get cluster dev-cluster -o jsonpath='{.metadata.labels}'
+   # Should show: deploy-argocd: "true"
+   ```
+
+   If missing, add it:
+   ```bash
+   kubectl label cluster dev-cluster deploy-argocd="true"
+   ```
+
+2. **HelmChartProxy in wrong namespace**: The HelmChartProxy must be in the same namespace as the clusters it's trying to target (typically `default`). Verify:
+   ```bash
+   kubectl get helmchartproxy -A
+   # Should show HelmChartProxy in the same namespace as your clusters
+   ```
+
+3. **Addon provider not installed**: The HelmChartProxy CRD is provided by the CAPI Addon Provider (Helm). Verify it's installed:
+   ```bash
+   kubectl get crd helmchartproxies.addons.cluster.x-k8s.io
+   ```
+
+### Argo CD CRD Ownership Conflicts
+
+**Symptom**: HelmReleaseProxy shows error: `meta.helm.sh/release-namespace must equal "argocd": current value is "default"`
+
+**Cause**: This occurs when moving an Argo CD installation from one namespace to another. Old CRD annotations claim a different namespace as the owner.
+
+**Solution**: Clean the Helm annotations from affected CRDs on the target cluster:
+
+```bash
+# On the dev cluster
+kubectl annotate crd applications.argoproj.io \
+  helm.sh/resource-policy- \
+  meta.helm.sh/release-name- \
+  meta.helm.sh/release-namespace- \
+  --overwrite
+
+# Delete any stuck HelmReleaseProxy resources
+kubectl delete helmreleaseproxy -n default --all
+```
+
+Then trigger the HelmChartProxy to retry:
+```bash
+# On management cluster
+kubectl patch helmchartproxy argocd -n default --type merge \
+  -p '{"spec":{"releaseName":"argocd"}}'
+```
+
+### Applications not syncing to correct namespace
+
+**Symptom**: Applications deployed to `default` namespace instead of target namespace (e.g., `pets`).
+
+**Cause**: The Application's `destination.namespace` field might not match the HelmChartProxy's `namespace` field.
+
+**Solution**: Ensure the Application definition has the correct namespace:
+
+```yaml
+spec:
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pets  # This must match your target namespace
+```
+
+### CreateNamespace=true not working
+
+**Symptom**: Application stays in "Missing" state because destination namespace doesn't exist.
+
+**Cause**: When an Application is created before its destination namespace exists, there can be timing issues with automatic namespace creation.
+
+**Solution**: Use the namespace management pattern by creating a dedicated `cluster-namespaces` Application that runs first:
+
+1. Create `argocd-apps/namespaces/namespaces.yaml` with all required namespaces
+2. Create `cluster-namespaces` Application that syncs those namespaces
+3. Ensure other applications sync AFTER namespace creation completes
+
+This eliminates race conditions and provides explicit namespace management as code.
