@@ -299,24 +299,24 @@ This creates a modular, scalable, and declarative way to manage both platform an
 
 ### Sample 1: Expanding our AKS Cluster with the App of Apps Pattern
 
-Now that we have seen how to deploy a cluster using the App of Apps pattern, lets try a more complex scenario. In this example, you’ll create a new resource, the HelmProxyChart, that will be attached to the cluster created earlier on [Platform Engineering on AKS with GitOps, CAPZ, and ASO](./aks-capz-aso.md) lab.
+Now that we have seen how to deploy a cluster using the App of Apps pattern, let's try a more complex scenario. In this example, you'll create a new resource, the HelmProxyChart, that will be attached to the cluster created earlier on [Platform Engineering on AKS with GitOps, CAPZ, and ASO](./aks-capz-aso.md) lab.
 
-Using your GitHub repo created on the [Platform Engineering on AKS with GitOps, CAPZ, and ASO](./aks-capz-aso.md#setting-up-your-dev-environment) lab, lets expand our Sample-1 AKS Cluster. We will also create a new Application and deploy that to our dev cluster.
+Using your GitHub repo created on the [Platform Engineering on AKS with GitOps, CAPZ, and ASO](./aks-capz-aso.md#setting-up-your-dev-environment) lab, let's expand our Sample-1 AKS Cluster. We will also create a new Application and deploy that to our dev cluster.
 
 At the end, you will have built this:
 
 ![End-to-End](./assets/end-to-end.png)
 
 :::important
-Before you proceed, verify that you are running these commands from your local GitHub repo. If you have started this lab at the `$HOME` directory of your user, that should be at `~/aks-labs/aks-labs/platform-engineering/aks-capz-aso/app-project-env`. If not, look at where you have cloned the `app-project-env` directory.
+Before you proceed, verify that you are running these commands from your local GitHub repo. If you have started this lab at the `$HOME` directory of your user, that should be at `~/aks-labs/platform-engineering/aks-capz-aso/app-project-env`. If not, look at where you have cloned the `app-project-env` directory.
 ::::
 
 #### Adding the HelmChartProxy and AKS Store Application
 
-1. Go back to the `~/aks-labs/aks-labs/platform-engineering/aks-capz-aso/app-project-env`  directory:
+1. Go back to the `~/aks-labs/platform-engineering/aks-capz-aso/app-project-env` directory:
 
 ```bash
-cd ~/aks-labs/aks-labs/platform-engineering/aks-capz-aso/app-project-env
+cd ~/aks-labs/platform-engineering/aks-capz-aso/app-project-env
 ```
 
 **Important: Label the Dev Cluster for HelmChartProxy Discovery**
@@ -408,7 +408,7 @@ spec:
 EOF
 ```
 
-3. Create the an ArgoCD Application directory:
+3. Create an ArgoCD Application directory:
 
 ```bash
 mkdir -p argocd-apps/{aks-store,namespaces}
@@ -452,7 +452,7 @@ spec:
 EOF
 ```
 
-6. Create the an ArgoCD Application to be deployed to our Dev cluster:
+6. Create an ArgoCD Application to be deployed to our Dev cluster:
 
 ```bash
 cat <<EOF> argocd-apps/aks-store/aks-store-argocd-app.yaml

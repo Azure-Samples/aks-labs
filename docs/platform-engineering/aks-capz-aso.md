@@ -59,7 +59,7 @@ All of these tools require a Kubernetes cluster that will host them, typically, 
 
 * Control Plane security – With cloud native tools the security of what is deployed is controlled through the Kubernetes control plane, therefore you can restrict people having direct access to cloud control planes and resources.
 
-* Custom resources – You can create a Kubernetes resource that represents multiple infra resources or a represent a resource with a specific set of defaults and exposed properties. An example of these are Composite resources (Crossplane XRD’s) and Cluster Classes in CAPI.
+* Custom resources – You can create a Kubernetes resource that represents multiple infra resources or represent a resource with a specific set of defaults and exposed properties. An example of these are Composite resources (Crossplane XRD's) and Cluster Classes in CAPI.
 
 * Heterogeneous cluster type common tooling – for instance, you can deploy a self-managed Kubernetes cluster, AKS cluster, and AKS cluster joined to a fleet management hub in the same manner along with the associated applications across all of them.
 
@@ -73,7 +73,7 @@ All of these tools require a Kubernetes cluster that will host them, typically, 
 
 **Continuous Deployment (CD) Pipelines**
 
-For this we are are going to use GitOps based CD pipelines, popular tools examples, Argo, Tekton, Flux. These tools reconcile the infra or application configuration in a repository with the Kubernetes cluster.
+For this we are going to use GitOps based CD pipelines, popular tools examples, Argo, Tekton, Flux. These tools reconcile the infra or application configuration in a repository with the Kubernetes cluster.
 
 We will use [Argo](https://argoproj.github.io/) in the example, but you can use other tools, the main benefit of GitOps is scale, configuration portability, drift detection, automation, auditing and approval etc. A key difference between GitOps and other CD pipelines such as Jenkins, GHA, DevOps is that they are push based pipelines that run outside of the Kubernetes cluster, requiring connectivity details for the cluster. Whereas with GitOps tools have an agent that is installed on the cluster and you add a configuration to the agent, it will then reach out to a configuration repo and 'pull' in the configuration. There is a lot more detail in this area, for more information take a look [here](https://opengitops.dev/) as well as the project content.
 
@@ -160,7 +160,7 @@ Use the `aks-labs.config` file this as your KUBECONFIG
 export KUBECONFIG=$PWD/aks-labs.config
 ```
 
-### Step 2: Create create an user-assigned managed identity for CAPZ
+### Step 2: Create a user-assigned managed identity for CAPZ
 
 In this step, we will do the following:
 
