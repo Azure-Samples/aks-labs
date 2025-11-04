@@ -380,7 +380,7 @@ spec:
           - resources-finalizer.argocd.argoproj.io
         project: default
         sources:
-          - repoURL: https://github.com/dcasati/app-project-env-kubecon.git
+          - repoURL: https://github.com/dcasati/app-project-env.git
             path: argocd-apps
             targetRevision: HEAD
             directory:
@@ -393,7 +393,7 @@ spec:
         namespace: argocd
         project: default
         source:
-          repoURL: https://github.com/dcasati/app-project-env-kubecon.git
+          repoURL: https://github.com/dcasati/app-project-env.git
           path: argocd-apps/namespaces
           targetRevision: HEAD
         destination:
@@ -437,7 +437,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/dcasati/app-project-env-kubecon.git
+    repoURL: https://github.com/dcasati/app-project-env.git
     targetRevision: HEAD
     path: argocd-apps/namespaces
   destination:
@@ -526,40 +526,6 @@ After pushing to GitHub, the HelmChartProxy controller will detect your changes 
    - `cluster-namespaces`: Creates the `pets` namespace
    - `shared-team-cluster-apps`: Parent application that discovers child apps from Git
    - `aks-store-demo`: Deploys aks-store to the `pets` namespace
-
-**Verify the deployment:**
-
-```bash
-# Switch to dev cluster
-export KUBECONFIG=/path/to/dev-cluster-kubeconfig
-
-# Check that ArgoCD is running
-kubectl get pods -n argocd
-
-# Check that all applications are synced
-kubectl get applications -n argocd
-
-# Check that aks-store pods are running
-kubectl get pods -n pets
-```
-
-**Test Self-Healing (Optional):**
-
-To verify that your GitOps setup is truly self-healing, try deleting resources and watch Argo CD recreate them:
-
-```bash
-# Delete the pets namespace (and all resources in it)
-kubectl delete ns pets
-
-# Wait 30 seconds and check if it's recreated
-sleep 30
-kubectl get ns pets
-
-# ArgoCD should have recreated it automatically!
-kubectl get pods -n pets
-```
-
-This demonstrates the power of GitOps: your cluster always matches Git, regardless of manual changes or deletions.
 
 ---
 

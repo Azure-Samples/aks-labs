@@ -129,7 +129,6 @@ Now that we have saved the environment variables, you can always reload these va
 1. Create the resource group
 
 ```bash
-# Create resource group
 az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
 ```
 
@@ -173,19 +172,13 @@ In this step, we will do the following:
 1. Create a user-assigned identity:
 
   ```bash
-  export AKS_OIDC_ISSUER_URL=$(az aks show \
-    --resource-group ${RESOURCE_GROUP} \
-    --name ${AKS_CLUSTER_NAME} \
-    --query "oidcIssuerProfile.issuerUrl" \
-    -o tsv)
-  
   az identity create \
     --name "${MANAGED_IDENTITY_NAME}" \
     --resource-group "${RESOURCE_GROUP}" \
     --location "${LOCATION}"
   ```
 
-2. Retrieve Azure Managed Identity Client and Principal IDs:
+2. Retrieve Azure Managed Identity Client, Principal IDs and the AKS cluster OIDC Issuer URL:
 
   ```bash
   export AZURE_CLIENT_ID=$(az identity show \
@@ -197,6 +190,12 @@ In this step, we will do the following:
     --name "${MANAGED_IDENTITY_NAME}" \
     --resource-group "${RESOURCE_GROUP}" \
     --query "principalId" -o tsv)
+  
+  export AKS_OIDC_ISSUER_URL=$(az aks show \
+    --resource-group ${RESOURCE_GROUP} \
+    --name ${AKS_CLUSTER_NAME} \
+    --query "oidcIssuerProfile.issuerUrl" \
+    -o tsv)
   ```
 
   Verify that these variables are not empty:
@@ -440,6 +439,10 @@ Helm doesn't remove all of the CRDs from the cluster and those would have to be 
   azureserviceoperator-controller-manager-xxxxx   1/1   Running
   capz-controller-manager-xxxxx                   1/1   Running
   ```
+
+:::note
+It might take 2 minutes for the `azureserviceoperator-controller-manager` and `capz-controller-manager` pods to be in the `Running` state.
+:::
 
 4. Generating a CAPZ `AzureClusterIdentity`
 
