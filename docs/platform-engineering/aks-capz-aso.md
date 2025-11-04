@@ -112,6 +112,7 @@ export AKS_CLUSTER_NAME="aks-labs"
 export RESOURCE_GROUP="rg-aks-labs"
 export LOCATION="westus3"
 export MANAGED_IDENTITY_NAME="akspe"
+
 EOF
 ```
 
@@ -209,6 +210,7 @@ In this step, we will do the following:
   Add these new environment variables to your `.envrc`:
 
   ```bash
+  echo -e "\n# AKS OIDC Registration info" >> .envrc
   echo export AKS_OIDC_ISSUER_URL=${AKS_OIDC_ISSUER_URL} >> .envrc
   echo export AZURE_CLIENT_ID=${AZURE_CLIENT_ID} >> .envrc
   echo export PRINCIPAL_ID=${PRINCIPAL_ID} >>  .envrc
