@@ -537,7 +537,7 @@ After a few minutes, the command completes and returns JSON-formatted informatio
  --resource-group  ${RG_NAME} \
  --cluster-name ${AKS_NAME} \ 
  --query "[].{Name:name, ImageVersion:nodeImageVersion}" \ 
- -o table
+ --output table
 ```
 
 The output of the command should resemble the following: 
