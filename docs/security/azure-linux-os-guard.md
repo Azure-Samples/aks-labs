@@ -220,7 +220,7 @@ Azure Linux with OS Guard’s immutable `/usr` directory provides strong protect
 
 In this scenario we will validate that Azure Linux with OS Guard is immutable. First, ensure you still have access to your node through a privileged container as a debugging pod and can interact with the node session by running `chroot /host`.
 
-We will begin by running the following command to confirm that /usr is mounted as a read-only filesystem:
+We will begin by running the following command to confirm that `/usr` is mounted as a read-only filesystem:
 
 ```bash 
 grep "/usr" /proc/mounts
