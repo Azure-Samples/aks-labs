@@ -246,7 +246,7 @@ This failure occurs because Azure Linux with OS Guard enforces immutability on t
 
 You have now successfully completed **scenario 3**: attempting to modify the `/usr` directory on Azure Linux with OS Guard and confirming that the operation fails as expected.
 
-### Scenario 4: Explore Linux Security Modules 
+## Scenario 4: Explore Linux Security Modules 
 
 Azure Linux with OS Guard builds on the principle of immutability and strengthens it with two advanced security layers: IPE (Integrity Policy Enforcement) and SELinux mandatory access control. IPE, pioneered by Microsoft and recently upstreamed in the Linux 6.12 kernel, verifies the integrity and authenticity of all executable code in user space. In OS Guard, IPE ensures that only trusted binaries from dm-verity protected volumes, including container layers, are allowed to run. IPE can run in the following modes: Audit or Enforce. 
 
