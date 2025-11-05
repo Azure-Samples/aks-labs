@@ -572,7 +572,7 @@ In this lab, you:
 
 - ✅ Set up an Azure Linux with OS Guard cluster on AKS.
 - ✅ Validated Trusted Launch was enforced on your cluster.
-- ✅ Explored immutability by attempting to modify the /usr.
+- ✅ Explored immutability by attempting to modify the `/usr`.
 - ✅ Verified IPE and SELinux was enabled on your cluster. Explored these policies by executing an untrusted binary on the system.
 - ✅ Validated the reduced footprint of the Azure Linux with OS Guard image.
 - ✅ Migrated in-place to Azure Linux with OS Guard, and rolled back to the Azure Linux container host on AKS.
