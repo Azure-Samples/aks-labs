@@ -62,6 +62,7 @@ Azure Linux with OS Guard for AKS is currently in Public Preview, so you will ne
 
 ```bash
 az feature register --namespace Microsoft.ContainerService --name AzureLinuxOSGuardPreview
+```
 
 Azure Linux with OS Guard for AKS is currently in Public Preview, so you will need to register the following preview feature flag using Azure CLI.
 
