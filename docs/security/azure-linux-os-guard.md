@@ -256,7 +256,7 @@ Error(1525) : rpm transaction failed
 
 This failure occurs because Azure Linux with OS Guard enforces immutability on the /usr filesystem. When tdnf tries to install vim, it needs to write files under /usr (e.g., /usr/bin/vim), but the filesystem is read-only. The error needs 5MB more space on the /usr filesystem can be misleading, it’s not about space but rather it’s about write access being denied due to immutability.
 
-You have now successfully completed scenario 3: attempting to modify the /usr directory on Azure Linux with OS Guard and confirming that the operation fails as expected.
+You have now successfully completed **scenario 3**: attempting to modify the `/usr` directory on Azure Linux with OS Guard and confirming that the operation fails as expected.
 
 ### Scenario 4: Explore Linux Security Modules 
 
