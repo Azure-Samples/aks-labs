@@ -210,7 +210,7 @@ You’ve successfully completed Scenario 2: verifying that Trusted Launch is ena
 
 The /usr directory contains critical user-space binaries and libraries that underpin the operating system and container runtime. If these components are modified, attackers can introduce backdoors, replace trusted binaries, or escalate privileges. By making /usr immutable, Azure Linux with OS Guard ensures that the foundational user-space remains tamper-proof throughout the system’s lifecycle.
 
-Azure Linux with OS Guard mounts /usr as a dm-verity protected volume with a signed root hash:
+Azure Linux with OS Guard mounts `/usr` as a dm-verity protected volume with a signed root hash:
 
 - **dm-verity**: A Linux kernel feature that provides transparent integrity checking of block devices.
 - **Signed Root Hash**: At boot, the kernel validates the hash against a trusted signature. Any unauthorized change, whether to the data or the hash, causes the kernel to reject access.
