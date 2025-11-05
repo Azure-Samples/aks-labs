@@ -323,7 +323,7 @@ You should see the following output:
 ```
 -- No entries --
 ```
-Since /usr/bin/true is a trusted binary in /usr (protected by dm-verity), there’s no violation to log. AVC logs appear only when an action violates SELinux policy. For example, if a process tries to access a restricted resource or execute an untrusted binary.
+Since `/usr/bin/true` is a trusted binary in `/usr` (protected by `dm-verity`), there’s no violation to log. AVC logs appear only when an action violates SELinux policy. For example, if a process tries to access a restricted resource or execute an untrusted binary.
 
 Next, inspect the IPE logs by running the following command:
 
