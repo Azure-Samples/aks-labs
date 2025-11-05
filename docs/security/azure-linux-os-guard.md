@@ -225,7 +225,7 @@ We will begin by running the following command to confirm that /usr is mounted a
 ```bash 
 grep "/usr" /proc/mounts
 ```
-You will see in the output that /usr is `ro` (read-only).
+You will see in the output that `/usr` is `ro` (read-only).
 
 Next, run the following command to list all installed RPM packages on the Azure Linux with OS Guard system: 
 
