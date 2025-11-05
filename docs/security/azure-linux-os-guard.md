@@ -473,7 +473,7 @@ Note the difference in package count may vary as newer versions of the OS Guard 
 
 You’ve successfully completed Scenario 5: comparing the footprint of the Azure Linux with OS Guard image on AKS against other node images.
 
-### Scenario 6: Migrating to Azure Linux with OS Guard 
+## Scenario 6: Migrating to Azure Linux with OS Guard 
 
 Finally, when testing a new OS SKU in Public Preview such as Azure Linux with OS Guard it's common to want to test the new OS SKU with your existing AKS clusters. In this scenario we will explore how to upgrade an existing node pool to Azure Linux with OS Guard and then rollback if necessary.
 
