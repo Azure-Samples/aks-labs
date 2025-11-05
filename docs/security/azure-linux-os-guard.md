@@ -142,7 +142,7 @@ You’ve successfully completed Scenario 1: creating and verifying an Azure Linu
 
 ## Scenario 2: Validate Trusted Launch 
 
-Azure Linux with OS Guard is designed as a hardened, immutable container host for AKS. Azure Linux with OS Guard uses dm-verity for immutable file systems and IPE for code integrity, but these protections assume the kernel is trustworthy. Trusted Launch ensures that assumption holds true by validating the kernel and bootloader before they execute.
+Azure Linux with OS Guard is designed as a hardened, immutable container host for AKS. Azure Linux with OS Guard uses [dm-verity](https://www.kernel.org/doc/html/next/admin-guide/device-mapper/verity.html) for immutable file systems and [IPE](https://docs.kernel.org/next/admin-guide/LSM/ipe.html) for code integrity, but these protections assume the kernel is trustworthy. Trusted Launch ensures that assumption holds true by validating the kernel and bootloader before they execute.
 
 Trusted Launch establishes a secure boot chain and cryptographic measurements of all critical components during startup:
 
@@ -162,7 +162,11 @@ Let's verify that Trusted Launch was enforced on the Azure Linux with OS Guard c
 kubectl get nodes -o wide
 ```
 
-Now, use the `kubectl debug` command to start a privileged container on your node and connect to it. *Note: you will need to replace aks-nodepool1-37663765-vmss000000 in the command below with your node name*: 
+Now, use the `kubectl debug` command to start a privileged container on your node and connect to it. 
+
+::::note
+You will need to replace aks-nodepool2-37663765-vmss000000 in the command below with your Azure Linux node name*
+:::: 
 
 ```bash 
 kubectl debug node/aks-nodepool1-37663765-vmss000000 -it --image=mcr.microsoft.com/azurelinux/busybox:1.36
@@ -249,7 +253,9 @@ You have now successfully completed **scenario 3**: attempting to modify the `/u
 
 ## Scenario 4: Explore Linux Security Modules 
 
-Azure Linux with OS Guard builds on the principle of immutability and strengthens it with two advanced security layers: IPE (Integrity Policy Enforcement) and SELinux mandatory access control. IPE, pioneered by Microsoft and recently upstreamed in the Linux 6.12 kernel, verifies the integrity and authenticity of all executable code in user space. In OS Guard, IPE ensures that only trusted binaries from dm-verity protected volumes, including container layers, are allowed to run. IPE can run in the following modes: Audit or Enforce. 
+Azure Linux with OS Guard builds on the principle of immutability and strengthens it with two advanced security layers: IPE and SELinux mandatory access control. 
+
+IPE, which was **pioneered by Microsoft** and recently **upstreamed in the Linux 6.12 kernel**, verifies the integrity and authenticity of all executable code in user space. In OS Guard, IPE ensures that only trusted binaries from dm-verity protected volumes, including container layers, are allowed to run. IPE can run in the following modes: Audit or Enforce.
 
 | **Mode**    | **What It Means**                                                                 |
 |-------------|-----------------------------------------------------------------------------------|
@@ -257,7 +263,7 @@ Azure Linux with OS Guard builds on the principle of immutability and strengthen
 | Enforce     | Actively blocks execution of binaries that fail integrity checks. Ensures only trusted code runs. |
 
 ::::note
-*Please note, for Azure Linux with OS Guard Public Preview IPE is in Audit mode, with plans to move to Enforce mode in GA.*
+For Azure Linux with OS Guard Public Preview IPE is in Audit mode, with plans to move to Enforce mode in GA.
 ::::
 
 Complementing this, SELinux enforces mandatory access control policies to confine processes and containers to strict security domains, ensuring least privilege and reducing the blast radius of any compromise. 
@@ -269,7 +275,7 @@ Complementing this, SELinux enforces mandatory access control policies to confin
 | Disabled     | SELinux is turned off; no access control or logging occurs. Not recommended for hardened environments. |
 
 ::::note
-*Please note, for Azure Linux with OS Guard Public Preview SELinux is in Permissive mode, with plans to move to Enforcing mode in GA.*
+For Azure Linux with OS Guard Public Preview SELinux is in Permissive mode, with plans to move to Enforcing mode in GA.
 ::::
 
 Together, IPE and SELinux provide defense in depth: preventing execution of tampered or unauthorized code, blocking privilege escalation, and maintaining strong isolation between workloads.
@@ -447,7 +453,7 @@ kubectl get nodes -o wide
 Now, use the `kubectl debug` command to start a privileged container on one of your Azure Linux container host nodes and connect to it. 
 
 ::::note
-You will need to replace aks-nodepool2-37663765-vmss000000 in the command below with your Azure Linux node name*
+You will need to replace aks-nodepool2-37663765-vmss000000 in the command below with your Azure Linux node name.
 ::::
 
 ```bash 
@@ -499,9 +505,11 @@ If you haven't already, exit out of your debugging pod by running:
 ```bash
 exit
 ```
-*Note: If you were in the root of your node you may need to type exit twice.*
+::::note
+If you were in the root of your node you may need to type exit twice.
+::::
 
-We will update the Azure Linux container host node pool we created in Scenario 5 to Azure Linux with OS Guard by running the following command. This command doesn't require the creation of new node pools; instead, your existing node pools automatically reimage.
+We will update the Azure Linux container host node pool we created in Scenario 5 to Azure Linux with OS Guard by running the following command. This command doesn't require the creation of new node pools; instead, your existing node pools automatically reimage. Please review the **Important Limitations and Considerations** section at the start of this lab before proceeding to ensure your nodepool meets all requirements for Azure Linux with OS Guard.
 
 ```bash 
 az aks nodepool update \
