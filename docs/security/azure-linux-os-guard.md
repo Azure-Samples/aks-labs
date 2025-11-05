@@ -425,13 +425,6 @@ nodepool1  AKSAzureLinux-OSGuardV3gen2fipsTL-202510.03.0
 nodepool2  AKSAzureLinux-V3gen2-202510.03.0
 ```
 
-Next, connect to the cluster using the `az aks get-credentials` command: 
-
-```bash
-az aks get-credentials \
---resource-group ${RG_NAME} \
---name ${AKS_NAME} 
-```
 
 List your nodes using the `kubectl get nodes` command: 
 
