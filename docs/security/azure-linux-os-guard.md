@@ -451,7 +451,11 @@ List your nodes using the `kubectl get nodes` command:
 kubectl get nodes -o wide
 ```
 
-Now, use the `kubectl debug` command to start a privileged container on one of your Azure Linux container host nodes and connect to it. *Note: you will need to replace aks-nodepool2-37663765-vmss000000 in the command below with your azure linux node name*: 
+Now, use the `kubectl debug` command to start a privileged container on one of your Azure Linux container host nodes and connect to it. 
+
+::::note
+You will need to replace aks-nodepool2-37663765-vmss000000 in the command below with your Azure Linux node name*
+::::
 
 ```bash 
 kubectl debug node/aks-nodepool2-37663765-vmss000000 -it --image=mcr.microsoft.com/azurelinux/busybox:1.36
