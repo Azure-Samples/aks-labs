@@ -360,7 +360,7 @@ Your output should resemble the following:
 ```
 Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: AVC avc:  denied  { execute_no_trans } for  pid=1204583 comm="bash" path="/var/tmp/true" dev="tmpfs" ino=2 scontext=system_u:system_r:spc_t:s0 tcontext=system_u:object_r:container_tmpfs_t:s0 tclass=file permissive=1
 ```
-SELinux policies for OS Guard expect binaries to execute from immutable, trusted paths like /usr. Executing from /var/tmp bypasses these assumptions, triggering an AVC denial.
+SELinux policies for OS Guard expect binaries to execute from immutable, trusted paths like `/usr`. Executing from /var/tmp bypasses these assumptions, triggering an AVC denial.
 
 Since SELinux is in permissive mode, this is logged for visibility but not blocked. If SELinux were in enforcing mode, this execution would fail along with generating an alert.
 
