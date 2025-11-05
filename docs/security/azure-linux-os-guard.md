@@ -194,7 +194,7 @@ Trusted Launch is indicated by a combination of security features in the bootctl
 
 You’ve successfully completed Scenario 2: verifying that Trusted Launch is enabled on an Azure Linux with OS Guard cluster running on AKS. In subsequent scenarios you will explore higher-level protections like dm-verity, SELinux, and IPE.
 
-### Scenario 3: Validate Immutable /usr Directory 
+## Scenario 3: Validate Immutable /usr Directory 
 
 The `/usr` directory contains critical user-space binaries and libraries that underpin the operating system and container runtime. If these components are modified, attackers can introduce backdoors, replace trusted binaries, or escalate privileges. By making `/usr` immutable, Azure Linux with OS Guard ensures that the foundational user-space remains tamper-proof throughout the system’s lifecycle.
 
