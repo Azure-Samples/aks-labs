@@ -279,7 +279,9 @@ Complementing this, SELinux enforces mandatory access control policies to confin
 | Enforcing    | Applies mandatory access control policies, blocking actions that violate SELinux rules. Provides strong runtime containment. |
 | Disabled     | SELinux is turned off; no access control or logging occurs. Not recommended for hardened environments. |
 
+::::note
 *Please note, for Azure Linux with OS Guard Public Preview SELinux is in Permissive mode, with plans to move to Enforcing mode in GA.*
+::::
 
 Together, IPE and SELinux provide defense in depth: preventing execution of tampered or unauthorized code, blocking privilege escalation, and maintaining strong isolation between workloads.
 
