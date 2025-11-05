@@ -200,7 +200,7 @@ Azure Linux with OS Guard mounts /usr as a dm-verity protected volume with a sig
 - **Signed Root Hash**: At boot, the kernel validates the hash against a trusted signature. Any unauthorized change, whether to the data or the hash, causes the kernel to reject access.
 - This enforcement happens at runtime, meaning even if an attacker gains root privileges, attempts to modify /usr will fail
 
-Azure Linux with OS Guard’s immutable /usr directory provides strong protection against multiple attack vectors. It prevents rootkits and user-space tampering by blocking injection of malicious code into system binaries. It also mitigates privilege escalation attempts through modified tools and stops persistence mechanisms by preventing unauthorized software or backdoor installation. Finally, it safeguards container isolation by blocking attacks that rely on altering host binaries.
+Azure Linux with OS Guard’s immutable /usr directory provides strong protection against multiple attack vectors. It prevents rootkits and user-space tampering by blocking injection of malicious code into system binaries. It also mitigates privilege escalation attempts through modified tools, and stops persistence mechanisms by preventing unauthorized software or backdoor installation. Finally, it safeguards container isolation by blocking attacks that rely on altering host binaries.
 
 In this scenario we will validate that Azure Linux with OS Guard is immutable. First, ensure you still have access to your node through a privileged container as a debugging pod. 
 
@@ -340,7 +340,7 @@ First, inspect the SELinux logs by running the following command:
 ```bash
 journalctl -g 'AVC.*path="/var/tmp/true"' | tail -n 30
 ```
-You should see the following output:
+Your output should resemble the following:
 ```
 Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: AVC avc:  denied  { execute_no_trans } for  pid=1204583 comm="bash" path="/var/tmp/true" dev="tmpfs" ino=2 scontext=system_u:system_r:spc_t:s0 tcontext=system_u:object_r:container_tmpfs_t:s0 tclass=file permissive=1
 ```
@@ -352,7 +352,7 @@ Next, inspect the IPE logs by running the following command:
 ```bash
 journalctl -g 'IPE_ACCESS.*path="/var/tmp/true"' | tail -n 30
 ```
-You should see the following output:
+Your output should resemble the following:
 ```
 Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: IPE_ACCESS ipe_op=EXECUTE ipe_hook=BPRM_CHECK enforcing=0 pid=1204583 comm="bash" path="/var/tmp/true" dev="tmpfs" ino=2 rule="DEFAULT op=EXECUTE action=DENY"
 Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: IPE_ACCESS ipe_op=EXECUTE ipe_hook=MMAP enforcing=0 pid=1204583 comm="true" path="/var/tmp/true" dev="tmpfs" ino=2 rule="DEFAULT op=EXECUTE action=DENY"
@@ -381,13 +381,20 @@ exit
 ```
 *Note: If you were in the root of your node you may need to type exit twice.*
 
-Now, add an Azure Linux container host nodepool to your existing cluster by running the following command:
+Now, add an Azure Linux container host nodepool to your existing cluster. 
+
+First, define a new nodepool name: 
+```bash
+export NODEPOOL_NAME=nodepool2
+```
+
+Add the nodepool by running the following command:
 
 ```bash 
 az aks nodepool add \
     --resource-group ${RG_NAME} \
     --cluster-name ${AKS_NAME} \
-    --name $NODEPOOL_NAME \
+    --name ${NODEPOOL_NAME} \
     --node-count 1 \
     --os-sku AzureLinux
 ```
@@ -406,7 +413,7 @@ The output of the command should resemble the following:
 Name       ImageVersion
 ---------  ---------------------------------------------
 nodepool1  AKSAzureLinux-OSGuardV3gen2fipsTL-202510.03.0
-nodepool   AKSAzureLinux-V3gen2-202510.03.0
+nodepool2  AKSAzureLinux-V3gen2-202510.03.0
 ```
 
 Next, connect to the cluster using the `az aks get-credentials` command: 
@@ -423,18 +430,18 @@ List your nodes using the `kubectl get nodes` command:
 kubectl get nodes -o wide
 ```
 
-Now, use the `kubectl debug` command to start a privileged container on one of your Azure Linux container host nodes and connect to it: 
+Now, use the `kubectl debug` command to start a privileged container on one of your Azure Linux container host nodes and connect to it. *Note: you will need to replace aks-nodepool2-37663765-vmss000000 in the command below with your azure linux node name*: 
 
 ```bash 
-kubectl debug node/aks-nodepool1-37663765-vmss000000 -it --image=mcr.microsoft.com/azurelinux/busybox:1.36
+kubectl debug node/aks-nodepool2-37663765-vmss000000 -it --image=mcr.microsoft.com/azurelinux/busybox:1.36
 ```
 
 The output of the command should resemble the following: 
 
 ```
-Creating debugging pod node-debugger-aks-nodepool1-37663765-vmss000000-bkmmx with container debugger on node aks-nodepool1-37663765-vmss000000.
+Creating debugging pod node-debugger-aks-nodepool2-37663765-vmss000000-bkmmx with container debugger on node aks-nodepool2-37663765-vmss000000.
 If you don't see a command prompt, try pressing enter.
-root@aks-nodepool1-37663765-vmss000000:/#
+root@aks-nodepool2-37663765-vmss000000:/#
 ```
 
 You now have access to the Azure Linux container host node through a privileged container as a debugging pod. You can interact with the node session by running `chroot /host` from the privileged container: 
