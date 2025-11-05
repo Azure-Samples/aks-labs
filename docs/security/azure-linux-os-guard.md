@@ -139,7 +139,7 @@ az aks get-credentials \
 
 You’ve successfully completed Scenario 1: creating and verifying an Azure Linux with OS Guard cluster running on AKS.
 
-### Scenario 2: Validate Trusted Launch 
+## Scenario 2: Validate Trusted Launch 
 
 Azure Linux with OS Guard is designed as a hardened, immutable container host for AKS. Azure Linux with OS Guard uses dm-verity for immutable file systems and IPE for code integrity, but these protections assume the kernel is trustworthy. Trusted Launch ensures that assumption holds true by validating the kernel and bootloader before they execute.
 
