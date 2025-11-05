@@ -7,16 +7,28 @@ sidebar_position: 5
 import Prerequisites from "../../src/components/SharedMarkdown/_prerequisites.mdx";
 import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provision_resource_group.mdx";
 
-## Azure Linux with OS Guard on AKS 
 
-[Azure Linux with OS Guard on AKS](https://learn.microsoft.com/azure/azure-linux/intro-azure-linux-os-guard), currently in Public Preview, is a hardened, immutable variant of Azure Linux on AKS. Azure Linux with OS Guard builds on the FedRAMP-certified Azure Linux 3.0 base and its sovereign supply chain, and adds kernel and runtime features that enforce immutability, code integrity and mandatory access control. 
+[Azure Linux with OS Guard on AKS](https://learn.microsoft.com/azure/azure-linux/intro-azure-linux-os-guard), currently in Public Preview, is a hardened, immutable variant of Azure Linux for AKS. Built on the FedRAMP-certified Azure Linux 3.0 base and its sovereign supply chain, it adds kernel and runtime features that enforce immutability, code integrity and mandatory access control. 
 
-Azure Linux with OS Guard on AKS introduces the following key security features: 
+Key security features include:
 
 - **Immutability**: The /usr directory is mounted as a read-only volume protected by dm-verity. At runtime, the kernel validates a signed root hash to detect and block tampering.
-- **Code integrity**: OS Guard integrates the [Integrity Policy Enforcement (IPE) Linux Security Module](https://docs.kernel.org/next/admin-guide/LSM/ipe.html) to ensure that only binaries from trusted, signed volumes are allowed to execute. This helps prevent tampered or untrusted code from executing, including within container images. *Note: IPE is running in audit mode during Public Preview.*
-- **Mandatory access control**: OS Guard integrates SELinux to limit which processes can access sensitive resources in the system. *Note: SELinux is operating in permissive mode during Public Preview.* 
-- **Measured boot and Trusted Launch**: OS Guard supports measured boot and integrates with [Trusted Launch](/azure/aks/use-trusted-launch) to provide cryptographic measurements of boot components stored in a virtual TPM (vTPM). This is achieved using a Unified Kernel Image (UKI), which bundles the kernel, initramfs, and kernel command line into a single signed artifact. During boot, the UKI is measured and recorded in the vTPM, ensuring integrity from the earliest stage. 
+- **Code integrity**: OS Guard integrates the [Integrity Policy Enforcement (IPE) Linux Security Module](https://docs.kernel.org/next/admin-guide/LSM/ipe.html) to ensure that only binaries from trusted, signed volumes are allowed to execute. This helps prevent tampered or untrusted code from executing, including within container images. 
+
+  :::note
+
+  IPE is running in audit mode during Public Preview.
+  
+  :::
+
+- **Mandatory access control**: OS Guard integrates SELinux to limit which processes can access sensitive resources in the system.
+
+  :::note
+
+  SELinux is operating in permissive mode during Public Preview.
+  
+  :::
+- **Measured boot and Trusted Launch**: OS Guard supports measured boot and integrates with [Trusted Launch](https://learn.microsoft.com/en-us/azure/aks/use-trusted-launch) to provide cryptographic measurements of boot components stored in a virtual TPM (vTPM). This is achieved using a Unified Kernel Image (UKI), which bundles the kernel, initramfs, and kernel command line into a single signed artifact. During boot, the UKI is measured and recorded in the vTPM, ensuring integrity from the earliest stage. 
 - **Reduced attack surface**: OS Guard is a slimmed down version of the Azure Linux Container Host, containing only packages that are absolutely necessary for running containerized workloads.
 
 ## Objectives
@@ -29,20 +41,41 @@ In this lab, you will learn how to:
 - Inspect and compare the package count between the Azure Linux Container Host and OS Guard on AKS
 - Perform migration and rollback operations
 
-## Limitations and Considerations
+:::important Limitations and Considerations
 
 Azure Linux with OS Guard is currently in Public Preview. It's important to be aware of the following limitations and considerations: 
 - Kubernetes version 1.32.0 or higher is required for Azure Linux with OS Guard.
-- All Azure Linux with OS Guard images have [Federal Information Process Standard (FIPS)](/azure/aks/enable-fips-nodes) and [Trusted Launch](/azure/aks/use-trusted-launch) enabled.
+- All Azure Linux with OS Guard images have [Federal Information Process Standard (FIPS)](https://learn.microsoft.com/en-us/azure/aks/enable-fips-nodes) and [Trusted Launch](https://learn.microsoft.com/en-us/azure/aks/use-trusted-launch) enabled.
 - Azure CLI and ARM/Bicep templates are the only supported deployment methods for Azure Linux with OS Guard on AKS in preview. PowerShell and Terraform aren't supported.
-- [Arm64](/azure/aks/use-arm64-vms) images aren't supported with Azure Linux with OS Guard on AKS in preview.
+- [Arm64](https://learn.microsoft.com/en-us/azure/aks/use-arm64-vms) images aren't supported with Azure Linux with OS Guard on AKS in preview.
 - `NodeImage` and `None` are the only supported [OS Upgrade channels](/azure/aks/auto-upgrade-node-os-image) for Azure Linux with OS Guard on AKS. `Unmanaged` and `SecurityPatch` are incompatible with Azure Linux with OS Guard due to the immutable /usr directory.
-- [Artifact Streaming](/azure/aks/artifact-streaming) isn't supported.
-- [Pod Sandboxing](/azure/aks/use-pod-sandboxing) isn't supported.
-- [Confidential Virtual Machines (CVMs)](/azure/aks/confidential-containers-overview) aren't supported.
-- [Gen 1 virtual machines (VMs)](/azure/aks/aks-virtual-machine-sizes#vm-support-on-aks) aren't supported.
+- [Artifact Streaming](https://learn.microsoft.com/en-us/azure/aks/artifact-streaming) isn't supported.
+- [Pod Sandboxing](https://learn.microsoft.com/en-us/azure/aks/use-pod-sandboxing) isn't supported.
+- [Confidential Virtual Machines (CVMs)](https://learn.microsoft.com/en-us/azure/aks/confidential-containers-overview) aren't supported.
+- [Gen 1 virtual machines (VMs)](https://learn.microsoft.com/en-us/azure/aks/aks-virtual-machine-sizes#vm-support-on-aks) aren't supported.
+
+:::
 
 <Prerequisites />
+
+Azure Linux with OS Guard for AKS is currently in Public Preview, so you will need to register the following preview feature flag using Azure CLI.
+
+```bash
+az feature register --namespace Microsoft.ContainerService --name AzureLinuxOSGuardPreview
+```
+
+It takes a few minutes for the status to show *Registered*. Verify the registration status by using the az feature show command:
+
+```bash
+az feature show --namespace "Microsoft.ContainerService" --name "AzureLinuxOSGuardPreview"
+```
+
+When the status reflects *Registered*, refresh the registration of the Microsoft.ContainerService resource provider by using the az provider register command:
+
+```bash
+az provider register --namespace "Microsoft.ContainerService"
+```
+
 <ProvisionResourceGroup />
 
 ### Install the aks-preview Azure CLI extension
@@ -61,25 +94,6 @@ az extension update --name aks-preview
 ### Scenario 1: Create an Azure Linux with OS Guard on AKS Cluster
 You can either spin up a new cluster or add node pools to an existing cluster to experiment with Azure Linux with OS Guard on AKS. For the purposes of this lab, we will create a new Azure Linux with OS Guard cluster.
 
-::: important
-Azure Linux with OS Guard for AKS is currently in Public Preview, so you will need to register the following preview feature flag using Azure CLI.
-
-```bash
-az feature register --namespace Microsoft.ContainerService --name AzureLinuxOSGuardPreview
-```
-
-It takes a few minutes for the status to show *Registered*. Verify the registration status by using the `az feature show` command:
-
-```bash
-az feature show --namespace "Microsoft.ContainerService" --name "AzureLinuxOSGuardPreview"
-```
-
-When the status reflects *Registered*, refresh the registration of the *Microsoft.ContainerService* resource provider by using the `az provider register` command:
-
-```bash
-az provider register --namespace "Microsoft.ContainerService"
-```
-:::
 
 Set the AKS cluster name.
 
@@ -157,7 +171,7 @@ Let's verify that Trusted Launch was enforced on the Azure Linux with OS Guard c
 kubectl get nodes -o wide
 ```
 
-Now, use the `kubectl debug` command to start a privileged container on your node and connect to it: 
+Now, use the `kubectl debug` command to start a privileged container on your node and connect to it. *Note: you will need to replace aks-nodepool1-37663765-vmss000000 in the command below with your node name*: 
 
 ```bash 
 kubectl debug node/aks-nodepool1-37663765-vmss000000 -it --image=mcr.microsoft.com/azurelinux/busybox:1.36
@@ -202,7 +216,7 @@ Azure Linux with OS Guard mounts /usr as a dm-verity protected volume with a sig
 
 Azure Linux with OS Guard’s immutable /usr directory provides strong protection against multiple attack vectors. It prevents rootkits and user-space tampering by blocking injection of malicious code into system binaries. It also mitigates privilege escalation attempts through modified tools, and stops persistence mechanisms by preventing unauthorized software or backdoor installation. Finally, it safeguards container isolation by blocking attacks that rely on altering host binaries.
 
-In this scenario we will validate that Azure Linux with OS Guard is immutable. First, ensure you still have access to your node through a privileged container as a debugging pod. 
+In this scenario we will validate that Azure Linux with OS Guard is immutable. First, ensure you still have access to your node through a privileged container as a debugging pod and can interact with the node session by running `chroot /host`.
 
 We will begin by running the following command to confirm that /usr is mounted as a read-only filesystem:
 
@@ -265,7 +279,7 @@ Complementing this, SELinux enforces mandatory access control policies to confin
 
 Together, IPE and SELinux provide defense in depth: preventing execution of tampered or unauthorized code, blocking privilege escalation, and maintaining strong isolation between workloads.
 
-To begin exploring these security modules in more depth, ensure you still have access to the node from Scenario 2 through a privileged container as a debugging pod. 
+To begin exploring these security modules in more depth, ensure you still have access to the node from Scenario 2 through a privileged container as a debugging pod and can interact with the node session by running `chroot /host`. 
 
 You will first verify that SELinux is in `permissive` mode on your node. You can do so by running the following command:
 
@@ -363,16 +377,16 @@ You have now successfully completed scenario 4: exploring how SELinux and IPE wo
 
 ### Scenario 5: Reduced Attack Surface 
 
-The Azure Linux with OS Guard image on AKS is small, containing only packages that are strictly necessary for running containerized workloads. Since every installed package on the host introduces potential vulnerabilities, a reduced footprint with fewer packages means fewer entry points for potential attackers. Further, Azure Linux with OS Guard removed unnecessary components like text editors (as you discovered in scenario 3), GUIs, unused drivers, etc. which minimizes exposure to potentially compromised dependencies. 
+The Azure Linux with OS Guard image on AKS is small, containing only packages that are strictly necessary for running containerized workloads. Since every installed package on the host introduces potential vulnerabilities, a reduced footprint with fewer packages means fewer entry points for potential attackers. Further, Azure Linux with OS Guard removes unnecessary components like text editors (as you discovered in scenario 3), GUIs, unused drivers, etc. which minimizes exposure to potentially compromised dependencies. 
 
-In this scenario we will take a closer look at the footprint of Azure Linux with OS Guard compared to the Azure Linux container host on AKS. First, ensure you still have access to your node through a privileged container as a debugging pod. 
+In this scenario we will take a closer look at the footprint of Azure Linux with OS Guard compared to the Azure Linux container host on AKS. First, ensure you still have access to the node from Scenario 2 through a privileged container as a debugging pod and can interact with the node session by running `chroot /host`.
 
 Run the following command to count the number of RPM packages installed on the Azure Linux with OS Guard image:
 
 ```bash 
 rpm -qa | wc -l
 ```
-You should see that there are **297 packages** in the Azure Linux with OS Guard image. *Note: this number is subject to change as new versions of the OS Guard image are released.*
+You should see that there are approximately **297 packages** in the Azure Linux with OS Guard image. *Note: this number is subject to change as new versions of the OS Guard image are released.*
 
 Let's compare this to the Azure Linux container host image on AKS. To do so, you will first need to add an Azure Linux node pool to your existing AKS cluster. Exit out of your debugging pod by running: 
 
@@ -455,7 +469,7 @@ Finally, run the following command to count the number of RPM packages installed
 rpm -qa | wc -l
 ```
 
-You should see that there are **382 packages** in the Azure Linux with OS Guard image.
+You should see that there are approximately **382 packages** in the Azure Linux container host image.
 
 Although the Azure Linux container host image is already optimized to minimize the attack surface, the Azure Linux with OS Guard image goes even further—removing 85 additional packages to reduce potential vulnerabilities. *Note: the difference in package count may vary as newer versions of the OS Guard image are released.*
 
@@ -473,7 +487,7 @@ To upgrade an existing node pool to Azure Linux with OS Guard, you can use the `
 We will update the Azure Linux container host node pool we created in Scenario 5 to Azure Linux with OS Guard by running the following command. This command doesn't require the creation of new node pools; instead, your existing node pools automatically reimage.
 
 ```bash 
-az aks nodepool update --resource-group $RESOURCE_GROUP --cluster-name $CLUSTER_NAME --name $NODE_POOL_NAME --os-sku AzureLinuxOSGuard --node-osdisk-type Managed --enable-fips-image --enable-secure-boot --enable-vtpm
+az aks nodepool update --resource-group ${RG_NAME} --cluster-name ${AKS_NAME} --name $NODEPOOL_NAME --os-sku AzureLinuxOSGuard --node-osdisk-type Managed --enable-fips-image --enable-secure-boot --enable-vtpm
 ``` 
 
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that the node pools in the cluster are running on Azure Linux with OS Guard by running the following command: 
@@ -497,7 +511,7 @@ nodepool   AKSAzureLinux-OSGuardV3gen2fipsTL-202509.23.0
 If you experience issues during the OS SKU migration, you can easily roll back to your previous OS SKU. To do this, you need to change the OS SKU field in your template and resubmit the deployment, which triggers another upgrade operation and reimages the node pool to its previous OS SKU:
 
 ```bash
-az aks nodepool update --resource-group ${RG_NAME} --cluster-name ${AKS_NAME} --name $NODE_POOL_NAME --os-sku AzureLinux
+az aks nodepool update --resource-group ${RG_NAME} --cluster-name ${AKS_NAME} --name $NODEPOOL_NAME --os-sku AzureLinux
 ```
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that the node pool in the cluster has rolled back to running the Azure Linux container host by running the following command:
 
@@ -538,8 +552,8 @@ In this lab, you:
 
 If you're interested in trying out **Azure Linux with OS Guard** on AKS further, check out our tutorials and quickstarts:
 
-- Azure Linux with OS Guard [Quickstarts] (https://learn.microsoft.com/en-us/azure/azure-linux/quickstart-os-guard-azure-cli)
-- Azure Linux with OS Guard [Tutorials] (https://learn.microsoft.com/en-us/azure/azure-linux/tutorial-azure-linux-os-guard-create-cluster)
+- Azure Linux with OS Guard [Quickstarts](https://learn.microsoft.com/en-us/azure/azure-linux/quickstart-os-guard-azure-cli)
+- Azure Linux with OS Guard [Tutorials](https://learn.microsoft.com/en-us/azure/azure-linux/tutorial-azure-linux-os-guard-create-cluster)
 
 ## Cleanup (Optional)
 
