@@ -22,11 +22,17 @@ In this module, we will explore `kro` (Kube Resource Orchestrator), an open-sour
 
 This module is part of a series. Before doing this lab you should've completed the [Platform Engineering lab using AKS, GitOps, CAPZ, and ASOv2](./aks-capz-aso.md).
 
-1. Before you continue, load the environment variables as defined in [Step 1: Create the AKS cluster](./aks-capz-aso.md#step-1-create-the-aks-cluster). 
+1. Create a directory to store the artifacts for this lab:
+
+```bash
+mkdir -p ~/aks-labs/platform-engineering/using-kro
+cd ~/aks-labs/platform-engineering/using-kro
+```
+
+2. Load the environment variables as defined in [Step 1: Create the AKS cluster](./aks-capz-aso.md#step-1-create-the-aks-cluster). 
 
 ```bash
 source ~/aks-labs/platform-engineering/aks-capz-aso/.envrc
-export KUBECONFIG=~/aks-labs/platform-engineering/aks-capz-aso/aks-labs.config 
 ```
 
 :::note
@@ -48,13 +54,6 @@ export AZURE_CLIENT_ID=<your-azure-client-id>
 export PRINCIPAL_ID=<your-principal-id>
 ```
 :::
-
-2. Create a directory to store the artifacts for this lab:
-
-```bash
-mkdir -p ~/aks-labs/platform-engineering/using-kro
-cd ~/aks-labs/platform-engineering/using-kro
-```
 
 ---
 ### What is kro?
@@ -386,7 +385,9 @@ Apply it:
 kubectl apply -f aks-store-instance.yaml
 ```
 
-Check if the cluster is now running:
+This will trigger the creation of a new AKS cluster called `store-demo`. You can followthe cluster creation by using (a) the Azure Portal, (b) `azure cli` or (c) by using `kubectl` 
+
+Check if the cluster is now running using `kubectl`:
 
 ```bash
 kubectl get managedclusters
@@ -408,7 +409,7 @@ store-demo-aks   False   Info       Reconciling   The resource is in the process
 ```
 :::
 
-With the cluster now up and running, we can then 1) add Argo CD to the cluster, which once operational, will b) pull the AKS Store Demo and install it on the cluster.
+With the cluster now up and running, we can then (1) add Argo CD to the cluster, which once operational, will (2) pull the AKS Store Demo and install it on the cluster.
 
 Here are the consolidated steps:
 
@@ -416,14 +417,20 @@ Here are the consolidated steps:
 2. Install Argo CD
 
 ```bash
-az aks get-credentials -n store-demo-aks  -g store-demo-rg
+az aks get-credentials -n store-demo-aks -g store-demo-rg --file store-demo.config
+export KUBECONFIG=store-demo.config
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 ```
 
+:::note
+If you have been following the other 2 labs in this series, you should have a file already in place in `aks-labs/platform-engineering/aks-capz-aso/app-project-env/argocd-apps/aks-store/aks-store-argocd-app.yaml`. You can use that file, which was generated for the main Platform Engineering cluster or proceed with the creation of this new file that is tailored for the developer cluster. The reason we are using this new file here is to showcase that you can fully customize an argocd application into your developer level cluster.
+:::
+
 Once Argo CD is installed, we will create an Argo CD Application:
 
 ```bash
+cat <<EOF> argoapps-aks-store-demo.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -446,6 +453,13 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+EOF
+```
+
+Apply it:
+
+```bash
+kubectl apply -f argoapps-aks-store-demo.yaml
 ```
 
 You should now be able to see your deployment:
