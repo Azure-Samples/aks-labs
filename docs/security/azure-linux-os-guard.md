@@ -411,6 +411,7 @@ az aks nodepool add \
     --name ${NODEPOOL_NAME} \
     --node-count 1 \
     --os-sku AzureLinux
+    --node-osdisk-type Managed
 ```
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that there are Azure Linux with OS Guard and Azure Linux container host node pools running side by side in the same cluster: 
 
@@ -469,7 +470,7 @@ Finally, run the following command to count the number of RPM packages installed
 rpm -qa | wc -l
 ```
 
-You should see that there are approximately **382 packages** in the Azure Linux container host image.
+You should see that there are approximately **383 packages** in the Azure Linux container host image.
 
 Although the Azure Linux container host image is already optimized to minimize the attack surface, the Azure Linux with OS Guard image goes even further—removing 85 additional packages to reduce potential vulnerabilities. *Note: the difference in package count may vary as newer versions of the OS Guard image are released.*
 
@@ -519,13 +520,17 @@ The output of the command should resemble the following:
 Name       ImageVersion
 ---------  ---------------------------------------------
 nodepool1  AKSAzureLinux-OSGuardV3gen2fipsTL-202510.03.0
-nodepool   AKSAzureLinux-OSGuardV3gen2fipsTL-202509.23.0
+nodepool2  AKSAzureLinux-OSGuardV3gen2fipsTL-202509.23.0
 ```
 
 If you experience issues during the OS SKU migration, you can easily roll back to your previous OS SKU. To do this, you need to change the OS SKU field in your template and resubmit the deployment, which triggers another upgrade operation and reimages the node pool to its previous OS SKU:
 
 ```bash
-az aks nodepool update --resource-group ${RG_NAME} --cluster-name ${AKS_NAME} --name $NODEPOOL_NAME --os-sku AzureLinux
+az aks nodepool update \
+--resource-group ${RG_NAME} \ 
+--cluster-name ${AKS_NAME} \
+--name $NODEPOOL_NAME \ 
+--os-sku AzureLinux
 ```
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that the node pool in the cluster has rolled back to running the Azure Linux container host by running the following command:
 
@@ -542,14 +547,14 @@ The output of the command should resemble the following:
 Name       ImageVersion
 ---------  ---------------------------------------------
 nodepool1  AKSAzureLinux-OSGuardV3gen2fipsTL-202510.03.0
-nodepool   AKSAzureLinux-V3gen2CVM-202510.03.0
+nodepool2  AKSAzureLinux-V3gen2TL-202510.03.1
 ```
 
 You’ve successfully completed Scenario 6: migrating to Azure Linux with OS Guard on an existing AKS cluster.
 
 ## Summary
 
-🎉 Congratulations on completing this lab! You should now have some hands-on experience with **Azure Linux with OS Guard** on AKS, with a solid understanding of how trusted launch, immutability, IPE, SELinux, and a reduced footprint help protect your workloads against a variety of security threats.
+🎉 Congratulations on completing this lab! You should now have some hands-on experience with **Azure Linux with OS Guard** on AKS, with a solid understanding of how trusted launch, immutability, IPE, SELinux, and a reduced footprint help protect your kubernetes workloads against a variety of security threats.
 
 ### What we learned
 
