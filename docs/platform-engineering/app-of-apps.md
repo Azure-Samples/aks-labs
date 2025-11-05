@@ -203,6 +203,7 @@ metadata:
     enable_cert_manager: "false"
     enable_kargo: "true"
     environment: control-plane
+    kargo_chart_version: "1.8.3"
   annotations:
     addons_repo_url: "${GITOPS_ADDONS_ORG}/${GITOPS_ADDONS_REPO}"
     addons_repo_basepath: "${GITOPS_ADDONS_BASEPATH}"
