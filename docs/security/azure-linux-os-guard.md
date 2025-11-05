@@ -308,7 +308,7 @@ cat /sys/kernel/security/ipe/enforce
 ```
 Let's now explore an example of how SELinux and IPE work in tandem to prevent the execution of untrusted binaries and confine processes access to strict security domains. 
 
-You will begin by executing a trusted, signed binary from the Azure Linux OS Guard /usr directory. To do so, run the following command:
+You will begin by executing a trusted, signed binary from the Azure Linux OS Guard `/usr` directory. To do so, run the following command:
 
 ```bash
 /usr/bin/true && echo "Binary has executed"
