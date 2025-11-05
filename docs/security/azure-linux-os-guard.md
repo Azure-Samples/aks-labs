@@ -28,7 +28,7 @@ Key security features include:
   SELinux is operating in permissive mode during Public Preview.
   
   :::
-- **Measured boot and Trusted Launch**: OS Guard supports measured boot and integrates with [Trusted Launch](/azure/aks/use-trusted-launch) to provide cryptographic measurements of boot components stored in a virtual TPM (vTPM). This is achieved using a Unified Kernel Image (UKI), which bundles the kernel, initramfs, and kernel command line into a single signed artifact. During boot, the UKI is measured and recorded in the vTPM, ensuring integrity from the earliest stage. 
+- **Measured boot and Trusted Launch**: OS Guard supports measured boot and integrates with [Trusted Launch](https://learn.microsoft.com/en-us/azure/aks/use-trusted-launch) to provide cryptographic measurements of boot components stored in a virtual TPM (vTPM). This is achieved using a Unified Kernel Image (UKI), which bundles the kernel, initramfs, and kernel command line into a single signed artifact. During boot, the UKI is measured and recorded in the vTPM, ensuring integrity from the earliest stage. 
 - **Reduced attack surface**: OS Guard is a slimmed down version of the Azure Linux Container Host, containing only packages that are absolutely necessary for running containerized workloads.
 
 ## Objectives
@@ -45,14 +45,14 @@ In this lab, you will learn how to:
 
 Azure Linux with OS Guard is currently in Public Preview. It's important to be aware of the following limitations and considerations: 
 - Kubernetes version 1.32.0 or higher is required for Azure Linux with OS Guard.
-- All Azure Linux with OS Guard images have [Federal Information Process Standard (FIPS)](/azure/aks/enable-fips-nodes) and [Trusted Launch](/azure/aks/use-trusted-launch) enabled.
+- All Azure Linux with OS Guard images have [Federal Information Process Standard (FIPS)](https://learn.microsoft.com/en-us/azure/aks/enable-fips-nodes) and [Trusted Launch](https://learn.microsoft.com/en-us/azure/aks/use-trusted-launch) enabled.
 - Azure CLI and ARM/Bicep templates are the only supported deployment methods for Azure Linux with OS Guard on AKS in preview. PowerShell and Terraform aren't supported.
-- [Arm64](/azure/aks/use-arm64-vms) images aren't supported with Azure Linux with OS Guard on AKS in preview.
+- [Arm64](https://learn.microsoft.com/en-us/azure/aks/use-arm64-vms) images aren't supported with Azure Linux with OS Guard on AKS in preview.
 - `NodeImage` and `None` are the only supported [OS Upgrade channels](/azure/aks/auto-upgrade-node-os-image) for Azure Linux with OS Guard on AKS. `Unmanaged` and `SecurityPatch` are incompatible with Azure Linux with OS Guard due to the immutable /usr directory.
-- [Artifact Streaming](/azure/aks/artifact-streaming) isn't supported.
-- [Pod Sandboxing](/azure/aks/use-pod-sandboxing) isn't supported.
-- [Confidential Virtual Machines (CVMs)](/azure/aks/confidential-containers-overview) aren't supported.
-- [Gen 1 virtual machines (VMs)](/azure/aks/aks-virtual-machine-sizes#vm-support-on-aks) aren't supported.
+- [Artifact Streaming](https://learn.microsoft.com/en-us/azure/aks/artifact-streaming) isn't supported.
+- [Pod Sandboxing](https://learn.microsoft.com/en-us/azure/aks/use-pod-sandboxing) isn't supported.
+- [Confidential Virtual Machines (CVMs)](https://learn.microsoft.com/en-us/azure/aks/confidential-containers-overview) aren't supported.
+- [Gen 1 virtual machines (VMs)](https://learn.microsoft.com/en-us/azure/aks/aks-virtual-machine-sizes#vm-support-on-aks) aren't supported.
 
 :::
 
