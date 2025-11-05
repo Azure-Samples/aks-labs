@@ -12,7 +12,8 @@ import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provisi
 
 Key security features include:
 
-- **Immutability**: The /usr directory is mounted as a read-only volume protected by dm-verity. At runtime, the kernel validates a signed root hash to detect and block tampering.
+- **Immutability**: The `/usr` directory is mounted as a read-only volume protected by dm-verity. At runtime, the kernel validates a signed root hash to detect and block tampering.
+
 - **Code integrity**: OS Guard integrates the [Integrity Policy Enforcement (IPE) Linux Security Module](https://docs.kernel.org/next/admin-guide/LSM/ipe.html) to ensure that only binaries from trusted, signed volumes are allowed to execute. This helps prevent tampered or untrusted code from executing, including within container images. 
 
   :::note
@@ -36,7 +37,7 @@ Key security features include:
 In this lab, you will learn how to:
 - Provision an Azure Linux with OS Guard AKS cluster 
 - Validate Trusted Launch security 
-- Demonstrate immutability enforcement in the /usr directory 
+- Demonstrate immutability enforcement in the `/usr` directory 
 - Explore advanced SELinux and IPE security policies 
 - Inspect and compare the package count between the Azure Linux Container Host and OS Guard on AKS
 - Perform migration and rollback operations
@@ -48,7 +49,8 @@ Azure Linux with OS Guard is currently in Public Preview. It's important to be a
 - All Azure Linux with OS Guard images have [Federal Information Process Standard (FIPS)](https://learn.microsoft.com/en-us/azure/aks/enable-fips-nodes) and [Trusted Launch](https://learn.microsoft.com/en-us/azure/aks/use-trusted-launch) enabled.
 - Azure CLI and ARM/Bicep templates are the only supported deployment methods for Azure Linux with OS Guard on AKS in preview. PowerShell and Terraform aren't supported.
 - [Arm64](https://learn.microsoft.com/en-us/azure/aks/use-arm64-vms) images aren't supported with Azure Linux with OS Guard on AKS in preview.
-- `NodeImage` and `None` are the only supported [OS Upgrade channels](https://learn.microsoft.com/en-us/azure/aks/auto-upgrade-node-os-image) for Azure Linux with OS Guard on AKS. `Unmanaged` and `SecurityPatch` are incompatible with Azure Linux with OS Guard due to the immutable /usr directory.
+- `NodeImage` and `None` are the only supported [OS Upgrade channels](/azure/aks/auto-upgrade-node-os-image) for Azure Linux with OS Guard on AKS. `Unmanaged` and `SecurityPatch` are incompatible with Azure Linux with OS Guard due to the immutable `/usr` directory.
+
 - [Artifact Streaming](https://learn.microsoft.com/en-us/azure/aks/artifact-streaming) isn't supported.
 - [Pod Sandboxing](https://learn.microsoft.com/en-us/azure/aks/use-pod-sandboxing) isn't supported.
 - [Confidential Virtual Machines (CVMs)](https://learn.microsoft.com/en-us/azure/aks/confidential-containers-overview) aren't supported.
@@ -117,7 +119,7 @@ az aks create \
 --os-sku AzureLinuxOSGuard \
 --node-osdisk-type Managed \
 --enable-fips-image \
---enable-secure-boot \ 
+--enable-secure-boot \
 --enable-vtpm \
 --generate-ssh-keys
 ```
@@ -206,24 +208,24 @@ You’ve successfully completed Scenario 2: verifying that Trusted Launch is ena
 
 ### Scenario 3: Validate Immutable /usr Directory 
 
-The /usr directory contains critical user-space binaries and libraries that underpin the operating system and container runtime. If these components are modified, attackers can introduce backdoors, replace trusted binaries, or escalate privileges. By making /usr immutable, Azure Linux with OS Guard ensures that the foundational user-space remains tamper-proof throughout the system’s lifecycle.
+The `/usr` directory contains critical user-space binaries and libraries that underpin the operating system and container runtime. If these components are modified, attackers can introduce backdoors, replace trusted binaries, or escalate privileges. By making `/usr` immutable, Azure Linux with OS Guard ensures that the foundational user-space remains tamper-proof throughout the system’s lifecycle.
 
-Azure Linux with OS Guard mounts /usr as a dm-verity protected volume with a signed root hash:
+Azure Linux with OS Guard mounts `/usr` as a dm-verity protected volume with a signed root hash:
 
 - **dm-verity**: A Linux kernel feature that provides transparent integrity checking of block devices.
 - **Signed Root Hash**: At boot, the kernel validates the hash against a trusted signature. Any unauthorized change, whether to the data or the hash, causes the kernel to reject access.
 - This enforcement happens at runtime, meaning even if an attacker gains root privileges, attempts to modify /usr will fail
 
-Azure Linux with OS Guard’s immutable /usr directory provides strong protection against multiple attack vectors. It prevents rootkits and user-space tampering by blocking injection of malicious code into system binaries. It also mitigates privilege escalation attempts through modified tools, and stops persistence mechanisms by preventing unauthorized software or backdoor installation. Finally, it safeguards container isolation by blocking attacks that rely on altering host binaries.
+Azure Linux with OS Guard’s immutable `/usr` directory provides strong protection against multiple attack vectors. It prevents rootkits and user-space tampering by blocking injection of malicious code into system binaries. It also mitigates privilege escalation attempts through modified tools, and stops persistence mechanisms by preventing unauthorized software or backdoor installation. Finally, it safeguards container isolation by blocking attacks that rely on altering host binaries.
 
 In this scenario we will validate that Azure Linux with OS Guard is immutable. First, ensure you still have access to your node through a privileged container as a debugging pod and can interact with the node session by running `chroot /host`.
 
-We will begin by running the following command to confirm that /usr is mounted as a read-only filesystem:
+We will begin by running the following command to confirm that `/usr` is mounted as a read-only filesystem:
 
 ```bash 
 grep "/usr" /proc/mounts
 ```
-You will see in the output that /usr is `ro` (read-only).
+You will see in the output that `/usr` is `ro` (read-only).
 
 Next, run the following command to list all installed RPM packages on the Azure Linux with OS Guard system: 
 
@@ -252,9 +254,9 @@ installing package vim-9.1.1616-1.azl3.x86_64 needs 5MB more space on the /usr f
 Error(1525) : rpm transaction failed
 ```
 
-This failure occurs because Azure Linux with OS Guard enforces immutability on the /usr filesystem. When tdnf tries to install vim, it needs to write files under /usr (e.g., /usr/bin/vim), but the filesystem is read-only. The error needs 5MB more space on the /usr filesystem can be misleading, it’s not about space but rather it’s about write access being denied due to immutability.
+This failure occurs because Azure Linux with OS Guard enforces immutability on the `/usr` filesystem. When `tdnf` tries to install `vim`, it needs to write files under `/usr` (e.g., `/usr/bin/vim`), but the filesystem is read-only. The error needs 5MB more space on the `/usr` filesystem can be misleading, it’s not about space but rather it’s about write access being denied due to immutability.
 
-You have now successfully completed scenario 3: attempting to modify the /usr directory on Azure Linux with OS Guard and confirming that the operation fails as expected.
+You have now successfully completed **scenario 3**: attempting to modify the `/usr` directory on Azure Linux with OS Guard and confirming that the operation fails as expected.
 
 ### Scenario 4: Explore Linux Security Modules 
 
@@ -265,7 +267,9 @@ Azure Linux with OS Guard builds on the principle of immutability and strengthen
 | Audit       | Logs integrity violations without blocking execution. Useful for testing and policy tuning before enforcement. |
 | Enforce     | Actively blocks execution of binaries that fail integrity checks. Ensures only trusted code runs. |
 
+::::note
 *Please note, for Azure Linux with OS Guard Public Preview IPE is in Audit mode, with plans to move to Enforce mode in GA.*
+::::
 
 Complementing this, SELinux enforces mandatory access control policies to confine processes and containers to strict security domains, ensuring least privilege and reducing the blast radius of any compromise. 
 
@@ -275,7 +279,9 @@ Complementing this, SELinux enforces mandatory access control policies to confin
 | Enforcing    | Applies mandatory access control policies, blocking actions that violate SELinux rules. Provides strong runtime containment. |
 | Disabled     | SELinux is turned off; no access control or logging occurs. Not recommended for hardened environments. |
 
+::::note
 *Please note, for Azure Linux with OS Guard Public Preview SELinux is in Permissive mode, with plans to move to Enforcing mode in GA.*
+::::
 
 Together, IPE and SELinux provide defense in depth: preventing execution of tampered or unauthorized code, blocking privilege escalation, and maintaining strong isolation between workloads.
 
@@ -306,7 +312,7 @@ cat /sys/kernel/security/ipe/enforce
 ```
 Let's now explore an example of how SELinux and IPE work in tandem to prevent the execution of untrusted binaries and confine processes access to strict security domains. 
 
-You will begin by executing a trusted, signed binary from the Azure Linux OS Guard /usr directory. To do so, run the following command:
+You will begin by executing a trusted, signed binary from the Azure Linux OS Guard `/usr` directory. To do so, run the following command:
 
 ```bash
 /usr/bin/true && echo "Binary has executed"
@@ -321,7 +327,7 @@ You should see the following output:
 ```
 -- No entries --
 ```
-Since /usr/bin/true is a trusted binary in /usr (protected by dm-verity), there’s no violation to log. AVC logs appear only when an action violates SELinux policy. For example, if a process tries to access a restricted resource or execute an untrusted binary.
+Since `/usr/bin/true` is a trusted binary in `/usr` (protected by `dm-verity`), there’s no violation to log. AVC logs appear only when an action violates SELinux policy. For example, if a process tries to access a restricted resource or execute an untrusted binary.
 
 Next, inspect the IPE logs by running the following command:
 
@@ -333,7 +339,7 @@ You should see the following output:
 -- No entries --
 ```
 
-Audit mode only logs integrity violations when they occur. Since /usr/bin/true is a trusted binary on a dm-verity protected volume, there’s no violation to report and hence no entries to show.
+Audit mode only logs integrity violations when they occur. Since `/usr/bin/true` is a trusted binary on a `dm-verity` protected volume, there’s no violation to report and hence no entries to show.
 
 The previous commands showed that `/usr/bin/true` is a trusted binary coming from a dm-verity protected volume, and thus execution does not violate SELinux or IPE policies. Let's now observe how Azure Linux with OS Guard behaves when a binary coming from an untrusted source is executed on the system.
 
@@ -358,7 +364,7 @@ Your output should resemble the following:
 ```
 Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: AVC avc:  denied  { execute_no_trans } for  pid=1204583 comm="bash" path="/var/tmp/true" dev="tmpfs" ino=2 scontext=system_u:system_r:spc_t:s0 tcontext=system_u:object_r:container_tmpfs_t:s0 tclass=file permissive=1
 ```
-SELinux policies for OS Guard expect binaries to execute from immutable, trusted paths like /usr. Executing from /var/tmp bypasses these assumptions, triggering an AVC denial.
+SELinux policies for OS Guard expect binaries to execute from immutable, trusted paths like `/usr`. Executing from /var/tmp bypasses these assumptions, triggering an AVC denial.
 
 Since SELinux is in permissive mode, this is logged for visibility but not blocked. If SELinux were in enforcing mode, this execution would fail along with generating an alert.
 
@@ -371,7 +377,7 @@ Your output should resemble the following:
 Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: IPE_ACCESS ipe_op=EXECUTE ipe_hook=BPRM_CHECK enforcing=0 pid=1204583 comm="bash" path="/var/tmp/true" dev="tmpfs" ino=2 rule="DEFAULT op=EXECUTE action=DENY"
 Oct 20 22:46:44 aks-nodepool1-28127405-vmss000000 audit[1204583]: IPE_ACCESS ipe_op=EXECUTE ipe_hook=MMAP enforcing=0 pid=1204583 comm="true" path="/var/tmp/true" dev="tmpfs" ino=2 rule="DEFAULT op=EXECUTE action=DENY"
 ```
-This output indicates that the execution of /var/tmp/true violated OS Guard's integrity policy because the binary was located outside a trusted source. Azure Linux with OS Guard detected that /var/tmp/true is not from a verified, dm-verity backed source and flagged it as a violation. This demonstrates IPE's role in runtime integrity: even if the binary originated from a trusted /usr path, moving it to an unprotected location invalidates its trust. Since IPE is in audit mode, this is logged for visibility but not blocked. If IPE was in Enforce mode this execution would be blocked along with generating an alert.
+This output indicates that the execution of `/var/tmp/true` violated OS Guard's integrity policy because the binary was located outside a trusted source. Azure Linux with OS Guard detected that `/var/tmp/true` is not from a verified, dm-verity backed source and flagged it as a violation. This demonstrates IPE's role in runtime integrity: even if the binary originated from a trusted `/usr` path, moving it to an unprotected location invalidates its trust. Since IPE is in audit mode, this is logged for visibility but not blocked. If IPE was in Enforce mode this execution would be blocked along with generating an alert.
 
 You have now successfully completed scenario 4: exploring how SELinux and IPE work in tandem to provide defense in depth.
 
@@ -445,7 +451,11 @@ List your nodes using the `kubectl get nodes` command:
 kubectl get nodes -o wide
 ```
 
-Now, use the `kubectl debug` command to start a privileged container on one of your Azure Linux container host nodes and connect to it. *Note: you will need to replace aks-nodepool2-37663765-vmss000000 in the command below with your azure linux node name*: 
+Now, use the `kubectl debug` command to start a privileged container on one of your Azure Linux container host nodes and connect to it. 
+
+::::note
+You will need to replace aks-nodepool2-37663765-vmss000000 in the command below with your Azure Linux node name*
+::::
 
 ```bash 
 kubectl debug node/aks-nodepool2-37663765-vmss000000 -it --image=mcr.microsoft.com/azurelinux/busybox:1.36
@@ -562,7 +572,7 @@ In this lab, you:
 
 - ✅ Set up an Azure Linux with OS Guard cluster on AKS.
 - ✅ Validated Trusted Launch was enforced on your cluster.
-- ✅ Explored immutability by attempting to modify the /usr.
+- ✅ Explored immutability by attempting to modify the `/usr`.
 - ✅ Verified IPE and SELinux was enabled on your cluster. Explored these policies by executing an untrusted binary on the system.
 - ✅ Validated the reduced footprint of the Azure Linux with OS Guard image.
 - ✅ Migrated in-place to Azure Linux with OS Guard, and rolled back to the Azure Linux container host on AKS.
