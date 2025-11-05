@@ -37,7 +37,7 @@ Key security features include:
 In this lab, you will learn how to:
 - Provision an Azure Linux with OS Guard AKS cluster 
 - Validate Trusted Launch security 
-- Demonstrate immutability enforcement in the /usr directory 
+- Demonstrate immutability enforcement in the `/usr` directory 
 - Explore advanced SELinux and IPE security policies 
 - Inspect and compare the package count between the Azure Linux Container Host and OS Guard on AKS
 - Perform migration and rollback operations
