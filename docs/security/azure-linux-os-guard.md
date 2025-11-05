@@ -335,7 +335,7 @@ You should see the following output:
 -- No entries --
 ```
 
-Audit mode only logs integrity violations when they occur. Since /usr/bin/true is a trusted binary on a dm-verity protected volume, there’s no violation to report and hence no entries to show.
+Audit mode only logs integrity violations when they occur. Since `/usr/bin/true` is a trusted binary on a `dm-verity` protected volume, there’s no violation to report and hence no entries to show.
 
 The previous commands showed that `/usr/bin/true` is a trusted binary coming from a dm-verity protected volume, and thus execution does not violate SELinux or IPE policies. Let's now observe how Azure Linux with OS Guard behaves when a binary coming from an untrusted source is executed on the system.
 
