@@ -406,11 +406,11 @@ Add the nodepool by running the following command:
 
 ```bash 
 az aks nodepool add \
-    --resource-group ${RG_NAME} \
-    --cluster-name ${AKS_NAME} \
-    --name ${NODEPOOL_NAME} \
-    --node-count 1 \
-    --os-sku AzureLinux
+--resource-group ${RG_NAME} \
+--cluster-name ${AKS_NAME} \
+--name ${NODEPOOL_NAME} \
+--node-count 1 \
+--os-sku AzureLinux
     --node-osdisk-type Managed
 ```
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that there are Azure Linux with OS Guard and Azure Linux container host node pools running side by side in the same cluster: 
