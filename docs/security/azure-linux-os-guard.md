@@ -569,8 +569,8 @@ In this lab, you:
 
 If you're interested in trying out **Azure Linux with OS Guard** on AKS further, check out our tutorials and quickstarts:
 
-- Azure Linux with OS Guard [Quickstarts](https://learn.microsoft.com/en-us/azure/azure-linux/quickstart-os-guard-azure-cli)
-- Azure Linux with OS Guard [Tutorials](https://learn.microsoft.com/en-us/azure/azure-linux/tutorial-azure-linux-os-guard-create-cluster)
+- Azure Linux with OS Guard [Quickstarts](https://learn.microsoft.com/azure/azure-linux/quickstart-os-guard-azure-cli)
+- Azure Linux with OS Guard [Tutorials](https://learn.microsoft.com/azure/azure-linux/tutorial-azure-linux-os-guard-create-cluster)
 
 ## Cleanup (Optional)
 
