@@ -81,7 +81,7 @@ Run the following command to update to the latest version of the extension relea
 az extension update --name aks-preview
 ```
 
-### Scenario 1: Create an Azure Linux with OS Guard on AKS Cluster
+## Scenario 1: Create an Azure Linux with OS Guard on AKS Cluster
 You can either spin up a new cluster or add node pools to an existing cluster to experiment with Azure Linux with OS Guard on AKS. For the purposes of this lab, we will create a new Azure Linux with OS Guard cluster.
 
 
