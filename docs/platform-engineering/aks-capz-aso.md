@@ -305,7 +305,7 @@ After you successfully login, you should see the Argo CD Applications - which at
 
 ### Step 5: Install Cluster API Provider for Azure (CAPZ)
 
-This section walks you through installing **Cluster API Provider for Azure (CAPZ)** through the Cluster API Operator (capi-operator). This step is need in order to prepare your environment for provisioning AKS clusters using GitOps workflows.
+This section walks you through installing **Cluster API Provider for Azure (CAPZ)** through the Cluster API Operator (capi-operator). This step is needed in order to prepare your environment for provisioning AKS clusters using GitOps workflows.
 
 :::warning
 **Important: CAPI Provider Version Consistency**
@@ -428,7 +428,7 @@ helm uninstall capi-operator -n capi-operator-system
 Helm doesn't remove all of the CRDs from the cluster and those would have to be removed manually.
 :::
 
-3. Verify the `CAPZ` Installation
+3. Verify the `CAPZ` Installation (you may need to wait a few extra seconds and run the command again)
 
   ```bash
   kubectl get pods -n azure-infrastructure-system
