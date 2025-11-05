@@ -295,10 +295,10 @@ Let's start by checking if IPE was enabled at boot time by running the following
  ```
 You should see `ipe.enforce=0` in the output, indicating that IPE is enabled in audit mode. *Note: this command can also be used to verify if SELinux was enabled in permissive mode at boot time by looking for `selinux=1` in the output.*
 
-You can also check the current IPE mode by running the following command. *Note: an output of 0 indicates that IPE is in audit mode.*:
+You can also check the current IPE mode by running the following command.
+
 ```bash
 cat /sys/kernel/security/ipe/enforce
-```
 Let's now explore an example of how SELinux and IPE work in tandem to prevent the execution of untrusted binaries and confine processes access to strict security domains. 
 
 You will begin by executing a trusted, signed binary from the Azure Linux OS Guard `/usr` directory. To do so, run the following command:
