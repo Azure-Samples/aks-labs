@@ -484,10 +484,24 @@ To upgrade an existing node pool to Azure Linux with OS Guard, you can use the `
 - `FIPS`: Ensure FIPS is enabled with `--enable-fips-image`. All Azure Linux with OS Guard images have FIPS enabled.
 - `Secure Boot` and `vTPM`: Ensure Trusted Launch is enabled with `--enable-secure-boot` and `--enable-vtpm`. All Azure Linux with OS Guard images have Trusted Launch enabled. 
 
+If you haven't already, exit out of your debugging pod by running: 
+
+```bash
+exit
+```
+*Note: If you were in the root of your node you may need to type exit twice.*
+
 We will update the Azure Linux container host node pool we created in Scenario 5 to Azure Linux with OS Guard by running the following command. This command doesn't require the creation of new node pools; instead, your existing node pools automatically reimage.
 
 ```bash 
-az aks nodepool update --resource-group ${RG_NAME} --cluster-name ${AKS_NAME} --name $NODEPOOL_NAME --os-sku AzureLinuxOSGuard --node-osdisk-type Managed --enable-fips-image --enable-secure-boot --enable-vtpm
+az aks nodepool update \ 
+--resource-group ${RG_NAME} \ 
+--cluster-name ${AKS_NAME} \ 
+--name $NODEPOOL_NAME \ 
+--os-sku AzureLinuxOSGuard \ 
+--enable-fips-image \ 
+--enable-secure-boot \ 
+--enable-vtpm 
 ``` 
 
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that the node pools in the cluster are running on Azure Linux with OS Guard by running the following command: 
