@@ -20,36 +20,6 @@ resource metricsWorkspace 'Microsoft.Monitor/accounts@2023-04-03' = {
   location: resourceGroup().location
 }
 
-resource grafanaDashboard 'Microsoft.Dashboard/grafana@2023-09-01' = {
-  name: 'mygrafana${take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)}'
-  location: resourceGroup().location
-  sku: {
-    name: 'Standard'
-  }
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    grafanaIntegrations: {
-      azureMonitorWorkspaceIntegrations: [
-        {
-          azureMonitorWorkspaceResourceId: metricsWorkspace.id
-        }
-      ]
-    }
-  }
-}
-
-resource grafanaAdminRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().id, resourceGroup().id, userObjectId, 'Grafana Admin')
-  scope: grafanaDashboard
-  properties: {
-    principalId: userObjectId
-    principalType: 'User'
-    roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', '22926164-76b3-42b3-bc55-97df8dab3e41')
-  }
-}
-
 resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
   name: 'myregistry${take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)}'
   location: resourceGroup().location
@@ -120,8 +90,6 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 }
 
 output metricsWorkspaceId string = metricsWorkspace.id
-output grafanaDashboardId string = grafanaDashboard.id
-output grafanaDashboardName string = grafanaDashboard.name
 output logWorkspaceId string = logWorkspace.id
 output azureKeyVaultId string = azureKeyVault.id
 output azureKeyVaultName string = azureKeyVault.name

@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.34.1.11899",
-      "templateHash": "15817769876547941021"
+      "version": "0.38.33.27573",
+      "templateHash": "7279368042836242919"
     }
   },
   "parameters": {
@@ -36,44 +36,6 @@
       "apiVersion": "2023-04-03",
       "name": "[format('myprometheus{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
       "location": "[resourceGroup().location]"
-    },
-    {
-      "type": "Microsoft.Dashboard/grafana",
-      "apiVersion": "2023-09-01",
-      "name": "[format('mygrafana{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
-      "location": "[resourceGroup().location]",
-      "sku": {
-        "name": "Standard"
-      },
-      "identity": {
-        "type": "SystemAssigned"
-      },
-      "properties": {
-        "grafanaIntegrations": {
-          "azureMonitorWorkspaceIntegrations": [
-            {
-              "azureMonitorWorkspaceResourceId": "[resourceId('Microsoft.Monitor/accounts', format('myprometheus{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
-            }
-          ]
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Monitor/accounts', format('myprometheus{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
-      ]
-    },
-    {
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2022-04-01",
-      "scope": "[format('Microsoft.Dashboard/grafana/{0}', format('mygrafana{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]",
-      "name": "[guid(subscription().id, resourceGroup().id, parameters('userObjectId'), 'Grafana Admin')]",
-      "properties": {
-        "principalId": "[parameters('userObjectId')]",
-        "principalType": "User",
-        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', '22926164-76b3-42b3-bc55-97df8dab3e41')]"
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Dashboard/grafana', format('mygrafana{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
-      ]
     },
     {
       "type": "Microsoft.ContainerRegistry/registries",
@@ -170,14 +132,6 @@
     "metricsWorkspaceId": {
       "type": "string",
       "value": "[resourceId('Microsoft.Monitor/accounts', format('myprometheus{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
-    },
-    "grafanaDashboardId": {
-      "type": "string",
-      "value": "[resourceId('Microsoft.Dashboard/grafana', format('mygrafana{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
-    },
-    "grafanaDashboardName": {
-      "type": "string",
-      "value": "[format('mygrafana{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]"
     },
     "logWorkspaceId": {
       "type": "string",
