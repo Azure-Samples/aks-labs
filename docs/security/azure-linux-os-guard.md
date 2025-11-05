@@ -208,7 +208,7 @@ You’ve successfully completed Scenario 2: verifying that Trusted Launch is ena
 
 ### Scenario 3: Validate Immutable /usr Directory 
 
-The /usr directory contains critical user-space binaries and libraries that underpin the operating system and container runtime. If these components are modified, attackers can introduce backdoors, replace trusted binaries, or escalate privileges. By making /usr immutable, Azure Linux with OS Guard ensures that the foundational user-space remains tamper-proof throughout the system’s lifecycle.
+The `/usr` directory contains critical user-space binaries and libraries that underpin the operating system and container runtime. If these components are modified, attackers can introduce backdoors, replace trusted binaries, or escalate privileges. By making `/usr` immutable, Azure Linux with OS Guard ensures that the foundational user-space remains tamper-proof throughout the system’s lifecycle.
 
 Azure Linux with OS Guard mounts `/usr` as a dm-verity protected volume with a signed root hash:
 
