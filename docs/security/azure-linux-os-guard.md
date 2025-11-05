@@ -12,7 +12,8 @@ import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provisi
 
 Key security features include:
 
-- **Immutability**: The /usr directory is mounted as a read-only volume protected by dm-verity. At runtime, the kernel validates a signed root hash to detect and block tampering.
+- **Immutability**: The `/usr` directory is mounted as a read-only volume protected by dm-verity. At runtime, the kernel validates a signed root hash to detect and block tampering.
+
 - **Code integrity**: OS Guard integrates the [Integrity Policy Enforcement (IPE) Linux Security Module](https://docs.kernel.org/next/admin-guide/LSM/ipe.html) to ensure that only binaries from trusted, signed volumes are allowed to execute. This helps prevent tampered or untrusted code from executing, including within container images. 
 
   :::note
