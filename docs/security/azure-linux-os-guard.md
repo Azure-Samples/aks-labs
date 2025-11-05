@@ -117,7 +117,7 @@ az aks create \
 --os-sku AzureLinuxOSGuard \
 --node-osdisk-type Managed \
 --enable-fips-image \
---enable-secure-boot \ 
+--enable-secure-boot \
 --enable-vtpm \
 --generate-ssh-keys
 ```
