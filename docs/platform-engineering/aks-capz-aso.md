@@ -961,7 +961,7 @@ addon:
 In this lab, we accomplished the following:
 
 - Created the AKS control plane cluster using the Azure CLI.
-- Installed Argo CD and accessed its web UI.
+- Installed **Argo CD** and accessed its web UI.
 - Bootstrapped the environment using GitOps principles.
-- Installed Cluster API Provider for Azure (CAPZ) and Azure Service Operator (ASO) to enable infrastructure provisioning.
-- Provisioned Azure resources using ASOv2
+- Installed Cluster API Provider for Azure (**CAPZ**) and Azure Service Operator (**ASO**) to enable infrastructure provisioning.
+- Provisioned Azure resources using **ASOv2**.

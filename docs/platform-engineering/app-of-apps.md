@@ -635,34 +635,6 @@ kubectl get svc -n pets store-front
 
 ## Next Steps
 
-If you're familiar with Infrastructure as Code tools like **Terraform**, explore how you can streamline your Azure resource management by converting existing resources into ASO manifests using the [`asoctl`](https://azure.github.io/azure-service-operator/tools/) tool.
-
-* [Learn more about `asoctl` here](https://azure.github.io/azure-service-operator/tools/)
-* [Download `asoctl` directly from GitHub](https://github.com/Azure/azure-service-operator/releases/tag/v2.13.0)
-```
-
-7. Open your browser and navigate to **https://localhost:18080/**. Log in with username `admin` and the password from step 5.
-
-![Argo CD in Dev](./assets/dev-cluster-apps.png)
-
-And the new Application, the AKS Store, deployed:
-
-![AKS Store](./assets/dev-cluster-aks-store.png)
-
-You can now access the AKS Store. 
-
-7. Retrieve the LoadBalancer IP for the AKS Store
-
-```bash
-kubectl get svc -n pets store-front
-```
-
-8. Open your browser and navigate to the public IP of the store:
-
-![AKS Store Frontend](./assets/aks-store-demo-frontend.png)
-
-## Next Steps
-
 If you’re familiar with Infrastructure as Code tools like **Terraform**, explore how you can streamline your Azure resource management by converting existing resources into ASO manifests using the [`asoctl`](https://azure.github.io/azure-service-operator/tools/) tool.
 
 * [Learn more about `asoctl` here](https://azure.github.io/azure-service-operator/tools/)
@@ -676,10 +648,10 @@ To learn how to extend your platform engineering capabilities even further by us
 
 In this module, you:
 
-* Applied the App of Apps and GitOps Bridge patterns for scalable platform operations
-* Bootstrapped a GitOps management plane using Argo CD and ApplicationSets
-* Provisioned AKS clusters declaratively with CAPZ
-* Deployed workloads to managed clusters via GitOps
+- Applied the **App of Apps** and **GitOps Bridge** patterns for scalable platform operations.
+- Bootstrapped a **GitOps** management plane using Argo CD and **ApplicationSets**.
+- Provisioned AKS clusters declaratively with **CAPZ**.
+- Deployed workloads to managed clusters via GitOps.
 
 ---
 
