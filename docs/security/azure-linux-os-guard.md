@@ -267,7 +267,9 @@ Azure Linux with OS Guard builds on the principle of immutability and strengthen
 | Audit       | Logs integrity violations without blocking execution. Useful for testing and policy tuning before enforcement. |
 | Enforce     | Actively blocks execution of binaries that fail integrity checks. Ensures only trusted code runs. |
 
+::::note
 *Please note, for Azure Linux with OS Guard Public Preview IPE is in Audit mode, with plans to move to Enforce mode in GA.*
+::::
 
 Complementing this, SELinux enforces mandatory access control policies to confine processes and containers to strict security domains, ensuring least privilege and reducing the blast radius of any compromise. 
 
