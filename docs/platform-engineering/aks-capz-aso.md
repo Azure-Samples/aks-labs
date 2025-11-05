@@ -594,13 +594,21 @@ This method allows platform teams to bootstrap new environments on demand, using
 1. Setup the environment variables for the new AKS cluster:
 
 ```bash
+cat <<EOF>dev-cluster.env
 export DEV_CLUSTER_NAME=dev-cluster
 export DEV_CLUSTER_LOCATION=eastus
 export CHART_REVISION="0.4.3"
 export KUBERNETES_VERSION="1.32.7"
+EOF
 ```
 
-2. Create the Argo CD Application that declares the cluster:
+2. Load the enviroment varibles for the dev-cluster
+
+```bash
+source dev-cluster.env
+```
+
+3. Create the Argo CD Application that declares the cluster:
 
 :::info
 Note that this Argo CD Application manifest references a Helm chart. The [Cluster API Provider Azure Managed Cluster Helm Chart](https://github.com/mboersma/cluster-api-charts/tree/main/charts/azure-managed-cluster) that manages the underlying Azure resources required to provision and configure the AKS cluster. This chart allows for the configuration of various AKS parameters such as the `kubernetesVersion`, `clusterNetwork` and node pool options like `vmSize` and `osSKU`.

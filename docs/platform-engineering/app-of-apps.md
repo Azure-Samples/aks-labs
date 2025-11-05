@@ -534,27 +534,114 @@ In the `Management Cluster`, you should now see the new `HelmChartProxy` objects
 
 ![HelmChartProxy](./assets/helmchartproxy.png)
 
-Now, assuming the role of the Dev Lead, you should be able to connect to the Dev Cluster and see the new application deployed to that cluster:
+Now, assuming the role of the Dev Lead, you should be able to connect to the Dev Cluster and see the new application deployed to that cluster. 
 
-1. Get the credentials for the Dev Cluster:
+:::tip
+**Tracking Multiple Clusters**
+
+Since you're switching between the `Dev Lead` and `Platform Engineer` roles, it's easy to lose track of which cluster you're currently working with. To avoid accidental operations on the wrong cluster, add your current Kubernetes context to your bash prompt.
+
+Add this to the bottom of your `~/.bashrc` file:
 
 ```bash
-az aks get-credentials -n ${DEV_CLUSTER_NAME} -g ${DEV_CLUSTER_NAME}
+# Add kubectl current context to prompt
+export PS1='\[\033[01;34m\]\w\[\033[00m\] \[\033[01;36m\][$(kubectl config current-context 2>/dev/null || echo "no-cluster")]\[\033[00m\]\n\$ '
 ```
 
-2. Retrieve the Argo CD UI secret
+Then reload your shell:
+
+```bash
+source ~/.bashrc
+```
+
+Your prompt will now display the current cluster name, like this:
+
+```bash
+~/aks-labs/platform-engineering/aks-capz-aso [aks-labs]
+```
+:::
+
+#### Accessing the Dev Cluster
+
+1. Switch to the `app-of-apps` directory:
+
+```bash
+cd ~/aks-labs/platform-engineering/app-of-apps
+```
+
+2. Create a `.envrc` file to manage the dev cluster context. This separates your dev cluster configuration from the management cluster:
+
+```bash
+cp ~/aks-labs/platform-engineering/aks-capz-aso/dev-cluster.config .envrc
+echo export KUBECONFIG=${HOME}/aks-labs/platform-engineering/app-of-apps/dev-cluster.config >> .envrc
+source .envrc
+```
+
+Your `.envrc` file should now contain:
+
+```bash
+export DEV_CLUSTER_NAME=dev-cluster
+export DEV_CLUSTER_LOCATION=eastus
+export CHART_REVISION="0.4.3"
+export KUBERNETES_VERSION="1.32.7"
+export KUBECONFIG=/home/dcasati/aks-labs/platform-engineering/app-of-apps/dev-cluster.config
+```
+
+3. Get the credentials for the Dev Cluster:
+
+```bash
+az aks get-credentials -n ${DEV_CLUSTER_NAME} -g ${DEV_CLUSTER_NAME} --file dev-cluster.config
+```
+
+4. Your prompt should now show that you are using the `[dev-cluster]`. If that is not the case, reload your `.envrc` file with `source .envrc` and your prompt should look like this:
+
+```bash
+~/aks-labs/platform-engineering/app-of-apps [dev-cluster]
+```
+
+5. Retrieve the Argo CD admin password:
 
 ```bash
 kubectl get secrets argocd-initial-admin-secret -n argocd --template="{{index .data.password | base64decode}}" ; echo
 ```
 
-3. Create the port forward to the Argo CD service
+6. Create a port-forward to access Argo CD:
 
 ```bash
 kubectl port-forward svc/argocd-server -n argocd 18080:443
 ```
 
-4. Open your browser at: https://localhost:18080/
+7. Open your browser and navigate to **https://localhost:18080/**. Log in with username `admin` and the password from step 5.
+
+You should see Argo CD running with the deployed applications:
+
+![Argo CD in Dev](./assets/dev-cluster-apps.png)
+
+You should also see the AKS Store application deployed to the `pets` namespace:
+
+![AKS Store](./assets/dev-cluster-aks-store.png)
+
+#### Accessing the AKS Store Application
+
+8. Retrieve the public IP of the AKS Store LoadBalancer service:
+
+```bash
+kubectl get svc -n pets store-front
+```
+
+9. Open your browser and navigate to the public IP address. You should see the AKS Store frontend:
+
+![AKS Store Frontend](./assets/aks-store-demo-frontend.png)
+
+## Next Steps
+
+If you're familiar with Infrastructure as Code tools like **Terraform**, explore how you can streamline your Azure resource management by converting existing resources into ASO manifests using the [`asoctl`](https://azure.github.io/azure-service-operator/tools/) tool.
+
+* [Learn more about `asoctl` here](https://azure.github.io/azure-service-operator/tools/)
+* [Download `asoctl` directly from GitHub](https://github.com/Azure/azure-service-operator/releases/tag/v2.13.0)
+```
+
+7. Open your browser and navigate to **https://localhost:18080/**. Log in with username `admin` and the password from step 5.
 
 ![Argo CD in Dev](./assets/dev-cluster-apps.png)
 
@@ -564,13 +651,13 @@ And the new Application, the AKS Store, deployed:
 
 You can now access the AKS Store. 
 
-1. Retrieve the LoadBalancer IP for the AKS Store
+7. Retrieve the LoadBalancer IP for the AKS Store
 
 ```bash
 kubectl get svc -n pets store-front
 ```
 
-2. Open your browser and navigate to the public IP of the store:
+8. Open your browser and navigate to the public IP of the store:
 
 ![AKS Store Frontend](./assets/aks-store-demo-frontend.png)
 
