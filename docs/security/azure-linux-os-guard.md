@@ -117,8 +117,8 @@ After a few minutes, the command completes and returns JSON-formatted informatio
 ```bash
  az aks nodepool list \
  --resource-group  ${RG_NAME} \
- --cluster-name ${AKS_NAME} \ 
- --query "[].{Name:name, ImageVersion:nodeImageVersion}" \ 
+ --cluster-name ${AKS_NAME} \
+ --query "[].{Name:name, ImageVersion:nodeImageVersion}" \
  --output table
 ```
 
