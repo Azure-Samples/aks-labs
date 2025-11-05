@@ -91,11 +91,12 @@ Set the AKS cluster name.
 export AKS_NAME=myakscluster$RAND
 ```
 
-When deploying a new Azure Linux with OS Guard AKS cluster, you can simply call on `az aks create` to create a new cluster. When setting up the cluster, the following parameters are required: 
-- `--os-sku`: Ensure you specify `AzureLinuxOSGuard` as your OS SKU.
-- `FIPS`: Ensure FIPS is enabled with `--enable-fips-image`. All Azure Linux with OS Guard images have FIPS enabled.
-- `Secure Boot` and `vTPM`: Ensure Trusted Launch is enabled with `--enable-secure-boot` and `--enable-vtpm`. All Azure Linux with OS Guard images require Trusted Launch to be enabled.
-- `node-osdisk-type`: Ensure you specify `Managed` as your OS Disk Type. `Ephemeral` OS disks are not supported with Trusted Launch on many VM sizes.
+When deploying a new Azure Linux with OS Guard AKS cluster, you can simply call on `az aks create` to create a new cluster. When setting up the cluster, the following parameters are required:
+
+- **OS SKU**: Ensure you specify `--os-sku AzureLinuxOSGuard`.
+- **FIPS**: Ensure FIPS is enabled with `--enable-fips-image`. All Azure Linux with OS Guard images have FIPS enabled.
+- **Secure Boot** and **vTPM**: Ensure Trusted Launch is enabled with `--enable-secure-boot` and `--enable-vtpm`. All Azure Linux with OS Guard images require Trusted Launch to be enabled.
+- **Node OS disk type**: Ensure you specify `--node-osdisk-type Managed` as your OS Disk Type. `Ephemeral` OS disks are not supported with Trusted Launch on many VM sizes.
 
 Run the following command to create an Azure Linux with OS Guard AKS cluster:
 
