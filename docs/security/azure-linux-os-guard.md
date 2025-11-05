@@ -67,6 +67,20 @@ Azure Linux with OS Guard for AKS is currently in Public Preview, so you will ne
 
 ```bash
 az feature register --namespace Microsoft.ContainerService --name AzureLinuxOSGuardPreview
+```
+
+It takes a few minutes for the status to show *Registered*. Verify the registration status by using the az feature show command:
+
+```bash
+az feature show --namespace "Microsoft.ContainerService" --name "AzureLinuxOSGuardPreview"
+```
+
+When the status reflects *Registered*, refresh the registration of the Microsoft.ContainerService resource provider by using the az provider register command:
+
+```bash
+az provider register --namespace "Microsoft.ContainerService"
+```
+
 <ProvisionResourceGroup />
 
 ### Install the aks-preview Azure CLI extension
@@ -162,7 +176,7 @@ Let's verify that Trusted Launch was enforced on the Azure Linux with OS Guard c
 kubectl get nodes -o wide
 ```
 
-Now, use the `kubectl debug` command to start a privileged container on your node and connect to it: 
+Now, use the `kubectl debug` command to start a privileged container on your node and connect to it. *Note: you will need to replace aks-nodepool1-37663765-vmss000000 in the command below with your node name*: 
 
 ```bash 
 kubectl debug node/aks-nodepool1-37663765-vmss000000 -it --image=mcr.microsoft.com/azurelinux/busybox:1.36
