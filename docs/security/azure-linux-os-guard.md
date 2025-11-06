@@ -301,7 +301,6 @@ You can also check the current IPE mode by running the following command.
 
 ```bash
 cat /sys/kernel/security/ipe/enforce
-
 You will begin by executing a trusted, signed binary from the Azure Linux OS Guard `/usr` directory. To do so, run the following command:
 
 ```bash
