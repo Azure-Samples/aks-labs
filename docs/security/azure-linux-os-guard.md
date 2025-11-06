@@ -112,7 +112,7 @@ After a few minutes, the command completes and returns JSON-formatted informatio
 ```
 
 The output of the command should resemble the following: 
-```
+
 Name       ImageVersion
 --------  ---------------------------------------------
 nodepool   AKSAzureLinux-OSGuardV3gen2fipsTL-202509.23.0
