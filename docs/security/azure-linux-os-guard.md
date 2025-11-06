@@ -287,8 +287,7 @@ You will now verify that IPE is in `audit` mode on your node.
 Let's start by checking if IPE was enabled at boot time by running the following command:
 
 ```bash 
- cat /proc/cmdline
- ```
+cat /proc/cmdline
 You should see `ipe.enforce=0` in the output, indicating that IPE is enabled in audit mode.
 
 :::tip
