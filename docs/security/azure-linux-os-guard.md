@@ -288,7 +288,6 @@ Let's start by checking if IPE was enabled at boot time by running the following
 
 ```bash 
 cat /proc/cmdline
-:::tip
 
 This command can also be used to verify if SELinux was enabled in permissive mode at boot time by looking for `selinux=1` in the output.
 
