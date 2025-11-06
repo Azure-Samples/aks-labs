@@ -275,8 +275,6 @@ You will first verify that SELinux is in `permissive` mode on your node. You can
 
 ```bash
 getenforce
-```
-If you prefer to see a more detailed summary of the SELinux status with information on the policy type, you can do so by running the following command:
 
 ```bash
 sestatus
