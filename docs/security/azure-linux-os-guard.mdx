@@ -104,11 +104,11 @@ az aks create \
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that the node pools in the cluster are running on Azure Linux with OS Guard by running the following command:
 
 ```bash
- az aks nodepool list \
- --resource-group  ${RG_NAME} \
- --cluster-name ${AKS_NAME} \
- --query "[].{Name:name, ImageVersion:nodeImageVersion}" \
- --output table
+az aks nodepool list \
+--resource-group  ${RG_NAME} \
+--cluster-name ${AKS_NAME} \
+--query "[].{Name:name, ImageVersion:nodeImageVersion}" \
+--output table
 ```
 
 The output of the command should resemble the following:
@@ -435,11 +435,11 @@ az aks nodepool add \
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that there are Azure Linux with OS Guard and Azure Linux container host node pools running side by side in the same cluster:
 
 ```bash
- az aks nodepool list \
- --resource-group  ${RG_NAME} \
- --cluster-name ${AKS_NAME} \
- --query "[].{Name:name, ImageVersion:nodeImageVersion}" \
- --output table
+az aks nodepool list \
+--resource-group  ${RG_NAME} \
+--cluster-name ${AKS_NAME} \
+--query "[].{Name:name, ImageVersion:nodeImageVersion}" \
+--output table
 ```
 
 The output of the command should resemble the following:
@@ -539,11 +539,11 @@ az aks nodepool update \
 After a few minutes, the command completes and returns JSON-formatted information about the cluster. Once the command has completed, verify that the node pools in the cluster are running on Azure Linux with OS Guard by running the following command:
 
 ```bash
- az aks nodepool list \
- --resource-group  ${RG_NAME} \
- --cluster-name ${AKS_NAME} \
- --query "[].{Name:name, ImageVersion:nodeImageVersion}" \
- --output table
+az aks nodepool list \
+--resource-group  ${RG_NAME} \
+--cluster-name ${AKS_NAME} \
+--query "[].{Name:name, ImageVersion:nodeImageVersion}" \
+--output table
 ```
 
 The output of the command should resemble the following:
