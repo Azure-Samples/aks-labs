@@ -288,7 +288,6 @@ Let's start by checking if IPE was enabled at boot time by running the following
 
 ```bash 
 cat /proc/cmdline
-You should see `ipe.enforce=0` in the output, indicating that IPE is enabled in audit mode.
 
 :::tip
 
