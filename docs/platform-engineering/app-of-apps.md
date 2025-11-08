@@ -328,7 +328,11 @@ Before creating the HelmChartProxy, you must label your dev cluster so that the 
 kubectl label cluster dev-cluster deploy-argocd="true"
 ```
 
-This label must match the `clusterSelector.matchLabels` in the HelmChartProxy spec (see step 2 below). Additionally, **the HelmChartProxy must be created in the same namespace as your clusters** (typically the `default` namespace where clusters are registered).
+This label must match the `clusterSelector.matchLabels` in the HelmChartProxy spec (see step 2 below). Additionally, **the HelmChartProxy must be created in the same namespace as your clusters** (typically the `default` namespace where clusters are registered). Before we can continue, we need to retrieve the GITHUB_USERNAME for the `app-project-env` repository:
+
+```bash
+ export GITHUB_USERNAME=$(gh api user --jq .login) # Retrieves the GitHub username
+```
 
 2. Create the `HelmChartProxy`:
 
@@ -381,7 +385,7 @@ spec:
           - resources-finalizer.argocd.argoproj.io
         project: default
         sources:
-          - repoURL: https://github.com/dcasati/app-project-env.git
+          - repoURL: https://github.com/${GITHUB_USERNAME}/app-project-env.git
             path: argocd-apps
             targetRevision: HEAD
             directory:
@@ -394,7 +398,7 @@ spec:
         namespace: argocd
         project: default
         source:
-          repoURL: https://github.com/dcasati/app-project-env.git
+          repoURL: https://github.com/${GITHUB_USERNAME}/app-project-env.git
           path: argocd-apps/namespaces
           targetRevision: HEAD
         destination:
@@ -438,7 +442,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/dcasati/app-project-env.git
+    repoURL: https://github.com/${GITHUB_USERNAME}/app-project-env.git
     targetRevision: HEAD
     path: argocd-apps/namespaces
   destination:
@@ -584,7 +588,7 @@ export DEV_CLUSTER_NAME=dev-cluster
 export DEV_CLUSTER_LOCATION=eastus
 export CHART_REVISION="0.4.3"
 export KUBERNETES_VERSION="1.32.7"
-export KUBECONFIG=/home/dcasati/aks-labs/platform-engineering/app-of-apps/dev-cluster.config
+export KUBECONFIG=${HOME}/aks-labs/platform-engineering/app-of-apps/dev-cluster.config
 ```
 
 3. Get the credentials for the Dev Cluster:
