@@ -602,7 +602,7 @@ export KUBERNETES_VERSION="1.32.7"
 EOF
 ```
 
-2. Load the enviroment varibles for the dev-cluster
+2. Load the environment variables for the dev-cluster
 
 ```bash
 source dev-cluster.env
