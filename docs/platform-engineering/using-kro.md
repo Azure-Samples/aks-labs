@@ -385,7 +385,7 @@ Apply it:
 kubectl apply -f aks-store-instance.yaml
 ```
 
-This will trigger the creation of a new AKS cluster called `store-demo`. You can followthe cluster creation by using (a) the Azure Portal, (b) `azure cli` or (c) by using `kubectl` 
+This will trigger the creation of a new AKS cluster called `store-demo`. You can follow the cluster creation by using (a) the Azure Portal, (b) `azure cli` or (c) by using `kubectl` 
 
 Check if the cluster is now running using `kubectl`:
 
