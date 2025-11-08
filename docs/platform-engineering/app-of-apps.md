@@ -512,7 +512,7 @@ Counting objects: 100% (13/13), done.
 Delta compression using up to 12 threads
 Compressing objects: 100% (9/9), done.
 Writing objects: 10/10, 1.96 KiB | 501.00 KiB/s, done.
-Total 10 (delta 0), reused 0 (delta 0), git push
+Total 10 (delta 0), reused 0 (delta 0)
 To github.com:dcasati/app-project-env.git
    3adefb8..5b8f70c  main -> main
 ```
