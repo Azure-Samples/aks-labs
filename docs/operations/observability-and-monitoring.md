@@ -199,9 +199,7 @@ az aks create \
   --enable-cost-analysis \
   --grafana-resource-id ${GRAFANA_RESOURCE_ID} \
   --azure-monitor-workspace-resource-id ${AZ_MONITOR_WORKSPACE_ID} \
-  --tier Standard \
-  --ssh-access disabled \
-  --generate-ssh-keys
+  --tier Standard
 ```
 
 2. Get the credentials to access the cluster:
