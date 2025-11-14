@@ -101,9 +101,7 @@ az aks create \
   --name ${AKS_CLUSTER_NAME}  \
   --resource-group ${RG_NAME} \
   --node-count 1 \
-  --enable-asm \
-  --ssh-access disabled \
-  --generate-ssh-keys
+  --enable-asm
 ```
 
 3. Get the credentials to access the cluster:
@@ -143,8 +141,8 @@ Expected output:
 
 ```bash
 NAME                               READY   STATUS    RESTARTS   AGE
-istiod-asm-1-24-76758588d8-j4dqw   1/1     Running   0          3m5s
-istiod-asm-1-24-76758588d8-s2nfm   1/1     Running   0          2m50s
+istiod-asm-1-26-76758588d8-j4dqw   1/1     Running   0          3m5s
+istiod-asm-1-26-76758588d8-s2nfm   1/1     Running   0          2m50s
 ```
 
 If Istio pods are in a **Running** state, the installation is complete. If they are **Pending** or **CrashLoopBackOff**, wait a few minutes and check again.
@@ -241,7 +239,7 @@ Service meshes traditionally work by deploying an additional container within th
 The first step to onboarding your application into a service mesh, is to enable sidecar injection for your application pods. To control which applications are onboarded to the service mesh, we can target specific Kubernetes namespaces where applications are deployed.
 
 :::info
-For upgrade scenarios, it is possible to run multiple Istio add-on control planes with different versions. The following command enables sidecar injection for the Istio revision asm-1-24. If you are not sure which revision is installed on the cluster, you can run the following command:
+For upgrade scenarios, it is possible to run multiple Istio add-on control planes with different versions. The following command enables sidecar injection for the Istio revision asm-1-26. If you are not sure which revision is installed on the cluster, you can run the following command:
 
 ```bash
 az aks show \
@@ -254,7 +252,7 @@ Expected output:
 
 ```bash
 [
-  "asm-1-24"
+  "asm-1-26"
 ]
 ```
 
@@ -263,7 +261,7 @@ Expected output:
 The following command will enable the AKS Istio add-on sidecar injection for the `pets` namespace for the Istio revision **1.24**.
 
 ```bash
-kubectl label namespace pets istio.io/rev=asm-1-24
+kubectl label namespace pets istio.io/rev=asm-1-26
 ```
 
 At this point, we have simply just labeled the namespace, instructing the Istio control plane to enable sidecar injection on new deployments into the namespace. Since we have existing deployments in the namespace already, we will need to restart the deployments to trigger the sidecar injection.
@@ -596,8 +594,8 @@ Expected output:
 
 ```bash
 NAME                                                          READY   STATUS    RESTARTS   AGE
-aks-istio-ingressgateway-external-asm-1-24-5f5f66b65c-9gdm7   1/1     Running   0          54s
-aks-istio-ingressgateway-external-asm-1-24-5f5f66b65c-vgwl6   1/1     Running   0          69s
+aks-istio-ingressgateway-external-asm-1-26-5f5f66b65c-9gdm7   1/1     Running   0          54s
+aks-istio-ingressgateway-external-asm-1-26-5f5f66b65c-vgwl6   1/1     Running   0          69s
 ```
 
 If Istio pods are in a **Running** state, the installation is complete. If they are **Pending** or **CrashLoopBackOff**, wait a few minutes and check again.

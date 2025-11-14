@@ -69,14 +69,14 @@ Run the following command to create an AKS cluster with some best practices in p
 ```bash
 az aks create \
   --name ${AKS_NAME} \
-  --resource-group ${RESOURCE_GROUP} \
+  --resource-group ${RG_NAME} \
   --location ${LOCATION} \
   --pod-cidr 192.168.0.0/16 \
   --network-plugin azure \
   --network-plugin-mode overlay \
   --network-dataplane cilium \
   --generate-ssh-keys \
-  --enable-retina-flow-logs \
+  --enable-container-network-logs \
   --enable-acns \
   --acns-advanced-networkpolicies L7 \
   --enable-addons monitoring \
@@ -462,10 +462,6 @@ kubectl describe containernetworklog testcnl
 
 You should see a `Status` field showing `State: CONFIGURED`. This means flow logs are now being collected for the pets namespace and sent to your Log Analytics workspace.
 
-:::note
-Flow logs are stored locally on the nodes at `/var/log/acns/hubble/events.log` and then collected by the Azure Monitor Agent and sent to Log Analytics. It may take 2-3 minutes for logs to appear in Log Analytics after network events occur.
-:::
-
 ### Generate Traffic to Observe Flow Logs
 
 :::info
@@ -743,7 +739,13 @@ Without container network flow logs, you would need to SSH into nodes to check i
 
 **Container Network Flow Logs with Log Analytics:**
 
-Since Container Network Flow Logs are enabled with Log Analytics workspace, we have access to historical logs that allow us to analyze network traffic patterns over time. We can query these logs using the `ContainerNetworkLog` table to perform detailed forensic analysis and troubleshooting.
+Since Container Network Flow Logs are enabled with Log Analytics workspace, we have access to historical logs that allow us to analyze network traffic patterns over time. We can query these logs using the `RetinaNetworkFlowLogs` table to perform detailed forensic analysis and troubleshooting.
+
+:::info Table Name Update
+
+**Note:** The table name will soon change from `RetinaNetworkFlowLogs` to `ContainerNetworkLog` to maintain consistency with other ACNS features. Customers would be notified via email. Update your queries accordingly when the change is implemented.
+
+:::
 
 Now that flow logs are being collected and we've generated traffic, let's investigate the issues in minutes instead of hours.
 
@@ -754,7 +756,7 @@ Navigate to [Azure Portal](https://aka.ms/publicportal), search for your AKS clu
 First, run this query to see what fields are available in your flow logs:
 
 ```kusto
-ContainerNetworkLog
+RetinaNetworkFlowLogs
 | take 1
 ```
 
@@ -777,7 +779,7 @@ Now let's use flow logs to diagnose all the issues we just generated. Each query
 First, let's get a high-level view of all dropped traffic in the pets namespace:
 
 ```kusto
-ContainerNetworkLog
+RetinaNetworkFlowLogs
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets" or DestinationNamespace == "pets"
 | where Verdict == "DROPPED"
@@ -787,8 +789,6 @@ ContainerNetworkLog
 | order by DroppedFlows desc
 | take 20
 ```
-
-> **Note - About Query Results:** The results shown in this lab are examples from a specific testing environment. Your actual results will be similar in structure and pattern, but will have different values for IP addresses, pod names, timestamps, and counts based on your specific cluster configuration and traffic patterns.
 
 **What you'll discover:**
 
@@ -816,7 +816,7 @@ ContainerNetworkLog
 Now let's see exactly which external connections are being dropped:
 
 ```kusto
-ContainerNetworkLog
+RetinaNetworkFlowLogs
 | where TimeGenerated > ago(30m)
 | where DestinationNamespace == "pets"
 | where DestinationPodName contains "store-front"
@@ -857,7 +857,7 @@ ContainerNetworkLog
 Let's look at DNS traffic (port 53) to understand which domains are allowed vs blocked:
 
 ```kusto
-ContainerNetworkLog
+RetinaNetworkFlowLogs
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets"
 | where SourcePodName contains "store-front"
@@ -897,7 +897,7 @@ ContainerNetworkLog
 Now let's correlate DNS queries with HTTPS connection attempts to understand the full flow:
 
 ```kusto
-ContainerNetworkLog
+RetinaNetworkFlowLogs
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets"
 | where SourcePodName contains "store-front"
@@ -952,7 +952,7 @@ ContainerNetworkLog
 Create a visual timeline to correlate issues with policy deployments:
 
 ```kusto
-ContainerNetworkLog
+RetinaNetworkFlowLogs
 | where TimeGenerated > ago(1h)
 | where SourceNamespace == "pets" or DestinationNamespace == "pets"
 | summarize 
@@ -988,7 +988,7 @@ A visual timeline showing:
 Get a comprehensive view of all traffic patterns to confirm your diagnosis:
 
 ```kusto
-ContainerNetworkLog
+RetinaNetworkFlowLogs
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets" or DestinationNamespace == "pets"
 | summarize 
@@ -1054,7 +1054,11 @@ By using container network flow logs with a **progressive, cumulative approach**
 
 :::note
 
-**Log Analytics vs Hubble**: Flow logs in Log Analytics have 2-3 minute delays and storage costs but enable historical analysis over days/weeks. For real-time monitoring without storage costs, use Hubble CLI/UI (next section) for instant visibility into current network flows.
+**Choosing the Right Network Monitoring Tool:**
+
+- **Log Analytics Flow Logs**: Best for historical analysis and forensic investigation. Data has incurs storage costs, but allows you to query traffic patterns from hours, days, or weeks ago to understand trends and investigate past incidents.
+
+- **Hubble CLI/UI**: Best for real-time troubleshooting and live monitoring. Provides instant visibility into current network flows without storage costs, making it ideal for active debugging and immediate issue resolution.
 
 :::
 
@@ -1320,6 +1324,6 @@ If you no longer need the resources from this lab, you can delete your **AKS clu
 ```bash
 az aks delete \
   --resource-group ${RG_NAME} \
-  --name ${AKS_CLUSTER_NAME} \
+  --name ${AKS_NAME} \
   --no-wait
 ```
