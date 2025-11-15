@@ -4,8 +4,6 @@ sidebar_label: Advanced Observability & Monitoring
 sidebar_position: 1
 ---
 
-## Advanced Observability Concepts
-
 ### Overview
 
 As a Kubernetes practitioner, you're probably familiar with managing your own Prometheus and Grafana stack for observability. With **Azure Managed Prometheus** and **Azure Managed Grafana**, you can now leverage those same cloud-native tools—without the operational burden of deploying, scaling, and securing them yourself. These managed services integrate natively with AKS and support standard Prometheus APIs and Grafana dashboards, making adoption seamless.
@@ -28,7 +26,7 @@ As a Kubernetes practitioner, you're probably familiar with managing your own Pr
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/) version 2.60.0 or later
 - `aks-preview` - see note below
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) version 1.28.9 or later
-- A terminal with `bash` (e.g.: [Windows Terminal](https://www.microsoft.com/p/windows-terminal/9n0dx20hk701) with [WSL](https://docs.microsoft.com/windows/wsl/install-win10) or [Azure Cloud Shell](https://shell.azure.com/)
+- A terminal with `bash` (e.g.: [Windows Terminal](https://www.microsoft.com/p/windows-terminal/9n0dx20hk701) with [WSL](https://docs.microsoft.com/windows/wsl/install-win10) or [Azure Cloud Shell](https://shell.azure.com/))
 
 :::note Note on aks-preview
 To install or update the `aks-preview` extension you can use the following commands:
@@ -332,7 +330,7 @@ Steps to customize the collection of a new metric:
 1. Run the following command to deploy the **ama-metrics-settings-configmap** in the **kube-system** namespace.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/Azure/prometheus-collector/refs/heads/main/otelcollector/configmaps/ama-metrics-settings-configmap.yaml
+kubectl apply -f https://raw.githubusercontent.com/Azure/prometheus-collector/refs/heads/main/otelcollector/configmaps/ama-metrics-settings-configmap-v1.yaml
 ```
 
 2. Edit the **ama-metrics-settings-configmap** to enable the metrics you want to collect. Run the following command to edit the **ama-metrics-settings-configmap**.
