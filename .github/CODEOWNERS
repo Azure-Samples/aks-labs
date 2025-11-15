@@ -7,3 +7,9 @@
 # Lab owners
 /docs/getting-started/aks-automatic.mdx @pauldotyu
 /docs/getting-started/k8s-aks-fundamentals.mdx @pauldotyu
+/docs/migration/migrate-to-aks.mdx @dcasati
+/docs/networking/istio-lab.md @dcasati
+/docs/operations/observability-and-monitoring.md @dcasati
+/docs/platform-engineering/aks-capz-aso.md @dcasati
+/docs/platform-engineering/app-of-apps.md @dcasati
+/docs/platform-engineering/using-kro.md @dcasati

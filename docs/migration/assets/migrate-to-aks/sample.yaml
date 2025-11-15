@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-petclinic
+  labels:
+    app: spring-petclinic
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring-petclinic
+  template:
+    metadata:
+      labels:
+        app: spring-petclinic
+        version: v1
+        azure.workload.identity/use: "true"  # Enable Azure Workload Identity
+    spec:
+      serviceAccountName: sc-account-71b8f72b-9bed-472a-8954-9b946feee95c # change this
+      containers:
+      - name: spring-petclinic
+        image: acrpetclinic556325.azurecr.io/petclinic:0.0.1 # change this value
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        
+        # Environment variables from Azure Service Connector secret
+        env:
+        # Azure Workload Identity - automatically injected by webhook
+        # AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_FEDERATED_TOKEN_FILE are set by workload identity
+        
+        # Map PostgreSQL host from secret - with Azure AD authentication parameters
+        - name: POSTGRES_URL
+          value: "jdbc:postgresql://$(AZURE_POSTGRESQL_HOST):$(AZURE_POSTGRESQL_PORT)/$(AZURE_POSTGRESQL_DATABASE)?sslmode=require&authenticationPluginClassName=com.azure.identity.extensions.jdbc.postgresql.AzurePostgresqlAuthenticationPlugin"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: sc-postgresflexible-secret
+              key: AZURE_POSTGRESQL_USERNAME
+        # Client ID is also needed for Spring Cloud Azure
+        - name: AZURE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: sc-postgresflexible-secret
+              key: AZURE_POSTGRESQL_CLIENTID
+              optional: true
+        - name: AZURE_MANAGED_IDENTITY_NAME
+          valueFrom:
+            secretKeyRef:
+              name: sc-postgresflexible-secret
+              key: AZURE_POSTGRESQL_CLIENTID
+        - name: AZURE_POSTGRESQL_HOST
+          valueFrom:
+            secretKeyRef:
+              name: sc-postgresflexible-secret
+              key: AZURE_POSTGRESQL_HOST
+        - name: AZURE_POSTGRESQL_PORT
+          valueFrom:
+            secretKeyRef:
+              name: sc-postgresflexible-secret
+              key: AZURE_POSTGRESQL_PORT
+        - name: AZURE_POSTGRESQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: sc-postgresflexible-secret
+              key: AZURE_POSTGRESQL_DATABASE
+        - name: SPRING_PROFILES_ACTIVE
+          value: "postgres"
+        # Spring Cloud Azure configuration for workload identity
+        - name: SPRING_CLOUD_AZURE_CREDENTIAL_MANAGED_IDENTITY_ENABLED
+          value: "true"
+        - name: SPRING_DATASOURCE_AZURE_PASSWORDLESS_ENABLED
+          value: "true"        
+        # Make all secret keys available in the pod
+        envFrom:
+        - secretRef:
+            name: sc-postgresflexible-secret
+        # Health check probes
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        # Resource limits and requests
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      # Pod security context
+      securityContext:
+        fsGroup: 1000
+      # Restart policy
+      restartPolicy: Always
