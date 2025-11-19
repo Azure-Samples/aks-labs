@@ -739,13 +739,7 @@ Without container network flow logs, you would need to SSH into nodes to check i
 
 **Container Network Flow Logs with Log Analytics:**
 
-Since Container Network Flow Logs are enabled with Log Analytics workspace, we have access to historical logs that allow us to analyze network traffic patterns over time. We can query these logs using the `RetinaNetworkFlowLogs` table to perform detailed forensic analysis and troubleshooting.
-
-:::info Table Name Update
-
-**Note:** The table name will soon change from `RetinaNetworkFlowLogs` to `ContainerNetworkLog` to maintain consistency with other ACNS features. Customers would be notified via email. Update your queries accordingly when the change is implemented.
-
-:::
+Since Container Network Flow Logs are enabled with Log Analytics workspace, we have access to historical logs that allow us to analyze network traffic patterns over time. We can query these logs using the `ContainerNetworkLog` table to perform detailed forensic analysis and troubleshooting.
 
 Now that flow logs are being collected and we've generated traffic, let's investigate the issues in minutes instead of hours.
 
@@ -756,7 +750,7 @@ Navigate to [Azure Portal](https://aka.ms/publicportal), search for your AKS clu
 First, run this query to see what fields are available in your flow logs:
 
 ```kusto
-RetinaNetworkFlowLogs
+ContainerNetworkLog
 | take 1
 ```
 
@@ -779,7 +773,7 @@ Now let's use flow logs to diagnose all the issues we just generated. Each query
 First, let's get a high-level view of all dropped traffic in the pets namespace:
 
 ```kusto
-RetinaNetworkFlowLogs
+ContainerNetworkLog
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets" or DestinationNamespace == "pets"
 | where Verdict == "DROPPED"
@@ -816,7 +810,7 @@ RetinaNetworkFlowLogs
 Now let's see exactly which external connections are being dropped:
 
 ```kusto
-RetinaNetworkFlowLogs
+ContainerNetworkLog
 | where TimeGenerated > ago(30m)
 | where DestinationNamespace == "pets"
 | where DestinationPodName contains "store-front"
@@ -857,7 +851,7 @@ RetinaNetworkFlowLogs
 Let's look at DNS traffic (port 53) to understand which domains are allowed vs blocked:
 
 ```kusto
-RetinaNetworkFlowLogs
+ContainerNetworkLog
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets"
 | where SourcePodName contains "store-front"
@@ -897,7 +891,7 @@ RetinaNetworkFlowLogs
 Now let's correlate DNS queries with HTTPS connection attempts to understand the full flow:
 
 ```kusto
-RetinaNetworkFlowLogs
+ContainerNetworkLog
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets"
 | where SourcePodName contains "store-front"
@@ -952,7 +946,7 @@ RetinaNetworkFlowLogs
 Create a visual timeline to correlate issues with policy deployments:
 
 ```kusto
-RetinaNetworkFlowLogs
+ContainerNetworkLog
 | where TimeGenerated > ago(1h)
 | where SourceNamespace == "pets" or DestinationNamespace == "pets"
 | summarize 
@@ -988,7 +982,7 @@ A visual timeline showing:
 Get a comprehensive view of all traffic patterns to confirm your diagnosis:
 
 ```kusto
-RetinaNetworkFlowLogs
+ContainerNetworkLog
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets" or DestinationNamespace == "pets"
 | summarize 
