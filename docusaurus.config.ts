@@ -73,6 +73,22 @@ const config: Config = {
     ],
   ],
 
+  plugins: [
+    [
+      require.resolve("@easyops-cn/docusaurus-search-local"),
+      {
+        hashed: true,
+        language: ["en"],
+        highlightSearchTermsOnTargetPage: true,
+        explicitSearchResultPath: true,
+        blogRouteBasePath: '/',
+        docsRouteBasePath: ['/docs'],
+        indexBlog: true,         // Set to true to index blog
+        indexDocs: true,        // Set to true to index docs
+      },
+    ],
+  ],
+
   themeConfig: {
     // Replace with your project's social card
     image: 'img/aks-labs-social-card.png',
