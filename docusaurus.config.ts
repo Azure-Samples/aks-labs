@@ -81,8 +81,8 @@ const config: Config = {
         language: ["en"],
         highlightSearchTermsOnTargetPage: true,
         explicitSearchResultPath: true,
-        blogRouteBasePath: '/',  // Adjust to match your blog route
-        docsRouteBasePath: [],   // Use [] if docs disabled, or ['/docs'] if enabled
+        blogRouteBasePath: '/',
+        docsRouteBasePath: [],
         indexBlog: true,         // Set to true to index blog
         indexDocs: false,        // Set to true to index docs
       },
