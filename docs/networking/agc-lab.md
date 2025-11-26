@@ -3,8 +3,10 @@ title: Application Gateway for Containers
 sidebar_label: Application Gateway for Containers
 sidebar_position: 3
 ---
-
-### Overview
+import Prerequisites from "../../src/components/SharedMarkdown/_prerequisites.mdx";
+import ProvisionResourceGroup from "../../src/components/SharedMarkdown/_provision_resource_group.mdx";
+import ProvisionAKSCluster from "../../src/components/SharedMarkdown/_provision_aks_cluster.mdx";
+import Cleanup from "../../src/components/SharedMarkdown/_cleanup.mdx";
 
 Application Gateway for Containers is an application layer (layer 7) load balancing and dynamic traffic management product for workloads running in a Kubernetes cluster. It extends Azure's Application Load Balancing portfolio and is a new offering under the Application Gateway product family. It enables multiple Layer 7 features:
 
@@ -20,7 +22,7 @@ Application Gateway for Containers is an application layer (layer 7) load balanc
 
 ---
 
-### Objectives
+## Objectives
 
 In this workshop, you will learn how to use Application Gateway for Containers with Azure Kubernetes Service (AKS). 
 
@@ -39,31 +41,18 @@ In this workshop, you will learn how to use Application Gateway for Containers w
 
 ---
 
-### Prerequisites
-Before starting this lab, make sure your environment is set up correctly. Follow the guide here:
-
-- [Azure Subscription](https://azure.microsoft.com/)
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/) version 2.60.0 or later with the [aks-preview](https://github.com/Azure/azure-cli-extensions/tree/main/src/aks-preview) [Azure CLI extension](https://learn.microsoft.com/cli/azure/azure-cli-extensions-overview?view=azure-cli-latest) installed
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) version 1.28.9 or later
-- A terminal with `bash` (e.g.: [Windows Terminal](https://www.microsoft.com/p/windows-terminal/9n0dx20hk701) with [WSL](https://docs.microsoft.com/windows/wsl/install-win10) or [Azure Cloud Shell](https://shell.azure.com/))
-
-
-## Setup your environment
-
-### Step 1: AKS Cluster Deployment
-
-Please follow the instructions on [setting up your lab](https://azure-samples.github.io/aks-labs/docs/getting-started/setting-up-lab-environment). The AKS cluster needs to be in a region where Application Gateway for Containers is available AKS cluster should use Azure CNI or Azure CNI Overlay. AKS cluster should have the workload identity feature enabled. Learn how to enable workload identity on an existing AKS cluster.
-
-### Step 2: Enable required providers for Application Gateway for Containers
+<Prerequisites 
+  tools={[
+      {
+        name: "Helm",
+        url: "https://helm.sh/docs/intro/install/",
+      }
+  ]}
+/>
 
 Before starting with the deployment and configuration of the Application Gateway for Containers, you will need to register a few providers in the subscription which will contain the resources. You must also enable the extension "Application Gateway for Containers ALB Controller"
 
 ```bash
-# Sign in to your Azure subscription.
-SUBSCRIPTION_ID='<your subscription id>'
-az login
-az account set --subscription $SUBSCRIPTION_ID
-
 # Register required resource providers on Azure.
 az provider register --namespace Microsoft.ContainerService
 az provider register --namespace Microsoft.Network
@@ -72,15 +61,6 @@ az provider register --namespace Microsoft.ServiceNetworking
 
 # Install Azure CLI extensions.
 az extension add --name alb
-```
-
-### Step 3: Install Helm CLI
-
-If you don't have Helm installed in your client machine, do so with the following command:
-
-```bash
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-```
 
 ## Expose an application over HTTP
 
