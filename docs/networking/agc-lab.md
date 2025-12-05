@@ -83,25 +83,41 @@ View the architecture of Application Gateway with Containers in the image below:
 
 #### Identity configuration
 
-Create a user managed identity for ALB controller and federate the identity as Workload Identity to use in the AKS cluster.
+For the ALB controller to be able to create Azure resources such as the Application Gateway for Containers and their frontends, it must be assigned an identity with sufficient permissions. We will configure this by means of a managed identity, which can be assigned to the ALB controller through [workload identity federation](). 
+
+To allow the ALB controller to create and manage Azure resources—such as Application Gateway for Containers and their frontend configurations—it needs an identity with the right permissions.
+
+To configure this, we’ll create a user-assigned managed identity and connect it to the ALB controller using [workload identity federation](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster). This approach lets the controller securely authenticate with Azure without storing or managing any secrets, using the AKS cluster’s OIDC integration instead.
+
+We will start by setting names for the managed identity, as well as getting those for the managed resource group:
 
 ```bash
 IDENTITY_RESOURCE_NAME='azure-alb-identity'
 
 MC_RG_NAME=$(az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query "nodeResourceGroup" -o tsv)
 MC_RG_ID=$(az group show --name ${MC_RG_NAME} --query id -o tsv)
+```
 
+You can now create the managed identity:
+
+```bash
 echo "Creating identity $IDENTITY_RESOURCE_NAME in resource group $RG_NAME"
 az identity create --resource-group $RG_NAME --name $IDENTITY_RESOURCE_NAME
-PRINCIPAL_ID=$(az identity show -g $RG_NAME -n $IDENTITY_RESOURCE_NAME --query principalId -otsv)
+PRINCIPAL_ID=$(az identity show -g $RG_NAME -n $IDENTITY_RESOURCE_NAME --query principalId -o tsv)
 
 echo "Waiting 60 seconds to allow for replication of the identity..."
 sleep 60
+```
 
-echo "Apply Reader role to the AKS managed cluster resource group for the newly provisioned identity"
+Let's now apply a reader role to the AKS managed cluster resource group for the newly provisioned identity:
+
+```bash
 az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $MC_RG_ID --role "acdd72a7-3385-48ef-bd42-f606fba81ae7" # Reader role
+```
 
-echo "Set up federation with AKS OIDC issuer"
+We’ll now link the managed identity to the AKS OIDC issuer by creating a federated credential. This enables the ALB controller’s service account to obtain Azure tokens without needing secrets.
+
+```bash
 AKS_OIDC_ISSUER="$(az aks show -n $AKS_NAME -g $RG_NAME --query "oidcIssuerProfile.issuerUrl" -o tsv)"
 az identity federated-credential create --name $IDENTITY_RESOURCE_NAME --identity-name "$IDENTITY_RESOURCE_NAME" --resource-group $RG_NAME --issuer "$AKS_OIDC_ISSUER" --subject "system:serviceaccount:azure-alb-system:alb-controller-sa"
 ```
