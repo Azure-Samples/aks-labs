@@ -61,6 +61,7 @@ az provider register --namespace Microsoft.ServiceNetworking
 
 # Install Azure CLI extensions.
 az extension add --name alb
+```
 
 ## Expose an application over HTTP
 
@@ -82,8 +83,6 @@ View the architecture of Application Gateway with Containers in the image below:
 ![Application Gateway for Containers architecture](https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/media/overview/application-gateway-for-containers-kubernetes-conceptual.png)
 
 #### Identity configuration
-
-For the ALB controller to be able to create Azure resources such as the Application Gateway for Containers and their frontends, it must be assigned an identity with sufficient permissions. We will configure this by means of a managed identity, which can be assigned to the ALB controller through [workload identity federation](). 
 
 To allow the ALB controller to create and manage Azure resources—such as Application Gateway for Containers and their frontend configurations—it needs an identity with the right permissions.
 
