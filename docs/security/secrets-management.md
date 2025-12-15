@@ -215,7 +215,7 @@ kubectl get pods -n kube-system -l app=secrets-store-csi-driver
 
 ### Using the CSI Secrets Provider
 
-In order to demostrate the secret provider running on AKS we'll implement a basic deployment and we'll attach a secret as an environment variable.
+In order to demonstrate the secret provider running on AKS we'll implement a basic deployment and we'll attach a secret as an environment variable.
 
 ```bash
 
