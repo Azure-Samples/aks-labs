@@ -194,7 +194,7 @@ az keyvault secret set \
 
 ## CSI Secrets Provider
 
-the CSI Secrets Driver is one of the easiest of the secrets management tools to get started with on AKS. It can be installed via an AKS Addon command.
+The CSI Secrets Driver is one of the easiest of the secrets management tools to get started with on AKS. It can be installed via an AKS Addon command.
 
 ```Bash
 
