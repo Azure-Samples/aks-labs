@@ -332,7 +332,7 @@ kubectl exec -n secret-lab ${POD_NAME} -- curl -s http://localhost:9898/env
 
 ```
 
-Great, we now have demostrated the ability to attach secrets as environment variables and volume mounts using the CSI Provider. Let's see what happens when we rotate one of the secrets...
+Great, we now have demonstrated the ability to attach secrets as environment variables and volume mounts using the CSI Provider. Let's see what happens when we rotate one of the secrets...
 
 ```bash
 
