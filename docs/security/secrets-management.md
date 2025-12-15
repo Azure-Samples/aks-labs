@@ -378,7 +378,7 @@ kubectl exec -n secret-lab ${POD_NAME} -- env | grep -E 'PODINFO_UI_COLOR'
 
 ```
 
-Awesome! We were able to demostrate that using a combination of the CSI Provider and Reloader. We also enabled a managed identity assigned specifically to the namespace of this workload. This provides principal of least privilege to the secrets. You can repeat the pattern for multiple applications running in seperate namespaces!
+Awesome! We were able to demostrate that using a combination of the CSI Provider and Reloader. We also enabled a managed identity assigned specifically to the namespace of this workload. This provides principle of least privilege to the secrets. You can repeat the pattern for multiple applications running in seperate namespaces!
 
 ## Clean Up Time
 
