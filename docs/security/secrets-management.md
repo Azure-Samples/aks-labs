@@ -178,10 +178,12 @@ EOF
 # Create Some Basic Secrets
 
 # Create a secret for a database connection string
+# WARNING: Do not use real credentials in lab or documentation examples.
+# Replace 'your-password-here' with a secure password for your environment.
 az keyvault secret set \
 --vault-name ${KV_NAME} \
 --name "db-connection-string" \
---value "Server=myserver.database.windows.net;Database=mydb;User Id=myuser;Password=myP@ssw0rd123;"
+--value "Server=myserver.database.windows.net;Database=mydb;User Id=myuser;Password=your-password-here;"
 
 az keyvault secret set \
 --vault-name ${KV_NAME} \
