@@ -391,4 +391,6 @@ az group delete --resource-group ${RG_NAME} --yes
 
 ## Kudos/Credits
 
-Special thanks to Stefan Prodan for his [PodInfo application](https://github.com/stefanprodan/podinfo) which helped us demostrate this use case.
+* Special thanks to Stefan Prodan for his [PodInfo application](https://github.com/stefanprodan/podinfo) which helped us demostrate this use case.
+* Credit to [stakater/Reloader](https://github.com/stakater/Reloader) for helping with the secret reload process.
+* [Azure Key Vault Provider for Secrets Store CSI Driver](https://github.com/Azure/secrets-store-csi-driver-provider-azure)
