@@ -43,7 +43,7 @@ az group create \
 
 AKS_NAME=$(az aks create \
 --resource-group ${RG_NAME} \
---name myakscluster \
+--name ${AKS_NAME} \
 --location ${LOCATION} \
 --tier free \
 --node-count 2 \
