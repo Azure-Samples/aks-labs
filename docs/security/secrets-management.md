@@ -59,7 +59,7 @@ Excellent. You should now have a basic cluster in the resource group. Let's log 
 
 ```bash
 
-az aks get-credentials --resource-group ${RG_NAME} --name myakscluster --overwrite-existing
+az aks get-credentials --resource-group ${RG_NAME} --name ${AKS_NAME} --overwrite-existing
 
 # You may be prompted to log back in. Provide creds and then run this command
 # which will return the running pods in the kube-system namespace
