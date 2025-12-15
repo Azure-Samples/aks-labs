@@ -15,7 +15,7 @@ Welcome to this workshop on secrets management with AKS. The goal of this lab is
 
 ## Getting Started
 
-In this lab we will start off by deploying a basic AKS cluster. We'll then walk through some basics of how to install the secret addons, and then walk through some basics to demostrate their secret management capabilities.
+In this lab we will start off by deploying a basic AKS cluster. We'll then walk through some basics of how to install the secret addons, and then walk through some basics to demonstrate their secret management capabilities.
 
 You will need the following installed on the machine you perform this lab:
 
