@@ -222,31 +222,6 @@ In order to demonstrate the secret provider running on AKS we'll implement a bas
 ```bash
 
 # Create a SecretProviderClass to define which secrets to mount from Key Vault
-cat <<EOF | kubectl apply -f -
-apiVersion: secrets-store.csi.x-k8s.io/v1
-kind: SecretProviderClass
-metadata:
-  name: azure-keyvault-secrets
-  namespace: secret-lab
-spec:
-  provider: azure
-  parameters:
-    usePodIdentity: "false"
-    useVMManagedIdentity: "false"
-    clientID: "${MI_CLIENT_ID}"
-    keyvaultName: "${KV_NAME}"
-    tenantId: "$(az account show --query tenantId -o tsv)"
-    objects: |
-      array:
-        - |
-          objectName: db-connection-string
-          objectType: secret
-          objectAlias: db-connection-string
-        - |
-          objectName: color
-          objectType: secret
-          objectAlias: color
-EOF
 
 # Deploy podinfo with CSI secrets mounted
 cat <<EOF | kubectl apply -f -
