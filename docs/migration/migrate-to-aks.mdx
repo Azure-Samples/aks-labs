@@ -426,22 +426,28 @@ Also note that you might be prompted to allow access to the language models prov
 Assessment results are consumed by GitHub Copilot App Modernization (AppCAT). AppCAT examines the scan findings and produces targeted modernization recommendations to prepare the application for containerization and migration to Azure.
 
 - **target**: the desired runtime or Azure compute service you plan to move the app to.
+- **capability**: what technology to modernize the apps towards.
 - **mode**: the analysis depth AppCAT should use.
+- **os**: best practices tailored for specific operating systems that AppCAT should use when migrating applications (windows or Linux). For this lab we will not be focusing on it.
 
 #### Analysis Targets
 
-Target values select the rule sets and guidance AppCAT will apply.
+**Targets**
 
-| Target | Description |
-|--------|---------|
-| azure-aks | Guidance and best practices for deploying to Azure Kubernetes Service (AKS). |
-| azure-appservice | Guidance and best practices for deploying to Azure App Service. |
-| azure-container-apps | Guidance and best practices for deploying to Azure Container Apps. |
-| cloud-readiness | General recommendations to make the app "cloud-ready" for Azure. |
-| linux | Recommendations to make the app Linux-ready (packaging, file paths, runtime details). |
-| openjdk11 | Compatibility and runtime recommendations for running Java 8 apps on Java 11. |
-| openjdk17 | Compatibility and runtime recommendations for running Java 11 apps on Java 17. |
-| openjdk21 | Compatibility and runtime recommendations for running Java 17 apps on Java 21. |
+| Target | Description   |
+|--|--|
+| azure-aks | Best practices for deploying an app to Azure Kubernetes Service.|
+| azure-appservice | Best practices for deploying an app to Azure App Service. |
+| azure-container-apps | Best practices for deploying an app to Azure Container Apps. |
+
+**Capability**
+
+| Capability | Description |
+|--|--|
+| containerization | Best practices for containerizing applications. |
+| openjdk11 | Best practices for migrating to OpenJDK 11. |
+| openjdk17 | Best practices for migrating to OpenJDK 17. |
+| openjdk21 | Best practices for migrating to OpenJDK 21. |
 
 #### Analysis Modes
 
@@ -449,8 +455,9 @@ Choose how deep AppCAT should inspect the project.
 
 | Mode | Description |
 |--------|---------|
-| source-only | Fast analysis that examines source code only. |
-| full | Full analysis: inspects source code and scans dependencies (slower, more thorough). |
+| **issue-only**  | analyze source code to only detect issues |
+| **source-only** | Fast analysis that examines source code only. |
+| **full** | Full analysis: inspects source code and scans dependencies (slower, more thorough). |
 
 #### Where to Change These Options
 
@@ -464,8 +471,7 @@ appcat:
       - azure-aks
       - azure-appservice
       - azure-container-apps
-      - cloud-readiness
-    mode: source-only
+    mode: issue-only
 ```
 
 If you want a broader scan (including dependency checks) change `mode` to `full`, or add/remove entries under `target` to focus recommendations on a specific runtime or Azure compute service.
@@ -476,14 +482,15 @@ After the assessment completes, you'll see a success message in the GitHub Copil
 
 ![Assessment Report Overview](assets/migrate-to-aks/assessment-report-overview.png)
 
+
 The assessment analyzed the Spring Boot Petclinic application for cloud migration readiness and identified the following:
 
 **Key Findings:**
 
-- 8 cloud readiness issues requiring attention
+- 4 cloud readiness issues requiring attention
 - 1 Java upgrade opportunity for modernization
 
-**Resolution Approach:** More than 50% of the identified issues can be automatically resolved through code and configuration updates using GitHub Copilot's built-in app modernization capabilities.
+**Resolution Approach:** More than 80% of the identified issues can be automatically resolved through code and configuration updates using GitHub Copilot's built-in app modernization capabilities.
 
 **Issue Prioritization:** Issues are categorized by urgency level to guide remediation efforts:
 
@@ -541,7 +548,7 @@ Click the **Run Task** button described in the previous section to kick off the 
 
 ![Run PostgreSQL Migration Task](assets/migrate-to-aks/run-postgres-migration-task.png)
 
-The tool will execute the `appmod-run-task` command for `managed-identity-spring/mi-postgresql-spring`, which will examine the workspace structure and initiate the migration task to modernize your Spring Boot application for Azure PostgreSQL with managed identity authentication. If prompted to run shell commands, please review and allow each command as the Agent may require additional context before execution.
+The tool will execute the `appmod-run-task` command for `mi-postgresql-spring`, which will examine the workspace structure and initiate the migration task to modernize your Spring Boot application for Azure PostgreSQL with managed identity authentication. If prompted to run shell commands, please review and allow each command as the Agent may require additional context before execution.
 
 ### Review Migration Plan and Begin Code Migration
 
@@ -598,6 +605,7 @@ The `progress.md` file provides real-time visibility into the migration process:
 Upon successful completion of the validation process, the App Modernization tool presents a comprehensive migration summary report confirming the successful implementation of Azure Managed Identity authentication for PostgreSQL in your Spring Boot application.
 
 ![Migration Success Summary](assets/migrate-to-aks/migration-success-summary.png)
+
 
 The migration has successfully transformed your application from **password-based** Postgres authentication to **Azure Managed Identity** for PostgreSQL, removing the need for credentials in code while maintaining application functionality. The process integrated Spring Cloud Azure dependencies, updated configuration properties for managed identity authentication, and ensured all validation stages passed including: **CVE scanning, build validation, consistency checks, and test execution**.
 
@@ -671,7 +679,7 @@ In this section, you'll use AI-powered tools to generate Docker and Kubernetes m
 
 ### Using Containerization Assist
 
-In the GitHub Copilot App Mod extension, click on **Common Tasks -> Containerize Tasks -> Containerize Application**
+In the GitHub Copilot App Mod extension, click on **TASKS** -> **Common Tasks -> Containerize Tasks -> Containerize Application**
 
 ![Containerization Task](assets/migrate-to-aks/containerization-task.png)
 
