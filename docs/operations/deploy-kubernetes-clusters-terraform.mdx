@@ -11,7 +11,7 @@ In this workshop, you will learn the basics of using Terraform to provision an A
 - Understand what Terraform is
 - Know the basics of working with Terraform on your machine
 - Setup Azure Storage for remote state
-- Provision an AKS cluster and Azure Container Registry (ACR)
+- Provision an AKS cluster using Azure Verified Modules
 - Understand AzApi provider
 
 ---
@@ -400,7 +400,7 @@ terraform validate
 terraform apply
 ```
 
-Within a few minutes, Terraform will create the AKS cluster and the ACR in Azure. You can verify that the resources were created by checking the Azure portal or by running the following command in the Azure CLI:
+Within a few minutes, Terraform will create the AKS cluster in Azure. You can verify that the resources were created by checking the Azure portal or by running the following command in the Azure CLI:
 
 ```bash
 az resource list \
@@ -473,7 +473,7 @@ Be sure to check out the [Terraform MCP server documentation](https://developer.
 Once the MCP server is set up, you can use the Copilot Chat in Agent mode to ask questions about Terraform and get help with your configuration. For example, let's say you want to move away from the module code and write your own, you can ask:
 
 ```text
-I'd like to replace the module code in my main.tf file with the equivalent azurerm resources but I need help deploying an AKS cluster and Azure Container Registry then linking the two using the azurerm provider.
+I'd like to replace the module code in my main.tf file with the equivalent azurerm resources to deploy an AKS cluster using the azurerm provider.
 ```
 
 ### AzAPI provider
