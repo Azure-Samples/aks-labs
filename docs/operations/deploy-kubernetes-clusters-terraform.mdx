@@ -329,7 +329,7 @@ See the [Module Classifications](https://azure.github.io/Azure-Verified-Modules/
 
 ## Deploy an AKS cluster
 
-Let's deploy an AKS cluster using AVM. For this workshop, we want to deploy a simple AKS cluster with an Azure Container Registry (ACR) for dev/test purposes. Typically you'd need to create these resources separately, but the [avm-ptn-aks-dev](https://registry.terraform.io/modules/Azure/avm-ptn-aks-dev/azurerm/latest) pattern module will create both resources for you and configure them to work together.
+Let's deploy an AKS cluster using AVM. For this workshop, we will deploy an AKS cluster using the [avm-res-containerservice-managedcluster](https://registry.terraform.io/modules/Azure/avm-res-containerservice-managedcluster/azurerm/0.4.2) resource module, which is the current supported Azure Verified Module for creating AKS clusters.
 
 If you navigate to the module page, you should end up in the Terraform Registry website. Here you will find the module documentation, including the inputs and outputs, as well as examples of how to use the module (under the **Provision Instructions** heading). The module documentation is very important, as it will tell you what inputs are required and what outputs you can expect from the module.
 
@@ -338,39 +338,47 @@ We will build on our existing `main.tf` file, so add a new line after the `azure
 Here is what the sample looks like:
 
 ```hcl
-module "avm-ptn-aks-dev" {
-  source  = "Azure/avm-ptn-aks-dev/azurerm"
-  version = "0.2.0"
-  # insert the 3 required variables here
+module "aks" {
+  source  = "Azure/avm-res-containerservice-managedcluster/azurerm"
+  version = "0.4.2"
+  # insert the required variables here
 }
 ```
 
 :::tip
 
-This code sets the module version to `0.2.0` but you should always refer to the Terraform Registry docs to check for the latest stable version.
+This code sets the module version to `0.4.2` but you should always refer to the Terraform Registry docs to check for the latest stable version.
 
 :::
 
-The example code calls for you to insert the three required variables. If you click on the **Inputs** tab, you will see the required variables listed. The three required variables are `resource_group_name`, `location`, and `aks_name`. You can also see the optional variables that you can use to customize the AKS cluster.
+The example code calls for you to insert the required variables. If you click on the **Inputs** tab, you will see the required variables listed. The required variables are `location`, `name`, `parent_id` (the resource group ID), and `default_node_pool`. You can also see the optional variables that you can use to customize the AKS cluster.
 
 Add the following code to add a new module block with the required variables:
 
 ```hcl
-module "avm-ptn-aks-dev" {
-  source  = "Azure/avm-ptn-aks-dev/azurerm"
-  version = "0.2.0"
-  resource_group_name = azurerm_resource_group.example.name
-  location            = azurerm_resource_group.example.location
-  name                = "demo"
+module "aks" {
+  source  = "Azure/avm-res-containerservice-managedcluster/azurerm"
+  version = "0.4.2"
+  location  = azurerm_resource_group.example.location
+  name      = "demo"
+  parent_id = azurerm_resource_group.example.id
+  default_node_pool = {
+    name       = "default"
+    vm_size    = "Standard_DS2_v2"
+    node_count = 3
+  }
+  managed_identities = {
+    system_assigned = true
+  }
 }
 ```
 
-Let's also add an output block to display the AKS cluster name and the ACR login server. Add the following code to your `outputs.tf` file:
+Let's also add an output block to display the AKS cluster name. Add the following code to your `outputs.tf` file:
 
 ```hcl
 output "aks_name" {
   description = "The name of the AKS cluster"
-  value       = module.avm-ptn-aks-dev.resource.name
+  value       = module.aks.name
 }
 ```
 
@@ -486,7 +494,7 @@ Key accomplishments include:
 - **Infrastructure Definition**: Created reusable Terraform configurations using HCL with proper variable and output management
 - **Remote State Management**: Implemented Azure Storage backend for secure, collaborative state file management
 - **Resource Deployment**: Successfully deployed Azure resources using both basic `azurerm` provider resources and Azure Verified Modules (AVM)
-- **AKS Cluster Creation**: Leveraged the `avm-ptn-aks-dev` pattern module to deploy a complete AKS cluster with integrated Azure Container Registry
+- **AKS Cluster Creation**: Leveraged the `avm-res-containerservice-managedcluster` resource module to deploy an AKS cluster
 
 You also discovered advanced capabilities like the Terraform MCP server for enhanced developer experience and the `azapi` provider for accessing the latest Azure features when the standard `azurerm` provider hasn't yet been updated.
 
