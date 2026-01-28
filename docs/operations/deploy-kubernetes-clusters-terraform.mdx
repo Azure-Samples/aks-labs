@@ -127,7 +127,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.38.0"
+      version = "~> 4.58.0"
     }
   }
 }
@@ -357,8 +357,8 @@ Add the following code to add a new module block with the minimum required varia
 
 ```hcl
 module "aks" {
-  source  = "Azure/avm-res-containerservice-managedcluster/azurerm"
-  version = "0.4.2"
+  source    = "Azure/avm-res-containerservice-managedcluster/azurerm"
+  version   = "0.4.2"
   location  = azurerm_resource_group.example.location
   name      = "demo"
   parent_id = azurerm_resource_group.example.id
