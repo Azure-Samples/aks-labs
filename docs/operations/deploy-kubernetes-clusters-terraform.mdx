@@ -329,7 +329,7 @@ See the [Module Classifications](https://azure.github.io/Azure-Verified-Modules/
 
 ## Deploy an AKS cluster
 
-Let's deploy an AKS cluster using AVM. For this workshop, we will deploy an AKS cluster using the [avm-res-containerservice-managedcluster](https://registry.terraform.io/modules/Azure/avm-res-containerservice-managedcluster/azurerm/0.4.2) resource module, which is the current supported Azure Verified Module for creating AKS clusters.
+Let's deploy an AKS cluster using AVM. For this workshop, we will use the [avm-res-containerservice-managedcluster](https://registry.terraform.io/modules/Azure/avm-res-containerservice-managedcluster/azurerm/0.4.2) resource module, which is the current supported Azure Verified Module for creating AKS clusters.
 
 If you navigate to the module page, you should end up in the Terraform Registry website. Here you will find the module documentation, including the inputs and outputs, as well as examples of how to use the module (under the **Provision Instructions** heading). The module documentation is very important, as it will tell you what inputs are required and what outputs you can expect from the module.
 
@@ -351,9 +351,9 @@ This code sets the module version to `0.4.2` but you should always refer to the 
 
 :::
 
-The example code calls for you to insert the required variables. If you click on the **Inputs** tab, you will see the required variables listed. The required variables are `location`, `name`, `parent_id` (the resource group ID), and `default_node_pool`. You can also see the optional variables that you can use to customize the AKS cluster.
+The example code calls for you to insert the required variables. If you click on the **Inputs** tab, you will see the required variables listed. The minimum required variables are `location`, `name`, and `parent_id` (the resource group ID). You can also see the optional variables that you can use to customize the AKS cluster.
 
-Add the following code to add a new module block with the required variables:
+Add the following code to add a new module block with the minimum required variables:
 
 ```hcl
 module "aks" {
@@ -362,16 +362,14 @@ module "aks" {
   location  = azurerm_resource_group.example.location
   name      = "demo"
   parent_id = azurerm_resource_group.example.id
-  default_node_pool = {
-    name       = "default"
-    vm_size    = "Standard_DS2_v2"
-    node_count = 3
-  }
-  managed_identities = {
-    system_assigned = true
-  }
 }
 ```
+
+:::note
+
+This is a minimal example to get started quickly. For more advanced configurations, check out the [additional examples](https://registry.terraform.io/modules/Azure/avm-res-containerservice-managedcluster/azurerm/0.4.2?tab=examples) available in the module documentation, including the [automatic](https://registry.terraform.io/modules/Azure/avm-res-containerservice-managedcluster/azurerm/0.4.2/examples/automatic) and [automatic-private](https://registry.terraform.io/modules/Azure/avm-res-containerservice-managedcluster/azurerm/0.4.2/examples/automatic-private) examples for deploying AKS Automatic clusters.
+
+:::
 
 Let's also add an output block to display the AKS cluster name. Add the following code to your `outputs.tf` file:
 
@@ -400,7 +398,7 @@ terraform validate
 terraform apply
 ```
 
-Within a few minutes, Terraform will create the AKS cluster in Azure. You can verify that the resources were created by checking the Azure portal or by running the following command in the Azure CLI:
+Within a few minutes, Terraform will create the AKS cluster in Azure. You can verify that the resource was created by checking the Azure portal or by running the following command in the Azure CLI:
 
 ```bash
 az resource list \
