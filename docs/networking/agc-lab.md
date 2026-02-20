@@ -59,15 +59,21 @@ az provider register --namespace Microsoft.Network
 az provider register --namespace Microsoft.NetworkFunction
 az provider register --namespace Microsoft.ServiceNetworking
 
+# Register preview features required for the ALB Controller AKS add-on.
+az feature register --namespace Microsoft.ContainerService --name ApplicationLoadBalancerPreview
+az feature register --namespace Microsoft.ContainerService --name ManagedGatewayAPIPreview
+az provider register --namespace Microsoft.ContainerService
+
 # Install Azure CLI extensions.
 az extension add --name alb
+az extension add --name aks-preview
 ```
 
 ## Expose an application over HTTP
 
 ### Install and configure the ALB Controller
 
-The ALB Controller is a Kubernetes deployment that orchestrates configuration and deployment of Application Gateway for Containers. It uses both ARM and configuration APIs to propagate configuration to the Application Gateway for Containers Azure deployment. [Each release of ALB Controller](https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/alb-controller-release-notes) has a documented helm chart version and supported Kubernetes cluster version. After installing it in a cluster, it will apply a set of CRDs to the cluster (as of version 1.7.9):
+The ALB Controller is a Kubernetes deployment that orchestrates configuration and deployment of Application Gateway for Containers. It uses both ARM and configuration APIs to propagate configuration to the Application Gateway for Containers Azure deployment. After installing it in a cluster, it will apply a set of CRDs to the cluster:
 
 - ApplicationLoadBalancer
 - BackendLoadBalancingPolicy
@@ -82,61 +88,31 @@ View the architecture of Application Gateway with Containers in the image below:
 
 ![Application Gateway for Containers architecture](https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/media/overview/application-gateway-for-containers-kubernetes-conceptual.png)
 
-#### Identity configuration
+#### Enable the ALB Controller AKS Add-on
 
-To allow the ALB controller to create and manage Azure resources—such as Application Gateway for Containers and their frontend configurations—it needs an identity with the right permissions.
+The simplest way to install the ALB controller is via the AKS add-on. The add-on automatically handles:
 
-To configure this, we’ll create a user-assigned managed identity and connect it to the ALB controller using [workload identity federation](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster). This approach lets the controller securely authenticate with Azure without storing or managing any secrets, using the AKS cluster’s OIDC integration instead.
+- Creating a managed identity (`applicationloadbalancer-<cluster-name>`) with the required role assignments (Reader, Network Contributor, AppGw for Containers Configuration Manager) scoped to the managed cluster resource group.
+- Configuring a federated identity credential for workload identity.
+- Creating a delegated subnet (`aks-appgateway`) in the cluster's virtual network.
 
-We will start by setting names for the managed identity, as well as getting those for the managed resource group:
-
-```bash
-IDENTITY_RESOURCE_NAME='azure-alb-identity'
-
-MC_RG_NAME=$(az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query "nodeResourceGroup" -o tsv)
-MC_RG_ID=$(az group show --name ${MC_RG_NAME} --query id -o tsv)
-```
-
-You can now create the managed identity:
+Enable the add-on on your existing cluster:
 
 ```bash
-echo "Creating identity $IDENTITY_RESOURCE_NAME in resource group $RG_NAME"
-az identity create --resource-group $RG_NAME --name $IDENTITY_RESOURCE_NAME
-PRINCIPAL_ID=$(az identity show -g $RG_NAME -n $IDENTITY_RESOURCE_NAME --query principalId -o tsv)
-
-echo "Waiting 60 seconds to allow for replication of the identity..."
-sleep 60
+az aks update --name ${AKS_NAME} --resource-group ${RG_NAME} --enable-gateway-api --enable-application-load-balancer
 ```
 
-Let's now apply a reader role to the AKS managed cluster resource group for the newly provisioned identity:
+:::tip
+For a new cluster, you can pass `--enable-gateway-api --enable-application-load-balancer` directly to `az aks create`.
+:::
+
+Verify the ALB Controller pods are running in the `kube-system` namespace:
 
 ```bash
-az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $MC_RG_ID --role "acdd72a7-3385-48ef-bd42-f606fba81ae7" # Reader role
+kubectl get pods -n kube-system | grep alb-controller
 ```
 
-We’ll now link the managed identity to the AKS OIDC issuer by creating a federated credential. This enables the ALB controller’s service account to obtain Azure tokens without needing secrets.
-
-```bash
-AKS_OIDC_ISSUER="$(az aks show -n $AKS_NAME -g $RG_NAME --query "oidcIssuerProfile.issuerUrl" -o tsv)"
-az identity federated-credential create --name $IDENTITY_RESOURCE_NAME --identity-name "$IDENTITY_RESOURCE_NAME" --resource-group $RG_NAME --issuer "$AKS_OIDC_ISSUER" --subject "system:serviceaccount:azure-alb-system:alb-controller-sa"
-```
-
-#### ALB Controller Installation with Helm
-
-When the helm install command is run, it deploys the helm chart to the default namespace. When alb-controller is deployed, it deploys to the `azure-alb-system` namespace. Both of these namespaces may be overridden independently as desired. To override the namespace the helm chart is deployed to, you may specify the --namespace (or -n) parameter. To override the `azure-alb-system` namespace used by alb-controller, you may set the albController.namespace property during installation (--set albController.namespace). If neither the --namespace or the --set albController.namespace parameters are defined, the default namespace is used for the helm chart and the `azure-alb-system` namespace is used for the ALB controller components. Lastly, if the namespace for the helm chart resource isn't yet defined, ensure the --create-namespace parameter is also specified along with the --namespace or -n parameters. Install the ALB controller with Helm:
-
-```bash
-HELM_NAMESPACE='azure-alb-helm'
-CONTROLLER_NAMESPACE='azure-alb-system'
-CLIENT_ID=$(az identity show -g $RG_NAME -n $IDENTITY_RESOURCE_NAME --query clientId -o tsv)
-helm install alb-controller oci://mcr.microsoft.com/application-lb/charts/alb-controller --namespace $HELM_NAMESPACE --version 1.8.12 --set albController.namespace=$CONTROLLER_NAMESPACE --set albController.podIdentity.clientID=$CLIENT_ID --create-namespace
-```
-
-Verify the installation:
-
-```bash
-kubectl get pods -n azure-alb-system
-```
+You should see two `alb-controller` pods in `Running` state.
 
 Verify GatewayClass `azure-alb-external` is installed on your cluster. You should see that the GatewayClass has a condition that reads `Valid` GatewayClass:
 
@@ -146,37 +122,30 @@ kubectl get gatewayclass azure-alb-external -o yaml
 
 Now that you have successfully installed an ALB Controller on your cluster, you can provision the Application Gateway For Containers resources in Azure.
 
+:::note
+If you prefer a manual installation using Helm (for example, to customise the controller namespace or version), refer to the [Helm-based deployment guide](https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/quickstart-deploy-application-gateway-for-containers-alb-controller-helm).
+:::
+
 
 ### Provision a (managed) Application Gateway for Containers
 
 In this deployment strategy, ALB Controller deployed in Kubernetes is responsible for the lifecycle of the Application Gateway for Containers resource and its sub resources. ALB Controller creates an Application Gateway for Containers resource when an ApplicationLoadBalancer custom resource is defined on the cluster. The service lifecycle is based on the lifecycle of the custom resource.
 
 
-#### Prepare your virtual network / subnet
+#### Retrieve the auto-provisioned subnet
+
+The AKS add-on automatically created a delegated subnet named `aks-appgateway` in the cluster's virtual network. Retrieve its resource ID:
 
 ```bash
+MC_RG_NAME=$(az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query "nodeResourceGroup" -o tsv)
 CLUSTER_SUBNET_ID=$(az vmss list --resource-group $MC_RG_NAME --query '[0].virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0].ipConfigurations[0].subnet.id' -o tsv)
 read -d '' VNET_NAME VNET_RG_NAME VNET_ID <<< $(az network vnet show --ids $CLUSTER_SUBNET_ID --query '[name, resourceGroup, id]' -o tsv)
+ALB_SUBNET_ID=$(az network vnet subnet show --name aks-appgateway --resource-group $VNET_RG_NAME --vnet-name $VNET_NAME --query '[id]' --output tsv)
 ```
 
-Run the following command to create a new subnet containing at least 250 available IP addresses and enable subnet delegation for the Application Gateway for Containers association resource:
-
-```bash
-SUBNET_ADDRESS_PREFIX='10.239.1.0/24'
-ALB_SUBNET_NAME='subnet-alb' # subnet name can be any non-reserved subnet name (i.e. GatewaySubnet, AzureFirewallSubnet, AzureBastionSubnet would all be invalid)
-az network vnet subnet create --resource-group $MC_RG_NAME --vnet-name $VNET_NAME --name $ALB_SUBNET_NAME --address-prefixes $SUBNET_ADDRESS_PREFIX --delegations 'Microsoft.ServiceNetworking/trafficControllers'
-ALB_SUBNET_ID=$(az network vnet subnet show --name $ALB_SUBNET_NAME --resource-group $VNET_RG_NAME --vnet-name $VNET_NAME --query '[id]' --output tsv)
-```
-
-#### Delegate permissions to managed identity
-
-```bash
-# Delegate AppGw for Containers Configuration Manager role to AKS Managed Cluster RG
-az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $MC_RG_ID --role "fbc52c3f-28ad-4303-a892-8a056630b8f1"
-
-# Delegate Network Contributor permission for join to association subnet
-az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $ALB_SUBNET_ID --role "4d97b98b-1d4f-4787-a291-c67834d212e7"
-```
+:::note
+The add-on also assigned all the required permissions (Reader, Network Contributor, AppGw for Containers Configuration Manager) to the managed identity it created, so no manual role assignments are needed.
+:::
 
 
 #### Create an Application Load Balancer
@@ -618,9 +587,10 @@ When assigned, this policy will block traffic originating from your Public IP ad
 
 ### Assign permissions to the managed identity
 
-While the current permissions are sufficient for creating the WAF Policy, the ALB controller is unable to join the policy to the HTTP route. Add a Network Contributor role with a scope matching the WAF Policy you just created:
+The ALB controller needs Network Contributor permissions on the WAF Policy to be able to join it to the HTTP route. Since the AKS add-on created the managed identity in the node resource group, retrieve its principal ID and assign the role:
 
 ```bash
+PRINCIPAL_ID=$(az identity show -g $MC_RG_NAME -n "applicationloadbalancer-${AKS_NAME}" --query principalId -o tsv)
 az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $WAF_POLICY_ID --role "4d97b98b-1d4f-4787-a291-c67834d212e7" # Network Contributor
 ```
 
