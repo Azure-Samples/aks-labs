@@ -193,7 +193,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-01
-  namespace: test-infra
+  namespace: alb-test-infra
   annotations:
     alb.networking.azure.io/alb-namespace: alb-test-infra
     alb.networking.azure.io/alb-name: alb-test
@@ -219,7 +219,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ngcolor-blue
-  namespace: test-infra
+  namespace: alb-test-infra
 spec:
   replicas: 1
   selector:
@@ -282,7 +282,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ngcolor-blue
-  namespace: test-infra
+  namespace: alb-test-infra
 spec:
   ports:
     - port: 8080
@@ -296,7 +296,7 @@ EOF
 We can now expose the application as HTTPRoute. First, get the address assign to the Gateway resource:
 
 ```bash
-export MY_FRONTEND_ADDRESS=$(kubectl -n test-infra get gateway gateway-01 -o jsonpath='{.status.addresses[0].value}')
+export MY_FRONTEND_ADDRESS=$(kubectl -n alb-test-infra get gateway gateway-01 -o jsonpath='{.status.addresses[0].value}')
 ```
 
 ```yaml
@@ -305,7 +305,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: ngcolor-app
-  namespace: test-infra
+  namespace: alb-test-infra
 spec:
   parentRefs:
   - name: gateway-01
@@ -380,7 +380,7 @@ spec:
           gatewayHTTPRoute:
             parentRefs:
               - name: gateway-01
-                namespace: test-infra
+                namespace: alb-test-infra
                 kind: Gateway
 EOF
 ```
@@ -395,7 +395,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-01
-  namespace: test-infra
+  namespace: alb-test-infra
   annotations:
     alb.networking.azure.io/alb-namespace: alb-test-infra
     alb.networking.azure.io/alb-name: alb-test
@@ -439,7 +439,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ngcolor-red
-  namespace: test-infra
+  namespace: alb-test-infra
 spec:
   replicas: 1
   selector:
@@ -502,7 +502,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ngcolor-red
-  namespace: test-infra
+  namespace: alb-test-infra
 spec:
   ports:
     - port: 8080
@@ -521,7 +521,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: ngcolor-app
-  namespace: test-infra
+  namespace: alb-test-infra
 spec:
   parentRefs:
   - name: gateway-01
@@ -604,13 +604,13 @@ apiVersion: alb.networking.azure.io/v1
 kind: WebApplicationFirewallPolicy
 metadata:
   name: sample-waf-policy
-  namespace: test-infra
+  namespace: alb-test-infra
 spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: Gateway
     name: gateway-01
-    namespace: test-infra
+    namespace: alb-test-infra
   webApplicationFirewall: 
     id: $WAF_POLICY_ID
 EOF
@@ -624,13 +624,13 @@ apiVersion: alb.networking.azure.io/v1
 kind: WebApplicationFirewallPolicy
 metadata:
   name: sample-waf-policy
-  namespace: test-infra
+  namespace: alb-test-infra
 spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: ngcolor-app
-    namespace: test-infra
+    namespace: alb-test-infra
   webApplicationFirewall: 
     id: $WAF_POLICY_ID
 EOF
@@ -644,13 +644,13 @@ apiVersion: alb.networking.azure.io/v1
 kind: WebApplicationFirewallPolicy
 metadata:
   name: sample-waf-policy
-  namespace: test-infra
+  namespace: alb-test-infra
 spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: Gateway
     name: gateway-01
-    namespace: test-infra
+    namespace: alb-test-infra
     sectionNames: 
       - http-listener
   webApplicationFirewall: 
@@ -695,7 +695,7 @@ Will return something similar to the output below (mind that your Pod and Node I
         <h3>Additional Info:</h3>
         <p ><span>Node Name: </span> <span><font >aks-usrpool1-95676513-vmss000000</font></span></p>
         <p ><span>POD Name: </span> <span><font >ngcolor-blue-7758b6fccb-v9hmb</font></span></p>
-        <p ><span>Namespace: </span> <span><font >test-infra</font></span></p>
+        <p ><span>Namespace: </span> <span><font >alb-test-infra</font></span></p>
         <p ><span>Service Account: </span> <span><font >default</font></span></p>
         <p ><span>CPU Request: </span> <span><font >0</font></span></p>
         <p ><span>CPU Limit: </span> <span><font >2</font></span></p>
