@@ -9,27 +9,44 @@ import ProvisionResources from "../../src/components/SharedMarkdown/_provision_r
 
 Advanced Container Networking Services (ACNS) enhances AKS operational capabilities through two key pillars:
 
-- **Security**: Cilium Network policies with FQDN filtering and L7 policy support(for Azure CNI Powered by Cilium clusters)
-- **Observability**: Hubble's control plane for networking visibility and performance insights (supports both Cilium and non-Cilium Linux data planes)
+- **Security**: Cilium Network policies with FQDN filtering and L7 policy support (for Azure CNI Powered by Cilium clusters)
+- **Observability**: Hubble's control plane for networking visibility, performance insights, and cost-optimized metrics collection (supports both Cilium and non-Cilium Linux data planes)
+
+:::tip ACNS Value Proposition
+
+**ACNS delivers smart observability at low cost** — **cut the noise and cut the cost** by focusing on the metrics and logs that matter most.
+
+- **Container Network Metrics**: Deep service-to-service insights (DNS, workload behavior) to spot latency, drops, and anomalous patterns earlier.
+- **Container Network Flow Logs**: Rich flow metadata (source/destination, ports, protocols) to accelerate troubleshooting and security investigations.
+
+**Result**: Faster root-cause isolation, clearer cost signals, actionable insights—reducing metrics volume and storage costs by up to 90%.
+
+:::
 
 ### Objectives
 
-In this lab, you will learn how to secure and troubleshoot network traffic in Azure Kubernetes Service using Advanced Container Networking Services (ACNS).
+In this lab, you will learn how to secure, observe, and troubleshoot network traffic in Azure Kubernetes Service using Advanced Container Networking Services (ACNS).
 
 - Apply network policies (standard, FQDN-based, and Layer 7 HTTP) to control pod-to-pod and external traffic.
+- Detect network anomalies using Azure Managed Grafana dashboards for real-time metrics monitoring.
 - Enable Container Network Flow Logs and diagnose connectivity issues using KQL queries in Log Analytics.
-- Visualize network metrics and flow logs using Azure Managed Grafana dashboards.
-- Use Hubble CLI and UI for real-time network flow observation and troubleshooting.
+- Visualize network flow logs using Azure Managed Grafana dashboards.
+- Configure container network metrics filtering to reduce metrics volume, lower storage costs, and focus on the data that matters.
 - Compare traditional troubleshooting approaches with ACNS-enabled workflows to reduce diagnosis time from hours to minutes.
+- (Optional) Explore Hubble CLI and UI for real-time network flow observation.
 
 ## Prerequisites
 
 Before starting this lab, make sure your environment is set up correctly. Follow the guide here:
 
 - [Azure Subscription](https://azure.microsoft.com/)
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/) version 2.75.0 or later with the [aks-preview(19.0.07 or latest)](https://github.com/Azure/azure-cli-extensions/tree/main/src/aks-preview) [Azure CLI extension](https://learn.microsoft.com/cli/azure/azure-cli-extensions-overview?view=azure-cli-latest) installed
+- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/) version 2.75.0 or later with the [aks-preview](https://github.com/Azure/azure-cli-extensions/tree/main/src/aks-preview) [Azure CLI extension](https://learn.microsoft.com/cli/azure/azure-cli-extensions-overview?view=azure-cli-latest) installed
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) version 1.33.0 or later
 - A terminal with `bash` (e.g.: [Windows Terminal](https://www.microsoft.com/p/windows-terminal/9n0dx20hk701) with [WSL](https://docs.microsoft.com/windows/wsl/install-win10) or [Azure Cloud Shell](https://shell.azure.com/))
+
+:::note
+The minimum version of the **aks-preview** Azure CLI extension to complete the steps in this article is **19.0.07**.
+:::
 
 ### Setup Azure CLI
 
@@ -49,14 +66,45 @@ Run the following command to register preview features.
 ```bash
 az extension add --name aks-preview
 ```
-<ProvisionResources />
+
+### Register Preview Features
+
 This workshop will need some Azure preview features enabled and resources to be pre-provisioned. You can use the Azure CLI commands below to register the preview features.
 
 ```bash
 az feature register --namespace "Microsoft.ContainerService" --name "AdvancedNetworkingFlowLogsPreview"
 az feature register --namespace "Microsoft.ContainerService" --name "AdvancedNetworkingL7PolicyPreview"
+az feature register --namespace "Microsoft.ContainerService" --name "AdvancedNetworkingDynamicMetricsPreview"
 ```
+
 <ProvisionResourceGroup />
+
+### Setup Azure Monitor Workspace
+
+Create an Azure Monitor workspace for Prometheus metrics before creating the cluster.
+
+```bash
+export AZURE_MONITOR_NAME=azuremonitor$RAND
+```
+
+Create the Azure Monitor workspace:
+
+```bash
+az monitor account create \
+  --name ${AZURE_MONITOR_NAME} \
+  --resource-group ${RG_NAME} \
+  --location ${LOCATION}
+```
+
+Save the Azure Monitor workspace resource ID:
+
+```bash
+export AZURE_MONITOR_ID=$(az monitor account show \
+  --name ${AZURE_MONITOR_NAME} \
+  --resource-group ${RG_NAME} \
+  --query id -o tsv)
+```
+
 ### Setup AKS Cluster
 
 Set the AKS cluster name.
@@ -65,28 +113,43 @@ Set the AKS cluster name.
 export AKS_NAME=myakscluster$RAND
 ```
 
-Run the following command to create an AKS cluster with some best practices in place.
+Run the following command to create an AKS cluster with ACNS enabled.
+
 ```bash
 az aks create \
   --name ${AKS_NAME} \
   --resource-group ${RG_NAME} \
   --location ${LOCATION} \
   --pod-cidr 192.168.0.0/16 \
+  --tier standard \
+  --max-pods 250 \
+  --vm-size Standard_D4_v3 \
   --network-plugin azure \
   --network-plugin-mode overlay \
   --network-dataplane cilium \
   --generate-ssh-keys \
-  --enable-container-network-logs \
+  --kubernetes-version 1.33 \
   --enable-acns \
+  --enable-container-network-logs \
   --acns-advanced-networkpolicies L7 \
   --enable-addons monitoring \
-  --enable-high-log-scale-mode
+  --enable-azure-monitor-metrics \
+  --azure-monitor-workspace-resource-id ${AZURE_MONITOR_ID}
 ```
+
+:::info
+When you enable monitoring add-ons, Azure will automatically create:
+- A Log Analytics workspace for container insights and flow logs
+- An Azure Managed Grafana instance for visualization
+
+The Azure Monitor workspace for Prometheus metrics is explicitly created above and linked to the cluster.
+:::
+
 #### Connect to the AKS Cluster
 Run the following command to get the AKS cluster credentials and configure kubectl.
 
 ```bash
-az aks get-credentials --resource-group "$RESOURCE_GROUP" --name "$AKS_NAME"
+az aks get-credentials --resource-group "${RG_NAME}" --name "${AKS_NAME}"
 ```
 
 ### Deploy a Sample Application
@@ -132,7 +195,7 @@ virtual-worker-865bcdf78f-jp9vk     1/1     Running   0          74s
 
 In this section, we’ll apply network policies to control traffic flow to and from the Pet Shop application. We will start with standard network policy that doesn't require ACNS, then we enforce more advanced FQDN policies.
 
-#### Test Connectivity
+### Test Connectivity
 Do the following test to make sure that all traffic is allowed by default
 
 Run the following command to test a connection to an external website from the order-service pod.
@@ -161,7 +224,7 @@ product-service (10.0.96.101:3002) open
 
 In both tests, the connection was successful. This is because all traffic is allowed by default in Kubernetes.
 
-#### Deploy Network Policy
+### Deploy Network Policy
 
 Now, let's deploy some network policy to allow only the required ports in the pets namespace.
 
@@ -183,7 +246,7 @@ Apply the network policy to the pets namespace.
 kubectl apply -n pets -f acns-network-policy.yaml
 ```
 
-#### Verify Policies
+### Verify Policies
 
 Review the created policies using the following command
 
@@ -235,7 +298,7 @@ FQDN filtering is only available for clusters using Azure CNI Powered by Cilium.
 
 Let's explore how we can apply FQDN-based network policies to control outbound access to specific domains.
 
-#### Test Connectivity
+### Test Connectivity
 
 Let's start with testing the connection from the order-service to see if it can contact the Microsoft Graph API endpoint.
 
@@ -247,7 +310,7 @@ kubectl exec -n pets -it $(kubectl get po -n pets -l app=order-service -ojsonpat
 
 As you can see the traffic is denied. This is an expected behavior because we have implemented zero trust security policy and denying any unwanted traffic.
 
-#### Create an FQDN Policy
+### Create an FQDN Policy
 
 To limit egress to certain domains, apply an FQDN policy. This policy permits access only to specified URLs, ensuring controlled outbound traffic.
 
@@ -271,14 +334,7 @@ Apply the FQDN policy to the pets namespace.
 kubectl apply -n pets -f acns-network-policy-fqdn.yaml
 ```
 
-#### Verify FQDN Policy Enforcement
-```bash
-kubectl exec -n pets -it $(kubectl get po -n pets -l app=order-service -ojsonpath='{.items[0].metadata.name}') -c order-service  -- sh -c 'wget --spider --timeout=1 --tries=1 https://graph.microsoft.com'
-```
-
-You should see output similar to the following:
-
-```text
+### Verify FQDN Policy Enforcement
 
 Now if we try to access Microsoft Graph API from order-service app, that should be allowed.
 
@@ -295,13 +351,13 @@ Connecting to developer.microsoft.com (23.45.149.11:443)
 remote file exists
 ```
 
-## Monitoring Advanced Network Metrics and Flows
+## Detect Network Issues with Grafana Dashboards
 
 ACNS provides comprehensive network visibility by logging all pod communications, enabling you to investigate connectivity issues over time. Using Azure Managed Grafana, you can visualize real-time traffic patterns, performance metrics, and policy effectiveness.
 
-Let's simulate a network problem and demonstrate how ACNS accelerates troubleshooting.
+Let's simulate a network problem and then use Grafana dashboards to detect the issue — just as you would in a production monitoring workflow.
 
-#### Introducing Chaos to Test container networking
+### Introduce Chaos to Test Container Networking
 
 Let's start by applying a new network policy to cause some chaos in the network. This policy will drop incoming traffic to the store-front service.
 
@@ -322,11 +378,9 @@ Run the following command to apply the chaos policy to the pets namespace.
 kubectl apply -n pets -f acns-network-policy-chaos.yaml
 ```
 
-## Visualize Network Metrics with Grafana Dashboards
-
-Before we dive into detailed troubleshooting with flow logs, let's explore how Azure Managed Grafana provides real-time visibility into network metrics. These dashboards serve as your "early warning system" to detect anomalies and understand cluster-wide traffic patterns.
-
 ### Access Your Grafana Instance
+
+Now let's see how Grafana dashboards surface the issue you just created.
 
 1. Open the [Azure Portal](https://aka.ms/publicportal) and navigate to your AKS cluster
 2. In the left navigation pane, click on **Dashboards with Grafana**
@@ -370,8 +424,12 @@ ACNS provides pre-built dashboards for real-time network observability:
 - **Alerting**: Set up alerts based on drop rates or latency
 - **High-level insights**: Understand traffic patterns at a glance
 
-:::info Metrics vs Flow Logs
-Metrics dashboards show **aggregated statistics** in real-time (dropped packets, connection rates, etc.). For detailed forensic analysis of **individual flows** (who, what, when, why), you'll use Container Network Flow Logs in the next section.
+:::info
+**The ACNS Way: Smart Observability at Low Cost**
+
+ACNS delivers high observability at low cost by combining targeted metrics collection with detailed flow logs. Instead of collecting everything, you'll learn how to cut the noise and cut the cost — retaining full visibility into what matters while filtering out expensive, low-value data.
+
+Next, you'll use **Container Network Flow Logs** for detailed forensic analysis of network traffic over time.
 :::
 
 ---
@@ -407,9 +465,10 @@ Let's see this in action by investigating the issues developers reported.
 
 To enable container network flow logs, you need to apply a `ContainerNetworkLog` custom resource that defines which network flows to capture. Let's create a filter to capture all traffic in the pets namespace.
 
-Create a file named `pets-flow-logs.yaml` with the following content:
+Apply the custom resource to enable flow log collection:
 
 ```bash
+kubectl apply -f - <<'EOF'
 apiVersion: acn.azure.com/v1alpha1
 kind: ContainerNetworkLog
 metadata:
@@ -431,7 +490,7 @@ spec:
       verdict: # List of verdicts; can be forwarded, dropped
         - forwarded
         - dropped
-    
+
     - name: ingress-filter # Capture ingress traffic to pets namespace
       to:
         namespacedPod: # Destination pods
@@ -446,12 +505,7 @@ spec:
       verdict:
         - forwarded
         - dropped
-```
-
-Apply the custom resource to enable flow log collection:
-
-```bash
-kubectl apply -f pets-flow-logs.yaml
+EOF
 ```
 
 Verify the custom resource was created successfully:
@@ -554,7 +608,7 @@ Optionally, review the policy to understand what traffic it allows:
 cat aks-combined-fqdn-l7.yaml
 ```
 
-Run the following command to apply the chaos policy to the pets namespace.
+Run the following command to apply the combined FQDN and L7 policy to the pets namespace.
 
 ```bash
 kubectl apply -n pets -f aks-combined-fqdn-l7.yaml
@@ -739,7 +793,7 @@ Without container network flow logs, you would need to SSH into nodes to check i
 
 **Container Network Flow Logs with Log Analytics:**
 
-Since Container Network Flow Logs are enabled with Log Analytics workspace, we have access to historical logs that allow us to analyze network traffic patterns over time. We can query these logs using the `ContainerNetworkLog` table to perform detailed forensic analysis and troubleshooting.
+Since Container Network Flow Logs are enabled with Log Analytics workspace, we have access to historical logs that allow us to analyze network traffic patterns over time. We can query these logs using the `ContainerNetworkLogs` table to perform detailed forensic analysis and troubleshooting.
 
 Now that flow logs are being collected and we've generated traffic, let's investigate the issues in minutes instead of hours.
 
@@ -750,7 +804,7 @@ Navigate to [Azure Portal](https://aka.ms/publicportal), search for your AKS clu
 First, run this query to see what fields are available in your flow logs:
 
 ```kusto
-ContainerNetworkLog
+ContainerNetworkLogs
 | take 1
 ```
 
@@ -773,7 +827,7 @@ Now let's use flow logs to diagnose all the issues we just generated. Each query
 First, let's get a high-level view of all dropped traffic in the pets namespace:
 
 ```kusto
-ContainerNetworkLog
+ContainerNetworkLogs
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets" or DestinationNamespace == "pets"
 | where Verdict == "DROPPED"
@@ -810,7 +864,7 @@ ContainerNetworkLog
 Now let's see exactly which external connections are being dropped:
 
 ```kusto
-ContainerNetworkLog
+ContainerNetworkLogs
 | where TimeGenerated > ago(30m)
 | where DestinationNamespace == "pets"
 | where DestinationPodName contains "store-front"
@@ -851,7 +905,7 @@ ContainerNetworkLog
 Let's look at DNS traffic (port 53) to understand which domains are allowed vs blocked:
 
 ```kusto
-ContainerNetworkLog
+ContainerNetworkLogs
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets"
 | where SourcePodName contains "store-front"
@@ -891,7 +945,7 @@ ContainerNetworkLog
 Now let's correlate DNS queries with HTTPS connection attempts to understand the full flow:
 
 ```kusto
-ContainerNetworkLog
+ContainerNetworkLogs
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets"
 | where SourcePodName contains "store-front"
@@ -946,7 +1000,7 @@ ContainerNetworkLog
 Create a visual timeline to correlate issues with policy deployments:
 
 ```kusto
-ContainerNetworkLog
+ContainerNetworkLogs
 | where TimeGenerated > ago(1h)
 | where SourceNamespace == "pets" or DestinationNamespace == "pets"
 | summarize 
@@ -982,10 +1036,10 @@ A visual timeline showing:
 Get a comprehensive view of all traffic patterns to confirm your diagnosis:
 
 ```kusto
-ContainerNetworkLog
+ContainerNetworkLogs
 | where TimeGenerated > ago(30m)
 | where SourceNamespace == "pets" or DestinationNamespace == "pets"
-| summarize 
+| summarize
     TotalFlows = count(),
     DroppedFlows = countif(Verdict == "DROPPED"),
     ForwardedFlows = countif(Verdict == "FORWARDED")
@@ -1116,7 +1170,370 @@ Lets remove the aks-combined-fqdn-l7.yaml file used in the previous section by r
 kubectl delete cnp combined-fqdn-l7-policy -n pets
 ```
 
-## Observe on-demand network flows with Hubble CLI 
+---
+
+## Optimize Metrics Collection with Container Network Metrics Filtering
+
+By this point in the lab, you've enabled full network observability — metrics dashboards and flow logs. In a production cluster with hundreds of pods and services, all of this data adds up. Every pod-to-pod flow, every DNS query, every TCP connection generates Hubble metrics that are scraped by Prometheus and stored in your monitoring backend.
+
+This is where **container network metrics filtering** comes in. It gives you dynamic, source-level control over which Hubble metrics are collected — before they ever reach Prometheus. Instead of collecting everything and filtering later (expensive), you define what matters at the source (cost-effective). This is the ACNS way: **smart observability, cut the noise and cut the cost**.
+
+### Why metrics filtering matters for production
+
+Consider the cost impact of unfiltered metrics in a real cluster:
+
+| Cluster size | Pods | Estimated Hubble metric time series (unfiltered) | Monthly ingestion cost (Azure Monitor)* |
+|---|---|---|---|
+| Small | 50 | ~15,000 | ~$75 |
+| Medium | 200 | ~120,000 | ~$600 |
+| Large | 1,000 | ~1,500,000 | ~$7,500+ |
+
+*Approximate costs based on Azure Monitor pricing for Prometheus metrics. Actual costs vary by region and data volume.
+
+In large clusters, system namespaces like `kube-system`, `gatekeeper-system`, and monitoring namespaces can generate **60-80% of all network metrics** — most of which you never look at during day-to-day operations. Filtering these out at the source can cut your metrics storage costs significantly while keeping full visibility into the namespaces and workloads that matter.
+
+:::info
+
+Container network metrics filtering works specifically with Cilium data planes and requires Kubernetes version 1.32 or later. Since the cluster you created earlier in this lab uses Azure CNI with Cilium, you already meet these requirements.
+
+:::
+
+### How metrics filtering works
+
+Metrics filtering uses a Kubernetes Custom Resource Definition (CRD) called `ContainerNetworkMetric`. You define filtering rules that tell the Cilium agents which Hubble metrics to collect and which to skip. Key characteristics:
+
+- **One CRD per cluster** — only a single `ContainerNetworkMetric` resource can exist
+- **Dynamic reconciliation** — changes take effect in approximately 30 seconds without restarting Cilium agents or Prometheus
+- **No CRD = collect everything** — if you don't apply a CRD, all metrics are collected (the current default behavior)
+- **Four metric types** — `dns`, `flow`, `tcp`, and `drop`
+- **Include and exclude filters** — target by namespace/pod, label selector, IP/CIDR, protocol, or verdict
+
+### Register the preview feature flag
+
+Container network metrics filtering is currently in preview. Register the feature flag if you haven't already (this was included in the prerequisites, but verify it's registered).
+
+```bash
+az feature show --namespace "Microsoft.ContainerService" --name "AdvancedNetworkingDynamicMetricsPreview" --query "properties.state" -o tsv
+```
+
+If the output is not `Registered`, wait a few minutes and check again. Once registered, refresh the provider:
+
+```bash
+az provider register --namespace Microsoft.ContainerService
+```
+
+### Measure your baseline metrics volume
+
+Before applying any filters, let's see how many Hubble metric time series your cluster is currently generating. This gives you a baseline to compare against after filtering.
+
+Run the following command to check the current Hubble metrics being scraped. Port-forward the Prometheus endpoint from a Cilium agent pod:
+
+```bash
+CILIUM_POD=$(kubectl get pods -n kube-system -l k8s-app=cilium -o jsonpath='{.items[0].metadata.name}')
+kubectl port-forward -n kube-system $CILIUM_POD 9965:9965 >/dev/null &
+```
+
+Now count the number of Hubble metric time series:
+
+```bash
+curl -s http://localhost:9965/metrics | grep -c "^hubble_"
+```
+
+Note this number — this is your **unfiltered baseline**. In a cluster with the AKS Store demo application running, you'll typically see several hundred time series.
+
+Also check which namespaces are generating the most metrics:
+
+```bash
+curl -s http://localhost:9965/metrics | grep "^hubble_" | grep -oP 'source="[^"]*"' | sort | uniq -c | sort -rn | head -10
+```
+
+You'll likely see that `kube-system` pods dominate the metrics output. These are infrastructure metrics that, while occasionally useful, are rarely needed for application-level troubleshooting.
+
+Stop the port-forward:
+
+```bash
+kill %1 2>/dev/null
+```
+
+### Apply a targeted metrics filter for the pets namespace
+
+Now let's apply a filter that focuses metrics collection on the `pets` namespace (where your application workloads run) and excludes noisy system namespaces. This simulates a real production configuration where you want visibility into your applications but don't want to pay for metrics you rarely use.
+
+Create and apply the filtering CRD:
+
+```bash
+kubectl apply -f - <<'EOF'
+apiVersion: acn.azure.com/v1alpha1
+kind: ContainerNetworkMetric
+metadata:
+  name: container-network-metric
+spec:
+  filters:
+    # Collect flow metrics only for the pets namespace
+    - metric: flow
+      includeFilters:
+        - name: pets-app-flows
+          from:
+            labelSelector:
+              matchExpressions:
+                - key: k8s.io/namespace
+                  operator: In
+                  values:
+                    - pets
+        - name: pets-app-flows-ingress
+          to:
+            labelSelector:
+              matchExpressions:
+                - key: k8s.io/namespace
+                  operator: In
+                  values:
+                    - pets
+
+    # Collect DNS metrics but exclude kube-system noise
+    - metric: dns
+      excludeFilters:
+        - name: exclude-system-dns
+          from:
+            namespacedPod:
+              - "kube-system/"
+
+    # Collect TCP metrics only for the pets namespace
+    - metric: tcp
+      includeFilters:
+        - name: pets-tcp-metrics
+          from:
+            labelSelector:
+              matchExpressions:
+                - key: k8s.io/namespace
+                  operator: In
+                  values:
+                    - pets
+
+    # Collect all drop metrics (always useful for troubleshooting)
+    - metric: drop
+      excludeFilters:
+        - name: exclude-system-drops
+          from:
+            namespacedPod:
+              - "kube-system/"
+EOF
+```
+
+Verify the CRD was applied:
+
+```bash
+kubectl get ContainerNetworkMetric
+```
+
+You should see your `container-network-metric` resource listed. Wait approximately 30 seconds for the filtering rules to reconcile across the Cilium agents.
+
+### Understand what this filter does
+
+The filter you just applied makes four targeted decisions:
+
+| Metric type | Filter strategy | What it collects | What it skips |
+|---|---|---|---|
+| `flow` | Include only `pets` namespace | Pod-to-pod flows for store-front, order-service, product-service, etc. | All kube-system, monitoring, and other namespace flows |
+| `dns` | Exclude `kube-system` | DNS queries from `pets` and other app namespaces | CoreDNS internal metrics, system DNS chatter |
+| `tcp` | Include only `pets` namespace | TCP connection states for your application | System-level TCP connections |
+| `drop` | Exclude `kube-system` | Dropped packets in application namespaces (useful for policy debugging) | Expected system-level drops |
+
+This is a balanced production configuration — you keep full visibility into your application workloads and retain all dropped packet data (critical for troubleshooting), while cutting out the system namespace noise that inflates your metrics bill.
+
+### Verify the filtering is working
+
+Generate some traffic so new metrics are produced under the filter:
+
+```bash
+# Generate traffic from store-front to internal services
+kubectl exec -n pets -it $(kubectl get po -n pets -l app=store-front -ojsonpath='{.items[0].metadata.name}') -- sh -c 'wget --spider --timeout=2 http://product-service:3002/' 2>/dev/null
+
+kubectl exec -n pets -it $(kubectl get po -n pets -l app=order-service -ojsonpath='{.items[0].metadata.name}') -c order-service -- sh -c 'nc -zv -w2 rabbitmq 5672' 2>/dev/null
+```
+
+Now check the metrics again:
+
+```bash
+CILIUM_POD=$(kubectl get pods -n kube-system -l k8s-app=cilium -o jsonpath='{.items[0].metadata.name}')
+kubectl port-forward -n kube-system $CILIUM_POD 9965:9965 >/dev/null &
+sleep 3
+
+echo "--- Hubble metric time series count (filtered) ---"
+curl -s http://localhost:9965/metrics | grep -c "^hubble_"
+
+echo ""
+echo "--- Top sources in filtered metrics ---"
+curl -s http://localhost:9965/metrics | grep "^hubble_" | grep -oP 'source="[^"]*"' | sort | uniq -c | sort -rn | head -10
+
+kill %1 2>/dev/null
+```
+
+Compare the filtered count with your baseline. You should see a meaningful reduction in the number of Hubble metric time series, with the remaining metrics focused on the `pets` namespace.
+
+:::warning
+
+Preexisting metrics persist in Prometheus. The filtering rules apply only to newly generated metrics. You may need to wait for Prometheus to scrape a few cycles before the full reduction is visible. In a production environment, the cost savings compound over time as old unfiltered data ages out of your retention window.
+
+:::
+
+### Experiment with different filter strategies
+
+To help you understand the flexibility of the CRD, here are two alternative configurations you can try.
+
+**Strategy A: Monitor only dropped packets (minimum cost)**
+
+If your primary concern is detecting network policy violations and you trust your application communication patterns:
+
+```bash
+kubectl apply -f - <<'EOF'
+apiVersion: acn.azure.com/v1alpha1
+kind: ContainerNetworkMetric
+metadata:
+  name: container-network-metric
+spec:
+  filters:
+    - metric: drop
+      includeFilters:
+        - name: all-drops
+          verdict:
+            - dropped
+EOF
+```
+
+This is the most aggressive cost reduction — you only collect metrics for dropped packets, which are the most actionable for troubleshooting.
+
+**Strategy B: Production vs. non-production filtering**
+
+In clusters that run both production and staging workloads, filter by environment labels:
+
+```bash
+kubectl apply -f - <<'EOF'
+apiVersion: acn.azure.com/v1alpha1
+kind: ContainerNetworkMetric
+metadata:
+  name: container-network-metric
+spec:
+  filters:
+    - metric: flow
+      includeFilters:
+        - name: production-only
+          from:
+            labelSelector:
+              matchLabels:
+                environment: production
+    - metric: dns
+      includeFilters:
+        - name: production-dns
+          from:
+            labelSelector:
+              matchLabels:
+                environment: production
+    - metric: tcp
+      includeFilters:
+        - name: production-tcp
+          from:
+            labelSelector:
+              matchLabels:
+                environment: production
+    - metric: drop
+      includeFilters:
+        - name: all-env-drops
+          verdict:
+            - dropped
+EOF
+```
+
+This collects full metrics for production workloads while skipping staging and development traffic entirely.
+
+### Restore the original filter
+
+After experimenting, restore the balanced filter from earlier:
+
+```bash
+kubectl apply -f - <<'EOF'
+apiVersion: acn.azure.com/v1alpha1
+kind: ContainerNetworkMetric
+metadata:
+  name: container-network-metric
+spec:
+  filters:
+    - metric: flow
+      includeFilters:
+        - name: pets-app-flows
+          from:
+            labelSelector:
+              matchExpressions:
+                - key: k8s.io/namespace
+                  operator: In
+                  values:
+                    - pets
+        - name: pets-app-flows-ingress
+          to:
+            labelSelector:
+              matchExpressions:
+                - key: k8s.io/namespace
+                  operator: In
+                  values:
+                    - pets
+    - metric: dns
+      excludeFilters:
+        - name: exclude-system-dns
+          from:
+            namespacedPod:
+              - "kube-system/"
+    - metric: tcp
+      includeFilters:
+        - name: pets-tcp-metrics
+          from:
+            labelSelector:
+              matchExpressions:
+                - key: k8s.io/namespace
+                  operator: In
+                  values:
+                    - pets
+    - metric: drop
+      excludeFilters:
+        - name: exclude-system-drops
+          from:
+            namespacedPod:
+              - "kube-system/"
+EOF
+```
+
+### Clean up the filter (optional)
+
+To remove the filter and go back to collecting all metrics:
+
+```bash
+kubectl delete ContainerNetworkMetric container-network-metric
+```
+
+:::tip Best practices for production metrics filtering
+
+- **Start with exclude filters** — remove known noisy namespaces (`kube-system`, `gatekeeper-system`, monitoring namespaces) before adding include filters for specific workloads.
+- **Always keep drop metrics** — dropped packet metrics are cheap to store and critical for troubleshooting network policy issues. Never filter these out completely.
+- **Test in staging first** — validate that your filter doesn't hide metrics you need before applying to production.
+- **Review periodically** — as your cluster evolves and new workloads are deployed, review your filter to ensure important data isn't being excluded.
+- **One CRD per cluster** — remember that only one `ContainerNetworkMetric` resource can exist. Plan your filter to cover all your needs in a single CRD.
+
+:::
+
+---
+
+## Optional: Real-Time Network Flow Observation with Hubble
+
+:::info
+The following sections cover **Hubble CLI and Hubble UI**, which provide real-time network flow observation capabilities. These tools are optional — **Container Network Flow Logs and Container Network Metrics Filtering** (covered earlier in this lab) are the core ACNS offerings for production observability.
+
+Hubble CLI and UI are useful for:
+- **Live troubleshooting** when you need instant feedback without waiting for Log Analytics ingestion
+- **Real-time verification** of network policy changes
+- **Visual service dependency mapping** for understanding traffic patterns
+
+However, for most production use cases, the combination of Container Network Flow Logs (for forensic analysis) and metrics filtering (for cost-optimized observability) provides comprehensive coverage.
+:::
+
+### Observe On-Demand Network Flows with Hubble CLI
 
 For instant, on-demand network flow observation without waiting for Log Analytics ingestion, use Hubble CLI. This is ideal for live troubleshooting and immediate verification of network policies.
 
@@ -1185,23 +1602,23 @@ NAME                            READY   STATUS    RESTARTS   AGE    IP          
 hubble-relay-7ff97868ff-tvwcf   1/1     Running   0          101m   10.244.2.57   aks-systempool-10200747-vmss000000   none           none
 ```
 
-Using hubble we will look for what is dropped.
+Using Hubble we will look for what is dropped.
 
 ```bash
 hubble observe --verdict DROPPED
 ```
 
-Here we can see traffic coming from world dropped in store-front
+Here we can see traffic coming from world dropped in store-front:
 
 ![Hubble CLI](assets/acns-hubble-cli.png)
 
-So now we can tell that there is a problem with the frontend ingress traffic configuration, let's review the **allow-store-front-traffic** policy
+So now we can tell that there is a problem with the frontend ingress traffic configuration, let's review the **allow-store-front-traffic** policy:
 
 ```bash
 kubectl describe -n pets cnp allow-store-front-traffic
 ```
 
-Here we go, we see that the Ingress traffic is not allowed
+Here we go, we see that the Ingress traffic is not allowed:
 
 ![Ingress traffic not allowed](assets/acns-policy-output.png)
 
@@ -1218,14 +1635,16 @@ Optionally, view the contents of the network policy manifest file.
 ```bash
 cat acns-network-policy-allow-store-front-traffic.yaml
 ```
+
 Apply the network policy to the pets namespace.
+
 ```bash
 kubectl apply -n pets -f acns-network-policy-allow-store-front-traffic.yaml
 ```
 
 You should now see the traffic flowing again and you are able to access the pets shop app UI.
 
-## Visualize traffic with Hubble UI
+### Visualize Traffic with Hubble UI
 
 #### Install Hubble UI
 
@@ -1241,7 +1660,7 @@ Optionally, run the following command to take a look at the Hubble UI manifest f
 cat acns-hubble-ui.yaml
 ```
 
-Apply the hubble-ui.yaml manifest to your cluster, using the following command
+Apply the hubble-ui.yaml manifest to your cluster, using the following command:
 
 ```bash
 kubectl apply -f acns-hubble-ui.yaml
@@ -1261,31 +1680,49 @@ Access Hubble UI by entering `http://localhost:12000/` into your web browser.
 
 ![Accessing the Hubble UI](assets/acns-hubble-ui.png)
 
+:::tip Choosing the Right Tool for Your Use Case
+
+- **Container Network Flow Logs (Log Analytics)**: Best for forensic analysis, compliance, and historical investigation. All network flows are stored and queryable for your retention period. This is the primary ACNS observability offering.
+
+- **Container Network Metrics Filtering**: Best for cost optimization. Focus Prometheus metrics collection on the workloads that matter, cutting noise and cost. This is the primary ACNS cost optimization offering.
+
+- **Hubble CLI** (Optional): Best for live troubleshooting when you need instant feedback. No storage costs, but no historical data.
+
+- **Hubble UI** (Optional): Best for visual exploration and sharing service dependency maps with teams.
+
+For production clusters, the combination of Container Network Flow Logs and metrics filtering provides smart observability at low cost.
+:::
+
 ---
 
 ## Summary
 
 Congratulations on completing this lab!
 
-You now have **hands-on experience** with **Azure Container Network Services (ACNS)** and advanced container networking on AKS.
+You now have **hands-on experience** with **Advanced Container Networking Services (ACNS)** — delivering smart observability at low cost by focusing on the data that matters while cutting the noise.
 
 In this lab, you:
 
 - Deployed an **AKS cluster with ACNS enabled** using Azure CNI Powered by Cilium.
 
-- Configured **Container Network Flow Logs** for network observability and troubleshooting.
-
 - Implemented **Layer 3/4 Network Policies** to control traffic between pods and namespaces.
 
 - Applied **FQDN filtering policies** to restrict external domain access with DNS pattern matching.
 
-- Enforced **Layer 7 HTTP policies** for application-layer traffic control.
+- Detected network anomalies using **Azure Managed Grafana dashboards** for real-time metrics monitoring.
 
-- Used **Log Analytics queries** to diagnose network issues and analyze traffic patterns.
+- Configured **Container Network Flow Logs** and used **Log Analytics KQL queries** for forensic troubleshooting — the core ACNS observability offering.
 
-- Visualized network traffic with **Hubble UI** for real-time monitoring.
+- Enforced **Layer 7 HTTP policies** for application-layer traffic control and validated them through flow log analysis.
 
-- Gained experience with **progressive network troubleshooting** using Container Network Flow Logs.
+- Visualized flow logs with **Grafana dashboards** for team-friendly visual analysis.
+
+- Configured **container network metrics filtering** to reduce metrics volume, cut storage costs, and focus observability on the workloads that matter — the core ACNS cost optimization offering.
+
+- (Optional) Explored **Hubble CLI and UI** for real-time network flow observation.
+
+**Key Takeaway**: ACNS provides high observability at low cost through targeted data collection (flow logs) and smart metrics filtering — allowing you to cut the noise and cut the cost while maintaining full visibility into your Kubernetes network traffic.
+
 
 ## Next Steps
 
@@ -1294,6 +1731,10 @@ If you want to dive deeper, check out:
 - [Azure Container Network Services Overview](https://learn.microsoft.com/en-us/azure/aks/advanced-container-networking-services-overview?tabs=cilium)
 
 - [Container Network Flow Logs Configuration](https://learn.microsoft.com/en-us/azure/aks/how-to-configure-container-network-logs?tabs=cilium)
+
+- [Container Network Metrics Overview](https://learn.microsoft.com/en-us/azure/aks/container-network-observability-metrics)
+
+- [Container Network Metrics Filtering](https://learn.microsoft.com/en-us/azure/aks/how-to-configure-container-network-metrics-filtering)
 
 - [FQDN Filtering Policies](https://learn.microsoft.com/en-us/azure/aks/how-to-apply-fqdn-filtering-policies?tabs=cilium)
 
