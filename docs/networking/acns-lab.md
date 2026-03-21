@@ -14,12 +14,12 @@ Advanced Container Networking Services (ACNS) enhances AKS operational capabilit
 
 :::tip ACNS Value Proposition
 
-**ACNS delivers smart observability at low cost** — **cut the noise and cut the cost** by focusing on the metrics and logs that matter most.
+**ACNS delivers smart observability at low cost** -- **cut the noise and cut the cost** by focusing on the metrics and logs that matter most.
 
 - **Container Network Metrics**: Deep service-to-service insights (DNS, workload behavior) to spot latency, drops, and anomalous patterns earlier.
 - **Container Network Flow Logs**: Rich flow metadata (source/destination, ports, protocols) to accelerate troubleshooting and security investigations.
 
-**Result**: Faster root-cause isolation, clearer cost signals, actionable insights—reducing metrics volume and storage costs by up to 90%.
+**Result**: Faster root-cause isolation, clearer cost signals, actionable insights--reducing metrics volume and storage costs by up to 90%.
 
 :::
 
@@ -105,6 +105,13 @@ export AZURE_MONITOR_ID=$(az monitor account show \
   --query id -o tsv)
 ```
 
+> Cost note: The Azure Monitor workspace is not deleted when you delete the AKS cluster with `az aks delete`. In the cleanup section, delete the `${RG_NAME}` resource group to remove this workspace as well. If you want to keep the resource group, delete just the workspace instead:
+>
+> ```bash
+> az monitor account delete \
+>   --name ${AZURE_MONITOR_NAME} \
+>   --resource-group ${RG_NAME}
+> ```
 ### Setup AKS Cluster
 
 Set the AKS cluster name.
@@ -193,7 +200,7 @@ virtual-worker-865bcdf78f-jp9vk     1/1     Running   0          74s
 
 ## Enforcing Network Policy
 
-In this section, we’ll apply network policies to control traffic flow to and from the Pet Shop application. We will start with standard network policy that doesn't require ACNS, then we enforce more advanced FQDN policies.
+In this section, we'll apply network policies to control traffic flow to and from the Pet Shop application. We will start with standard network policy that doesn't require ACNS, then we enforce more advanced FQDN policies.
 
 ### Test Connectivity
 Do the following test to make sure that all traffic is allowed by default
