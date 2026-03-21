@@ -105,6 +105,13 @@ export AZURE_MONITOR_ID=$(az monitor account show \
   --query id -o tsv)
 ```
 
+> Cost note: The Azure Monitor workspace is not deleted when you delete the AKS cluster with `az aks delete`. In the cleanup section, delete the `${RG_NAME}` resource group to remove this workspace as well. If you want to keep the resource group, delete just the workspace instead:
+>
+> ```bash
+> az monitor account delete \
+>   --name ${AZURE_MONITOR_NAME} \
+>   --resource-group ${RG_NAME}
+> ```
 ### Setup AKS Cluster
 
 Set the AKS cluster name.
