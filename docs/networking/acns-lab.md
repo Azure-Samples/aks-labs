@@ -14,12 +14,12 @@ Advanced Container Networking Services (ACNS) enhances AKS operational capabilit
 
 :::tip ACNS Value Proposition
 
-**ACNS delivers smart observability at low cost** — **cut the noise and cut the cost** by focusing on the metrics and logs that matter most.
+**ACNS delivers smart observability at low cost** -- **cut the noise and cut the cost** by focusing on the metrics and logs that matter most.
 
 - **Container Network Metrics**: Deep service-to-service insights (DNS, workload behavior) to spot latency, drops, and anomalous patterns earlier.
 - **Container Network Flow Logs**: Rich flow metadata (source/destination, ports, protocols) to accelerate troubleshooting and security investigations.
 
-**Result**: Faster root-cause isolation, clearer cost signals, actionable insights—reducing metrics volume and storage costs by up to 90%.
+**Result**: Faster root-cause isolation, clearer cost signals, actionable insights--reducing metrics volume and storage costs by up to 90%.
 
 :::
 
