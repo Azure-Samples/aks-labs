@@ -157,7 +157,7 @@ az aks get-credentials --resource-group "${RG_NAME}" --name "${AKS_NAME}"
 We'll deploy the [AKS Store Demo](https://learn.microsoft.com/en-us/samples/azure-samples/aks-store-demo/aks-store-demo/) application. The store also includes an 'All-in-One' deployment option, which makes installation simple. 
 
 ![AKS Store Architecture Diagram](https://raw.githubusercontent.com/Azure-Samples/aks-store-demo/main/assets/demo-arch-with-openai.png)
-Click here for more information on the [architecture of the AKS Store application](https://github.com/Azure-Samples/aks-store-demo?tab=readme-ov-file#architecture).
+Select here for more information on the [architecture of the AKS Store application](https://github.com/Azure-Samples/aks-store-demo?tab=readme-ov-file#architecture).
 
 Steps to deploy the AKS Store application on the cluster:
 
@@ -383,7 +383,7 @@ kubectl apply -n pets -f acns-network-policy-chaos.yaml
 Now let's see how Grafana dashboards surface the issue you just created.
 
 1. Open the [Azure Portal](https://aka.ms/publicportal) and navigate to your AKS cluster
-2. In the left navigation pane, click on **Dashboards with Grafana**
+2. In the left navigation pane, Select **Dashboards with Grafana**
 3. Select your Azure Managed Grafana instance
 4. Navigate to **Dashboards** → **Browse** → **Azure / Kubernetes / Networking**
 
@@ -797,7 +797,7 @@ Since Container Network Flow Logs are enabled with Log Analytics workspace, we h
 
 Now that flow logs are being collected and we've generated traffic, let's investigate the issues in minutes instead of hours.
 
-Navigate to [Azure Portal](https://aka.ms/publicportal), search for your AKS cluster, then click on **Logs** in the left navigation menu under **Monitoring**. Close the **Queries** dialog if it appears.
+Navigate to [Azure Portal](https://aka.ms/publicportal), search for your AKS cluster, then select **Logs** in the left navigation menu under **Monitoring**. Close the **Queries** dialog if it appears.
 
 :::note
 
@@ -1129,7 +1129,7 @@ ACNS provides specialized dashboards for container network flow logs with forens
 
 1. Open the [Azure Portal](https://aka.ms/publicportal) and search for **Monitor**
 2. Select the **Monitor** resource
-3. In the left navigation pane, click on **Dashboards with Grafana**
+3. In the left navigation pane, select **Dashboards with Grafana**
 4. Search for dashboards under **Azure | Insights | Containers | Networking | `dashboard name`**
 
 #### Explore Flow Logs Dashboards
