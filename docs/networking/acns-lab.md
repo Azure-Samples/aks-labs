@@ -200,7 +200,7 @@ virtual-worker-865bcdf78f-jp9vk     1/1     Running   0          74s
 
 ## Enforcing Network Policy
 
-In this section, we’ll apply network policies to control traffic flow to and from the Pet Shop application. We will start with standard network policy that doesn't require ACNS, then we enforce more advanced FQDN policies.
+In this section, we'll apply network policies to control traffic flow to and from the Pet Shop application. We will start with standard network policy that doesn't require ACNS, then we enforce more advanced FQDN policies.
 
 ### Test Connectivity
 Do the following test to make sure that all traffic is allowed by default
