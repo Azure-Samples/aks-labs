@@ -1,0 +1,206 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "2285513069018644669"
+    }
+  },
+  "parameters": {
+    "userObjectId": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The user object id for role assignments."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2025-07-01",
+      "name": "[format('mylogs{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
+      "location": "[resourceGroup().location]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Monitor/accounts",
+      "apiVersion": "2023-04-03",
+      "name": "[format('myprometheus{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
+      "location": "[resourceGroup().location]"
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2025-01-23-preview",
+      "name": "[format('myappinsights{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
+      "location": "[resourceGroup().location]",
+      "kind": "web",
+      "properties": {
+        "ApplicationId": "[format('myotel{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
+        "Application_Type": "web",
+        "Flow_Type": "Redfield",
+        "Request_Source": "IbizaAIExtension",
+        "IngestionMode": "LogAnalytics",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('mylogs{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]",
+        "AzureMonitorWorkspaceResourceId": "[resourceId('Microsoft.Monitor/accounts', format('myprometheus{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]",
+        "AzureMonitorWorkspaceIngestionMode": "Enabled",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', format('mylogs{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]",
+        "[resourceId('Microsoft.Monitor/accounts', format('myprometheus{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2025-11-01",
+      "name": "[format('myregistry{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
+      "location": "[resourceGroup().location]",
+      "sku": {
+        "name": "Standard"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2025-05-01",
+      "name": "[format('mykeyvault{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "enableRbacAuthorization": true,
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "tenantId": "[subscription().tenantId]"
+      }
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2024-11-30",
+      "name": "[format('myidentity{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
+      "location": "[resourceGroup().location]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.KeyVault/vaults', format('mykeyvault{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]",
+      "name": "[guid(subscription().id, resourceGroup().id, resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('myidentity{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))), 'Key Vault Secrets User')]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('myidentity{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))), '2024-11-30').principalId]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', format('mykeyvault{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('myidentity{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.KeyVault/vaults', format('mykeyvault{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]",
+      "name": "[guid(subscription().id, resourceGroup().id, resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('myidentity{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))), 'Key Vault Certificate User')]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('myidentity{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))), '2024-11-30').principalId]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'db79e9a7-68ee-4b58-9aeb-b90e7c24fcba')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', format('mykeyvault{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('myidentity{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.KeyVault/vaults', format('mykeyvault{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]",
+      "name": "[guid(subscription().id, resourceGroup().id, parameters('userObjectId'), 'Key Vault Administrator')]",
+      "properties": {
+        "principalId": "[parameters('userObjectId')]",
+        "principalType": "User",
+        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', '00482a5a-887f-4fb3-b363-3b7fe8e74483')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', format('mykeyvault{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2025-06-01",
+      "name": "[format('myopenai{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "kind": "OpenAI",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "customSubDomainName": "[format('myopenai{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]",
+        "publicNetworkAccess": "Enabled"
+      },
+      "sku": {
+        "name": "S0"
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', format('myopenai{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)), 'gpt-5.4-mini')]",
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-5.4-mini",
+          "version": "2026-03-17"
+        }
+      },
+      "sku": {
+        "capacity": 200,
+        "name": "GlobalStandard"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', format('myopenai{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "metricsWorkspaceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Monitor/accounts', format('myprometheus{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
+    },
+    "logWorkspaceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.OperationalInsights/workspaces', format('mylogs{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
+    },
+    "azureKeyVaultId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.KeyVault/vaults', format('mykeyvault{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
+    },
+    "azureKeyVaultName": {
+      "type": "string",
+      "value": "[format('mykeyvault{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))]"
+    },
+    "azureKeyVaultUri": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.KeyVault/vaults', format('mykeyvault{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))), '2025-05-01').vaultUri]"
+    },
+    "containerRegistryId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ContainerRegistry/registries', format('myregistry{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4)))]"
+    },
+    "containerRegistryUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', format('myregistry{0}', take(uniqueString(subscription().id, resourceGroup().id, deployment().name), 4))), '2025-11-01').loginServer]"
+    }
+  }
+}
