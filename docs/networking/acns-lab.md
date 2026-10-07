@@ -130,12 +130,11 @@ az aks create \
   --pod-cidr 192.168.0.0/16 \
   --tier standard \
   --max-pods 250 \
-  --vm-size Standard_D4_v3 \
+  --node-vm-size Standard_D4_v3 \
   --network-plugin azure \
   --network-plugin-mode overlay \
   --network-dataplane cilium \
   --generate-ssh-keys \
-  --kubernetes-version 1.33 \
   --enable-acns \
   --enable-container-network-logs \
   --acns-advanced-networkpolicies L7 \
