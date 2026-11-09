@@ -7,17 +7,13 @@ description: Build a CI gate that catches application-level Kubernetes version c
 
 # Step 4: Add a Workload Compatibility Health Gate
 
-:::info Why this matters
-**The problem:** The platform-level protections from Steps 1-3 keep the cluster itself safe, but AKS has no way to know that *your* application silently depends on a specific Kubernetes minor version — for example, a hardcoded version check a developer added for internal certification testing that nobody updated after the last upgrade. This is a blind spot unique to each workload, and only the team that owns it can define and catch it.
+Steps 1 through 3 protected the platform. None of them can protect you from a problem only the application team can see: logic inside the workload itself that quietly assumes something about the Kubernetes version it's running on. A common real-world pattern is a certification or compliance check — someone writes code that says "only run if the cluster is on a Kubernetes version my team has already validated," ships it, and nobody remembers to update that check the next time the cluster gets upgraded. From AKS's point of view, nothing went wrong: the upgrade succeeded, the node drained cleanly, the pod rescheduled without incident. From the application's point of view, it just broke.
 
-**How this lab solves it:** This step builds a lightweight, workload-owned health gate pattern. The app declares the Kubernetes minor version it's certified against (via a ConfigMap), and your CI pipeline compares that declaration against the live cluster version before promoting or approving further rollout.
+This step builds a minimal version of that failure, and the gate that would have caught it. The pattern is intentionally simple: the application declares, in a ConfigMap, the Kubernetes minor version its current build was certified against. A CI job compares that declaration to the cluster's *live* version before anything downstream — a deploy, a promotion, a Fleet approval — is allowed to treat the cluster as healthy. If the two disagree, the pipeline fails loudly instead of letting a silent mismatch ship. It's the workload-owned equivalent of how AKS already [blocks cluster upgrades when it detects deprecated Kubernetes API usage](https://learn.microsoft.com/azure/aks/stop-cluster-upgrade-api-breaking-changes) — except here you're encoding your own application's compatibility contract rather than relying on a Kubernetes-API-level check. See [AKS production upgrade strategies](https://learn.microsoft.com/azure/aks/aks-production-upgrade-strategies) for more on why workload-level guardrails like this one matter alongside platform-level ones.
 
-This is conceptually similar to how AKS already protects the platform layer with **[automatic blocking on deprecated Kubernetes API usage](https://learn.microsoft.com/azure/aks/stop-cluster-upgrade-api-breaking-changes)** — except here you're encoding your own application's compatibility contract instead of relying on a Kubernetes-API-level check. For more on why workload-level guardrails matter alongside platform-level ones, see **[AKS production upgrade strategies](https://learn.microsoft.com/azure/aks/aks-production-upgrade-strategies)**.
-:::
+## 4.1 Declare the workload's supported Kubernetes version
 
-Use a workload-declared compatibility value and a CI gate to block promotion when cluster version drifts.
-
-## 4.1 Deploy workload + compatibility contract
+Deploy a ConfigMap holding the minor version this application was last certified against, alongside a small Deployment representing the application itself. In a real pipeline, `expectedK8sMinor` is something a developer updates deliberately as part of their own release process — the point of this exercise is to notice how easy it is to forget that step, and what happens when you do.
 
 ```bash
 kubectl apply -f - <<'EOF'
@@ -52,7 +48,9 @@ spec:
 EOF
 ```
 
-## 4.2 Add workload health gate to workflow
+## 4.2 Add the comparison as an explicit CI gate
+
+Add this job to the workflow from Step 2, running after the upgrade completes. Walk through what it actually checks before you run it: it reads the declared expected version out of the ConfigMap, reads the live server version straight from the cluster via `kubectl version`, and fails the job the moment the two disagree — before anything downstream is allowed to treat this cluster as healthy. It also confirms the Deployment has available replicas, because a version match on a crashed workload isn't actually a healthy workload.
 
 ```yaml
   workload-health-gate:
@@ -90,7 +88,7 @@ EOF
             echo "Health gate passed."
 ```
 
-This models the real issue: the app team forgot to update the certified Kubernetes minor version before the cluster was promoted to a newer one.
+Try it yourself: once Step 1's cluster has moved to a Kubernetes minor version newer than the `33` hardcoded in the ConfigMap above, run this job and watch it fail with a clear `Version mismatch` message instead of silently approving a broken state. That failure message is the whole point — it's the difference between an app team finding out from a dashboard versus finding out from a customer.
 
 ---
 

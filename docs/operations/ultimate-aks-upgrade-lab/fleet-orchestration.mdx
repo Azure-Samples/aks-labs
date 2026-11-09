@@ -7,19 +7,15 @@ description: Join a Fleet and run a staged, gated Kubernetes upgrade across mult
 
 # Step 5: Fleet Orchestration
 
-:::info Why this matters
-**The problem:** Everything so far operated on a single cluster. Real organizations run many AKS clusters across regions, environments, and teams. Manually sequencing and validating an upgrade across dozens of clusters doesn't scale, and inconsistent versions across the fleet quickly become both an operational and a compliance risk.
+Up to this point, everything in this lab has operated on one cluster. That's a reasonable place to stop if you only run one cluster — but most organizations don't. Spin up a handful of clusters across regions, business units, or environments, and the problem stops being "did this upgrade succeed" and becomes "did it succeed everywhere, in the right order, without anyone babysitting twenty separate `az aks upgrade` commands." [Azure Kubernetes Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/) exists to answer that question.
 
-**How AKS solves it:** **[Azure Kubernetes Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/)** (Fleet) lets you manage Kubernetes version and node image upgrades across many AKS clusters as one coordinated operation instead of N separate ones. The core building blocks you'll use:
+Fleet's model maps cleanly onto ideas you've already used in this lab. A cluster joins a Fleet as a *member*. Members are organized into *groups* — by region, environment, or whatever makes sense for your organization. An *update strategy* defines the order those groups upgrade in, as a series of *stages*. The part that matters most for this lab is that a stage can have an *approval gate* attached to it, meaning the rollout literally stops and waits until something — a person, or a pipeline like the one you built in Step 4 — explicitly says it's safe to continue.
 
-- **[Member clusters and update groups](https://learn.microsoft.com/azure/kubernetes-fleet/concepts-update-orchestration)** — any AKS cluster can join a Fleet as a member, and members are organized into groups (for example, by environment or region) for coordinated rollout.
-- **[Update strategies, stages, and gates](https://learn.microsoft.com/azure/kubernetes-fleet/update-strategies-gates-approvals)** — a reusable template that sequences *which* groups upgrade *when*, with optional approval gates in between stages so you can pause a rollout until your own validation (like the Step 4 health gate) confirms it's safe to continue.
-- **[Update runs](https://learn.microsoft.com/azure/kubernetes-fleet/update-orchestration)** — the actual execution of an upgrade strategy against your fleet, and the mechanism this lab's GitHub Action drives and approves programmatically.
+One detail worth calling out before you start: joining Fleet does **not** override the planned maintenance windows you set in Step 1. Fleet controls sequencing and approval *across* clusters; each cluster's own maintenance window still controls the *timing* of when it personally is allowed to be touched. If you kick off an update run outside a member's maintenance window, that member simply sits in a `Pending` state with a message telling you when its next window opens — you'll see this for yourself in 5.3.
 
-Critically, Fleet update runs still **honor each member cluster's own planned maintenance windows** from [Step 1](./baseline-upgrade-automation) — Fleet orchestrates *sequencing and approval*, while the underlying AKS maintenance window still governs *timing* per cluster. This is the same safe-upgrade model from Steps 1-4, now applied at fleet scale.
-:::
+## 5.1 Join your cluster to a Fleet
 
-## 5.1 Create fleet and join member
+Create the Fleet resource, then join the AKS cluster you've been using as a Fleet member, placing it in an update group named `group-a`. Groups are how you'd eventually control which clusters move together in a real multi-cluster environment — with a single cluster, the group mostly exists so the strategy in the next step has something concrete to target.
 
 ```bash
 export FLEET_NAME=fleet-upgrade-lab-$RAND
@@ -39,7 +35,9 @@ az fleet member create \
   --update-group group-a
 ```
 
-## 5.2 Create strategy with approval gate
+## 5.2 Define an update strategy with an approval gate
+
+An update strategy is a reusable template, so you're not hand-writing the rollout sequence every time you upgrade. The one below is intentionally minimal — a single stage containing the one group you just created — but notice the `afterGates` entry of type `Approval`. That single field is what turns this from "Fleet blindly upgrades everything in order" into "Fleet upgrades this group, then waits for an explicit signal before considering the stage complete." In 5.4 you'll wire that signal to the same health check you built in Step 4.
 
 Create `fleet-stages.json`:
 
@@ -64,8 +62,6 @@ Create `fleet-stages.json`:
 }
 ```
 
-Create strategy:
-
 ```bash
 az fleet updatestrategy create \
   --resource-group ${RG_NAME} \
@@ -74,7 +70,9 @@ az fleet updatestrategy create \
   --stages fleet-stages.json
 ```
 
-## 5.3 Create and start update run
+## 5.3 Create and start an update run, then read what it tells you
+
+An update run is the actual execution of a strategy against real clusters, targeting a specific Kubernetes version. Create one referencing the strategy above, then start it:
 
 ```bash
 export TARGET_VERSION=<supported-target-version>
@@ -94,7 +92,7 @@ az fleet updaterun start \
   --name run-k8s-upgrade-1
 ```
 
-Check status:
+Don't just glance at this next output — read it. The `status` block tells you exactly where the run is and why:
 
 ```bash
 az fleet updaterun show \
@@ -103,9 +101,11 @@ az fleet updaterun show \
   --name run-k8s-upgrade-1 -o json | jq '.status'
 ```
 
-> **Expected behavior:** update runs honor AKS planned maintenance windows. If your window is closed, member state shows `Pending` with a message indicating when the next window opens.
+If your cluster's maintenance window from Step 1 isn't currently open, you'll see the member sitting in a `Pending` state with a message like `member maintenance window is unavailable for update. next window opens at: ...` — this is Fleet correctly deferring to the maintenance window you configured, not a bug. If the window is open, you'll instead see the stage progress toward its `afterGates` entry, where it will pause and wait.
 
-## 5.4 Gate approval job (only after health checks pass)
+## 5.4 Approve the gate only after your health check passes
+
+This job is the other half of the pattern: it looks up whatever approval gate is currently pending on your Fleet and approves it. The important detail is the `needs: workload-health-gate` line — this job only runs because the health check from Step 4 succeeded first. If that upstream job fails, this one never runs, and the stage stays paused indefinitely rather than rolling forward onto a cluster you haven't actually verified is healthy.
 
 ```yaml
   approve-fleet-gate:
@@ -157,4 +157,4 @@ Over the course of this lab, you layered five independent upgrade safeguards on 
 4. **Workload-level protection** — a compatibility health gate catching application version-coupling bugs platform safeguards can't see.
 5. **Fleet-scale orchestration** — the same safe-upgrade model applied across many clusters, with staged rollout and approval gates.
 
-Each layer solves a problem the one before it couldn't, and each is independently useful — you don't need Fleet to benefit from automatic PDB management, and you don't need health gates to benefit from planned maintenance. Together, they form a complete picture of what a mature AKS upgrade strategy looks like in production.
+Each layer solves a problem the one before it couldn't, and each is independently useful on its own — you don't need Fleet to benefit from automatic PDB management, and you don't need health gates to benefit from planned maintenance. Together, they form a complete picture of what a mature AKS upgrade strategy looks like in production.

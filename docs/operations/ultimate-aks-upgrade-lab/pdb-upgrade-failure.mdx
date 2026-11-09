@@ -7,20 +7,13 @@ description: Reproduce the most common real-world cause of a stuck AKS upgrade �
 
 # Step 2: Reproduce a PDB-Driven Upgrade Failure
 
-:::info Why this matters
-**The problem:** Even with auto-upgrade configured from [Step 1](./baseline-upgrade-automation), an upgrade can still get stuck or cause an outage if the workloads underneath aren't resilient to pod eviction. The single most common real-world cause is a **[Pod Disruption Budget (PDB)](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)** that leaves AKS no room to evict pods during a node drain.
+Having auto-upgrade configured doesn't guarantee a clean upgrade — it only guarantees AKS will *attempt* one, on schedule. Whether that attempt actually succeeds depends on the workloads running on the cluster, and the single most common thing that derails a real-world upgrade is a workload's own [Pod Disruption Budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/) (PDB).
 
-A PDB tells Kubernetes the minimum number (or percentage) of pods in a set that must stay available during *voluntary* disruptions like drains. A `minAvailable` set equal to the replica count — as configured below — means zero pods can ever be evicted, which blocks the node drain that every AKS upgrade depends on.
+A PDB is how an application tells Kubernetes "no matter what else is happening, keep at least this many of my pods running." That's a legitimate and important safety mechanism — right up until it's configured so strictly that it leaves zero room for Kubernetes to ever evict a pod voluntarily, which is exactly what an upgrade's node drain needs to do. In this step you'll build that scenario on purpose, watch it block a real upgrade, and wire the whole thing into a GitHub Actions pipeline so the failure shows up where a platform team would actually see it — in CI output, not in a page at 2am.
 
-**How AKS helps:**
+## 2.1 Deploy a workload with an overly strict PDB
 
-- **[AKS upgrade pre-flight validations](https://learn.microsoft.com/azure/aks/upgrade-options#validations-used-in-the-upgrade-process)** run automatically as part of every upgrade and check for exactly this kind of misconfigured PDB, along with deprecated API usage, quota, and subnet capacity issues — giving you an early warning before nodes ever get cordoned.
-- **[How AKS cluster upgrades work](https://learn.microsoft.com/azure/aks/upgrade-conceptual#restrictive-pod-disruption-budget-pdb-behavior)** explains the resulting "quarantined node" behavior: AKS cordons and isolates the blocked node, continues upgrading everything else, and leaves you to manually resolve the PDB conflict.
-
-The GitHub Actions workflow below wires an explicit precheck step into your pipeline so this class of failure surfaces in CI output, not in a 2am page.
-:::
-
-## 2.1 Deploy test workload and restrictive PDB
+Create a namespace to keep this lab's workloads separate from system components, then deploy a small two-replica Deployment protected by a PodDisruptionBudget. Look closely at the PDB spec before you apply it: `minAvailable: 2` against a Deployment that only has 2 replicas means both pods must stay available at all times — there's no slack for Kubernetes to evict even one of them voluntarily.
 
 ```bash
 kubectl create namespace upgrade-lab
@@ -60,15 +53,19 @@ spec:
 EOF
 ```
 
-Verify PDB is blocking disruption:
+Confirm the PDB is already as strict as it looks before you move on:
 
 ```bash
 kubectl get pdb -n upgrade-lab
 ```
 
-`ALLOWED DISRUPTIONS` should be `0`.
+`ALLOWED DISRUPTIONS` should read `0`. If it doesn't, Kubernetes already has room to evict a pod and the rest of this step won't reproduce the failure — double check the replica count and `minAvailable` value match.
 
-## 2.2 Create GitHub Action to run prechecks + upgrade
+## 2.2 Drive the upgrade through a pipeline, not a one-off command
+
+Running `az aks upgrade` by hand from your terminal works fine for a quick demo, but it doesn't reflect how upgrades actually happen once a team grows past a single operator. Wiring the same operation into a pipeline gives you two things a one-off terminal command doesn't: a place to run checks *before* the upgrade is allowed to start, and a durable record of what ran, when, and what it found.
+
+The workflow below does both. It logs into Azure, inspects existing PDBs and available upgrade versions as an explicit precheck step — the same information you'd want a human to review before clicking "upgrade" — and only then calls `az aks upgrade`.
 
 ```yaml
 name: aks-upgrade-lab
@@ -121,17 +118,17 @@ jobs:
               --yes
 ```
 
-## 2.3 Trigger upgrade and observe block
+Trigger this workflow manually from the Actions tab, passing in your resource group, cluster name, and a target Kubernetes version a minor or patch release ahead of your current one. If you're not sure what versions are available, the precheck step's `az aks get-upgrades` output will tell you — or run that command yourself first.
 
-Run the upgrade (manual or GitHub Action), then inspect events:
+## 2.3 Watch the drain get blocked
+
+While the pipeline runs — or if you triggered `az aks upgrade` directly from your terminal instead — AKS cordons a node, attempts to drain it, and runs straight into the PDB you created. Rather than failing the entire operation outright, AKS cordons and quarantines just the affected node and continues upgrading everything else. That's a deliberate design choice, so one stuck workload doesn't block an entire node pool. But the quarantined node stays on the old version until someone resolves the conflict, which is the failure mode you want to be able to recognize immediately when you see it.
 
 ```bash
 kubectl get events -A --sort-by=.lastTimestamp | grep -Ei "drain|eviction|pdb|cordon"
 ```
 
-You should see warnings like:
-
-`Eviction blocked by Too Many Requests (usually a pdb)`
+The line you're looking for is `Eviction blocked by Too Many Requests (usually a pdb)`. This is also exactly the condition [AKS's pre-upgrade validation checks](https://learn.microsoft.com/azure/aks/upgrade-options#validations-used-in-the-upgrade-process) are designed to catch *before* an upgrade even starts, and the quarantine behavior you're seeing is documented in detail under [restrictive PDB behavior](https://learn.microsoft.com/azure/aks/upgrade-conceptual#restrictive-pod-disruption-budget-pdb-behavior) — worth reading once you've seen it happen for yourself, so you know what your options are for resolving a quarantined node manually.
 
 ---
 
