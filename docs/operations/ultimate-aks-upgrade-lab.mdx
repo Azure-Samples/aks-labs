@@ -1,0 +1,562 @@
+---
+title: Ultimate AKS Upgrade Lab
+sidebar_label: Ultimate AKS Upgrade Lab
+sidebar_position: 2
+description: Build an end-to-end AKS upgrade lab from single-cluster automation and prechecks to workload and fleet-level upgrade orchestration.
+---
+
+# Ultimate AKS Upgrade Lab
+
+This lab is designed for KubeCon demos where you want to show a full AKS upgrade maturity journey:
+
+1. Platform-level upgrade automation and maintenance windows.
+2. Real PDB-driven upgrade blocking behavior.
+3. Automatic PDB management.
+4. Workload compatibility health gates.
+5. Fleet-based staged orchestration.
+
+Each step below includes a short overview of the feature being demonstrated and a link to the official product documentation — this lab focuses on hands-on flow, not full feature reference.
+
+---
+
+## Prerequisites
+
+- Azure subscription with permission to create AKS and Fleet resources.
+- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.73+.
+- [kubectl](https://kubernetes.io/docs/tasks/tools/).
+- [jq](https://jqlang.org/) for JSON parsing in health checks.
+- GitHub repo for workflow examples.
+
+Install/update required extensions:
+
+```bash
+az extension add --name aks-preview
+az extension add --name fleet
+az extension add --name k8s-extension
+
+az extension update --name aks-preview
+az extension update --name fleet
+az extension update --name k8s-extension
+```
+
+Sign in:
+
+```bash
+az login --use-device-code
+az account show -o table
+```
+
+---
+
+## Step 1 - Baseline AKS Standard with auto-upgrade and planned maintenance
+
+:::info What you're building here
+AKS Standard requires you to opt in to upgrade automation. In this step you configure two independent auto-upgrade channels and the maintenance windows that control when those automated upgrades are allowed to run.
+
+- **[Cluster auto-upgrade channels](https://learn.microsoft.com/azure/aks/auto-upgrade-cluster)** keep the Kubernetes control plane and node version current. The `stable` channel targets the latest supported patch on minor version *N-1*, balancing new features against stability.
+- **[Node OS auto-upgrade channels](https://learn.microsoft.com/azure/aks/auto-upgrade-node-os-image)** are a separate, faster-moving lifecycle for the node operating system image itself (security and kernel patches), decoupled from the Kubernetes version. The `NodeImage` channel applies a fully-tested weekly image refresh.
+- **[Planned maintenance](https://learn.microsoft.com/azure/aks/planned-maintenance)** lets you control *when* those automated upgrades are allowed to execute. The `default` schedule governs AKS's own weekly platform releases, while `aksManagedAutoUpgradeSchedule` and `aksManagedNodeOSUpgradeSchedule` give you independent windows for the two auto-upgrade channels above — so you can, for example, patch node images midweek but only take Kubernetes version bumps on weekends.
+
+Together, these three features are the foundation of a "set it and forget it" upgrade posture, and they're what you'll build on in every later step of this lab.
+:::
+
+### 1.1 Create environment
+
+```bash
+RAND=$RANDOM
+export LOCATION=eastus
+export RG_NAME=rg-aks-upgrade-lab-$RAND
+export AKS_NAME=aks-upgrade-lab-$RAND
+
+az group create --name ${RG_NAME} --location ${LOCATION}
+```
+
+### 1.2 Create AKS cluster
+
+```bash
+az aks create \
+  --resource-group ${RG_NAME} \
+  --name ${AKS_NAME} \
+  --tier standard \
+  --node-count 3 \
+  --node-vm-size Standard_D2s_v3 \
+  --generate-ssh-keys \
+  --auto-upgrade-channel stable \
+  --node-os-upgrade-channel NodeImage
+```
+
+> **Note:** Some subscriptions restrict default SKUs. If the command fails with a SKU allow-list error, set `--node-vm-size` to an allowed SKU in your subscription.
+
+Get credentials:
+
+```bash
+az aks get-credentials --resource-group ${RG_NAME} --name ${AKS_NAME} --overwrite-existing
+kubectl config current-context
+```
+
+### 1.3 Configure planned maintenance
+
+Shared/default schedule for AKS weekly releases:
+
+```bash
+az aks maintenanceconfiguration add \
+  --resource-group ${RG_NAME} \
+  --cluster-name ${AKS_NAME} \
+  --name default \
+  --weekday Sunday \
+  --start-hour 1
+```
+
+Auto-upgrade schedule for Kubernetes upgrades:
+
+```bash
+az aks maintenanceconfiguration add \
+  --resource-group ${RG_NAME} \
+  --cluster-name ${AKS_NAME} \
+  --name aksManagedAutoUpgradeSchedule \
+  --schedule-type Weekly \
+  --day-of-week Saturday \
+  --interval-weeks 1 \
+  --duration 4 \
+  --utc-offset +00:00 \
+  --start-time 02:00
+```
+
+Node OS schedule:
+
+```bash
+az aks maintenanceconfiguration add \
+  --resource-group ${RG_NAME} \
+  --cluster-name ${AKS_NAME} \
+  --name aksManagedNodeOSUpgradeSchedule \
+  --schedule-type Weekly \
+  --day-of-week Wednesday \
+  --interval-weeks 1 \
+  --duration 4 \
+  --utc-offset +00:00 \
+  --start-time 02:00
+```
+
+Verify:
+
+```bash
+az aks show \
+  --resource-group ${RG_NAME} \
+  --name ${AKS_NAME} \
+  --query "autoUpgradeProfile" -o yaml
+
+az aks maintenanceconfiguration list \
+  --resource-group ${RG_NAME} \
+  --cluster-name ${AKS_NAME} -o table
+```
+
+---
+
+## Step 2 - Reproduce an upgrade block with a restrictive PDB
+
+:::info What you're building here
+Automated upgrades are only safe if the workloads underneath them are, too. This step shows the single most common real-world cause of a stuck or disruptive upgrade: a **[Pod Disruption Budget (PDB)](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)** that doesn't leave AKS any room to evict pods during a node drain.
+
+A PDB tells Kubernetes the minimum number (or percentage) of pods in a set that must stay available during *voluntary* disruptions like drains. A `minAvailable` set equal to the replica count — as configured below — means zero pods can ever be evicted, which blocks the node drain that every AKS upgrade depends on.
+
+To make this failure mode visible and catchable *before* it happens in production, position two complementary tools:
+
+- **[AKS upgrade pre-flight validations](https://learn.microsoft.com/azure/aks/upgrade-options#validations-used-in-the-upgrade-process)** run automatically as part of every upgrade and check for exactly this kind of misconfigured PDB, along with deprecated API usage, quota, and subnet capacity issues — giving you an early warning before nodes ever get cordoned.
+- **[How AKS cluster upgrades work](https://learn.microsoft.com/azure/aks/upgrade-conceptual#restrictive-pod-disruption-budget-pdb-behavior)** explains the resulting "quarantined node" behavior: AKS cordons and isolates the blocked node, continues upgrading everything else, and leaves you to manually resolve the PDB conflict.
+
+The GitHub Actions workflow below wires an explicit precheck step into your pipeline so this class of failure surfaces in CI output, not in a 2am page.
+:::
+
+### 2.1 Deploy test workload and restrictive PDB
+
+```bash
+kubectl create namespace upgrade-lab
+
+kubectl apply -f - <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdb-blocked-api
+  namespace: upgrade-lab
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pdb-blocked-api
+  template:
+    metadata:
+      labels:
+        app: pdb-blocked-api
+    spec:
+      containers:
+      - name: web
+        image: nginx:1.25.5
+        ports:
+        - containerPort: 80
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdb-blocked-api
+  namespace: upgrade-lab
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: pdb-blocked-api
+EOF
+```
+
+Verify PDB is blocking disruption:
+
+```bash
+kubectl get pdb -n upgrade-lab
+```
+
+`ALLOWED DISRUPTIONS` should be `0`.
+
+### 2.2 Create GitHub Action to run prechecks + upgrade
+
+```yaml
+name: aks-upgrade-lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      resourceGroup:
+        description: "AKS resource group"
+        required: true
+      clusterName:
+        description: "AKS cluster name"
+        required: true
+      kubernetesVersion:
+        description: "Target AKS Kubernetes version (for example: 1.37.1)"
+        required: true
+
+jobs:
+  precheck-and-upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure Login
+        uses: Azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Prechecks
+        uses: Azure/cli@v2
+        with:
+          inlineScript: |
+            az aks get-credentials \
+              --resource-group "${{ github.event.inputs.resourceGroup }}" \
+              --name "${{ github.event.inputs.clusterName }}" \
+              --overwrite-existing
+
+            kubectl get pdb -A
+            az aks get-upgrades \
+              --resource-group "${{ github.event.inputs.resourceGroup }}" \
+              --name "${{ github.event.inputs.clusterName }}" \
+              -o table
+
+      - name: Upgrade
+        uses: Azure/cli@v2
+        with:
+          inlineScript: |
+            az aks upgrade \
+              --resource-group "${{ github.event.inputs.resourceGroup }}" \
+              --name "${{ github.event.inputs.clusterName }}" \
+              --kubernetes-version "${{ github.event.inputs.kubernetesVersion }}" \
+              --yes
+```
+
+### 2.3 Trigger upgrade and observe block
+
+Run the upgrade (manual or GitHub Action), then inspect events:
+
+```bash
+kubectl get events -A --sort-by=.lastTimestamp | grep -Ei "drain|eviction|pdb|cordon"
+```
+
+You should see warnings like:
+
+`Eviction blocked by Too Many Requests (usually a pdb)`
+
+---
+
+## Step 3 - Enable automatic PDB management
+
+:::info What you're building here
+Rather than relying on every app team to correctly configure PDBs and replica counts, **[automatic Pod Disruption Budget management](https://learn.microsoft.com/azure/aks/automatic-pod-disruption-budget-management)** is an AKS cluster extension that removes the problem at the platform level.
+
+It does two things:
+
+1. **Creates PDBs automatically** for any Deployment that doesn't already have one, so unprotected workloads stop being silently exposed to simultaneous pod eviction during upgrades.
+2. **Temporarily surges replicas** when it detects a PDB is blocking a cordoned node's drain — satisfying the disruption budget just long enough for eviction to proceed — then scales back down once the drain completes.
+
+This directly resolves the failure you reproduced in Step 2, without requiring anyone to manually loosen a PDB or force-bypass protections. It's the platform-level answer to "how do we stop PDB misconfiguration from blocking every upgrade."
+:::
+
+Install the extension (preview):
+
+```bash
+az k8s-extension create \
+  --cluster-name ${AKS_NAME} \
+  --cluster-type managedClusters \
+  --extension-type microsoft.evictionautoscaler \
+  --name eviction-autoscaler \
+  --resource-group ${RG_NAME} \
+  --release-train stable \
+  --configuration-settings controllerConfig.pdb.create=true controllerConfig.namespaces.actionedNamespaces="{upgrade-lab}" \
+  --auto-upgrade-mode patch
+```
+
+> **Important:** Do **not** include `kube-system` in `actionedNamespaces`. The extension fails validation if AKS-owned namespaces are included.
+
+Verify:
+
+```bash
+az k8s-extension show \
+  --cluster-name ${AKS_NAME} \
+  --cluster-type managedClusters \
+  --name eviction-autoscaler \
+  --resource-group ${RG_NAME} \
+  --query "{state:provisioningState,version:currentVersion}" -o yaml
+```
+
+If your Step 2 upgrade is still blocked, this gives you two demo paths:
+
+1. **Manual recovery path:** relax PDB (`minAvailable: 1`) to let the current upgrade finish.
+2. **Automated recovery path:** keep restrictive PDB and show extension behavior in the next upgrade cycle.
+
+---
+
+## Step 4 - Add workload compatibility health gate
+
+:::info What you're building here
+Steps 1-3 added platform-level protections, but AKS has no way to know that *your* application silently depends on a specific Kubernetes minor version — for example, a hardcoded version check a developer added for internal certification testing that nobody updated after the last upgrade. This is a class of failure that only the workload owner can define and catch.
+
+This step builds a lightweight, workload-owned health gate pattern: the app declares the Kubernetes minor version it's certified against (via a ConfigMap), and your CI pipeline compares that against the live cluster version before promoting or approving further rollout. It's conceptually similar to how AKS already protects the platform layer with **[automatic blocking on deprecated Kubernetes API usage](https://learn.microsoft.com/azure/aks/stop-cluster-upgrade-api-breaking-changes)** — except here you're encoding your own application's compatibility contract instead of relying on a Kubernetes-API-level check.
+
+For more on why workload-level guardrails matter alongside platform-level ones, see **[AKS production upgrade strategies](https://learn.microsoft.com/azure/aks/aks-production-upgrade-strategies)**.
+:::
+
+Use a workload-declared compatibility value and a CI gate to block promotion when cluster version drifts.
+
+### 4.1 Deploy workload + compatibility contract
+
+```bash
+kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: version-locked-app-compat
+  namespace: upgrade-lab
+data:
+  expectedK8sMinor: "33"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: version-locked-app
+  namespace: upgrade-lab
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: version-locked-app
+  template:
+    metadata:
+      labels:
+        app: version-locked-app
+    spec:
+      containers:
+      - name: web
+        image: nginx:1.25.5
+        ports:
+        - containerPort: 80
+EOF
+```
+
+### 4.2 Add workload health gate to workflow
+
+```yaml
+  workload-health-gate:
+    runs-on: ubuntu-latest
+    needs: precheck-and-upgrade
+    steps:
+      - name: Azure Login
+        uses: Azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Validate workload compatibility gate
+        uses: Azure/cli@v2
+        with:
+          inlineScript: |
+            az aks get-credentials \
+              --resource-group "${{ github.event.inputs.resourceGroup }}" \
+              --name "${{ github.event.inputs.clusterName }}" \
+              --overwrite-existing
+
+            EXPECTED=$(kubectl get configmap version-locked-app-compat -n upgrade-lab -o jsonpath='{.data.expectedK8sMinor}')
+            CURRENT=$(kubectl version -o json | jq -r '.serverVersion.minor' | tr -d '+')
+
+            if [ "${EXPECTED}" != "${CURRENT}" ]; then
+              echo "Health gate failed: expected minor ${EXPECTED}, found ${CURRENT}"
+              exit 1
+            fi
+
+            AVAILABLE=$(kubectl get deploy version-locked-app -n upgrade-lab -o jsonpath='{.status.availableReplicas}')
+            if [ -z "${AVAILABLE}" ] || [ "${AVAILABLE}" -lt 1 ]; then
+              echo "Health gate failed: no available replicas."
+              exit 1
+            fi
+
+            echo "Health gate passed."
+```
+
+This models the real issue: app team forgot to update certified Kubernetes minor before cluster promotion.
+
+---
+
+## Step 5 - Fleet orchestration
+
+:::info What you're building here
+Everything so far operated on a single cluster. **[Azure Kubernetes Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/)** (Fleet) is the zoom-out: it lets you manage Kubernetes version and node image upgrades across many AKS clusters as one coordinated operation instead of N separate ones.
+
+The core building blocks you'll use:
+
+- **[Member clusters and update groups](https://learn.microsoft.com/azure/kubernetes-fleet/concepts-update-orchestration)** — any AKS cluster can join a Fleet as a member, and members are organized into groups (for example, by environment or region) for coordinated rollout.
+- **[Update strategies, stages, and gates](https://learn.microsoft.com/azure/kubernetes-fleet/update-strategies-gates-approvals)** — a reusable template that sequences *which* groups upgrade *when*, with optional approval gates in between stages so you can pause a rollout until your own validation (like the Step 4 health gate) confirms it's safe to continue.
+- **[Update runs](https://learn.microsoft.com/azure/kubernetes-fleet/update-orchestration)** — the actual execution of an upgrade strategy against your fleet, and the mechanism this lab's GitHub Action drives and approves programmatically.
+
+Critically, Fleet update runs still **honor each member cluster's own planned maintenance windows** from Step 1 — Fleet orchestrates *sequencing and approval*, while the underlying AKS maintenance window still governs *timing* per cluster. This is the same safe-upgrade model from Steps 1-4, now applied at fleet scale.
+:::
+
+### 5.1 Create fleet and join member
+
+```bash
+export FLEET_NAME=fleet-upgrade-lab-$RAND
+
+az fleet create \
+  --resource-group ${RG_NAME} \
+  --name ${FLEET_NAME} \
+  --location ${LOCATION}
+
+AKS_ID=$(az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query id -o tsv)
+
+az fleet member create \
+  --resource-group ${RG_NAME} \
+  --fleet-name ${FLEET_NAME} \
+  --name ${AKS_NAME} \
+  --member-cluster-id ${AKS_ID} \
+  --update-group group-a
+```
+
+### 5.2 Create strategy with approval gate
+
+Create `fleet-stages.json`:
+
+```json
+{
+  "stages": [
+    {
+      "name": "stage-preprod",
+      "afterGates": [
+        {
+          "displayName": "workload-health-gate",
+          "type": "Approval"
+        }
+      ],
+      "groups": [
+        {
+          "name": "group-a"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Create strategy:
+
+```bash
+az fleet updatestrategy create \
+  --resource-group ${RG_NAME} \
+  --fleet-name ${FLEET_NAME} \
+  --name upgrade-strategy-lab \
+  --stages fleet-stages.json
+```
+
+### 5.3 Create and start update run
+
+```bash
+export TARGET_VERSION=<supported-target-version>
+
+az fleet updaterun create \
+  --resource-group ${RG_NAME} \
+  --fleet-name ${FLEET_NAME} \
+  --name run-k8s-upgrade-1 \
+  --upgrade-type Full \
+  --kubernetes-version ${TARGET_VERSION} \
+  --node-image-selection Latest \
+  --update-strategy-name upgrade-strategy-lab
+
+az fleet updaterun start \
+  --resource-group ${RG_NAME} \
+  --fleet-name ${FLEET_NAME} \
+  --name run-k8s-upgrade-1
+```
+
+Check status:
+
+```bash
+az fleet updaterun show \
+  --resource-group ${RG_NAME} \
+  --fleet-name ${FLEET_NAME} \
+  --name run-k8s-upgrade-1 -o json | jq '.status'
+```
+
+> **Expected behavior:** update runs honor AKS planned maintenance windows. If your window is closed, member state shows `Pending` with a message indicating when the next window opens.
+
+### 5.4 Gate approval job (only after health checks pass)
+
+```yaml
+  approve-fleet-gate:
+    runs-on: ubuntu-latest
+    needs: workload-health-gate
+    steps:
+      - name: Azure Login
+        uses: Azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Approve pending Fleet gate
+        uses: Azure/cli@v2
+        with:
+          inlineScript: |
+            GATE_ID=$(az fleet gate list \
+              --resource-group "${{ vars.RG_NAME }}" \
+              --fleet-name "${{ vars.FLEET_NAME }}" \
+              --gate-type Approval \
+              --state Pending \
+              --query "[0].name" -o tsv)
+
+            if [ -z "${GATE_ID}" ]; then
+              echo "No pending approval gate found."
+              exit 1
+            fi
+
+            az fleet gate approve \
+              --resource-group "${{ vars.RG_NAME }}" \
+              --fleet-name "${{ vars.FLEET_NAME }}" \
+              --name "${GATE_ID}"
+```
+
+---
+
+## Cleanup
+
+```bash
+az group delete --name ${RG_NAME} --yes --no-wait
+```
+
