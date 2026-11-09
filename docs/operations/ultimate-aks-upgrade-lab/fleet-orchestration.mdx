@@ -1,0 +1,160 @@
+---
+title: "Step 5: Fleet Orchestration"
+sidebar_label: "5. Fleet Orchestration"
+sidebar_position: 6
+description: Join a Fleet and run a staged, gated Kubernetes upgrade across multiple AKS clusters.
+---
+
+# Step 5: Fleet Orchestration
+
+:::info Why this matters
+**The problem:** Everything so far operated on a single cluster. Real organizations run many AKS clusters across regions, environments, and teams. Manually sequencing and validating an upgrade across dozens of clusters doesn't scale, and inconsistent versions across the fleet quickly become both an operational and a compliance risk.
+
+**How AKS solves it:** **[Azure Kubernetes Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/)** (Fleet) lets you manage Kubernetes version and node image upgrades across many AKS clusters as one coordinated operation instead of N separate ones. The core building blocks you'll use:
+
+- **[Member clusters and update groups](https://learn.microsoft.com/azure/kubernetes-fleet/concepts-update-orchestration)** — any AKS cluster can join a Fleet as a member, and members are organized into groups (for example, by environment or region) for coordinated rollout.
+- **[Update strategies, stages, and gates](https://learn.microsoft.com/azure/kubernetes-fleet/update-strategies-gates-approvals)** — a reusable template that sequences *which* groups upgrade *when*, with optional approval gates in between stages so you can pause a rollout until your own validation (like the Step 4 health gate) confirms it's safe to continue.
+- **[Update runs](https://learn.microsoft.com/azure/kubernetes-fleet/update-orchestration)** — the actual execution of an upgrade strategy against your fleet, and the mechanism this lab's GitHub Action drives and approves programmatically.
+
+Critically, Fleet update runs still **honor each member cluster's own planned maintenance windows** from [Step 1](./baseline-upgrade-automation) — Fleet orchestrates *sequencing and approval*, while the underlying AKS maintenance window still governs *timing* per cluster. This is the same safe-upgrade model from Steps 1-4, now applied at fleet scale.
+:::
+
+## 5.1 Create fleet and join member
+
+```bash
+export FLEET_NAME=fleet-upgrade-lab-$RAND
+
+az fleet create \
+  --resource-group ${RG_NAME} \
+  --name ${FLEET_NAME} \
+  --location ${LOCATION}
+
+AKS_ID=$(az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query id -o tsv)
+
+az fleet member create \
+  --resource-group ${RG_NAME} \
+  --fleet-name ${FLEET_NAME} \
+  --name ${AKS_NAME} \
+  --member-cluster-id ${AKS_ID} \
+  --update-group group-a
+```
+
+## 5.2 Create strategy with approval gate
+
+Create `fleet-stages.json`:
+
+```json
+{
+  "stages": [
+    {
+      "name": "stage-preprod",
+      "afterGates": [
+        {
+          "displayName": "workload-health-gate",
+          "type": "Approval"
+        }
+      ],
+      "groups": [
+        {
+          "name": "group-a"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Create strategy:
+
+```bash
+az fleet updatestrategy create \
+  --resource-group ${RG_NAME} \
+  --fleet-name ${FLEET_NAME} \
+  --name upgrade-strategy-lab \
+  --stages fleet-stages.json
+```
+
+## 5.3 Create and start update run
+
+```bash
+export TARGET_VERSION=<supported-target-version>
+
+az fleet updaterun create \
+  --resource-group ${RG_NAME} \
+  --fleet-name ${FLEET_NAME} \
+  --name run-k8s-upgrade-1 \
+  --upgrade-type Full \
+  --kubernetes-version ${TARGET_VERSION} \
+  --node-image-selection Latest \
+  --update-strategy-name upgrade-strategy-lab
+
+az fleet updaterun start \
+  --resource-group ${RG_NAME} \
+  --fleet-name ${FLEET_NAME} \
+  --name run-k8s-upgrade-1
+```
+
+Check status:
+
+```bash
+az fleet updaterun show \
+  --resource-group ${RG_NAME} \
+  --fleet-name ${FLEET_NAME} \
+  --name run-k8s-upgrade-1 -o json | jq '.status'
+```
+
+> **Expected behavior:** update runs honor AKS planned maintenance windows. If your window is closed, member state shows `Pending` with a message indicating when the next window opens.
+
+## 5.4 Gate approval job (only after health checks pass)
+
+```yaml
+  approve-fleet-gate:
+    runs-on: ubuntu-latest
+    needs: workload-health-gate
+    steps:
+      - name: Azure Login
+        uses: Azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Approve pending Fleet gate
+        uses: Azure/cli@v2
+        with:
+          inlineScript: |
+            GATE_ID=$(az fleet gate list \
+              --resource-group "${{ vars.RG_NAME }}" \
+              --fleet-name "${{ vars.FLEET_NAME }}" \
+              --gate-type Approval \
+              --state Pending \
+              --query "[0].name" -o tsv)
+
+            if [ -z "${GATE_ID}" ]; then
+              echo "No pending approval gate found."
+              exit 1
+            fi
+
+            az fleet gate approve \
+              --resource-group "${{ vars.RG_NAME }}" \
+              --fleet-name "${{ vars.FLEET_NAME }}" \
+              --name "${GATE_ID}"
+```
+
+---
+
+## Cleanup
+
+```bash
+az group delete --name ${RG_NAME} --yes --no-wait
+```
+
+## Summary
+
+Over the course of this lab, you layered five independent upgrade safeguards on top of each other:
+
+1. **Platform automation** — Kubernetes and node OS auto-upgrade channels, controlled by planned maintenance.
+2. **Visibility into a real failure mode** — a restrictive PDB blocking a node drain, driven through CI.
+3. **Platform-level remediation** — automatic PDB management removing that failure mode entirely.
+4. **Workload-level protection** — a compatibility health gate catching application version-coupling bugs platform safeguards can't see.
+5. **Fleet-scale orchestration** — the same safe-upgrade model applied across many clusters, with staged rollout and approval gates.
+
+Each layer solves a problem the one before it couldn't, and each is independently useful — you don't need Fleet to benefit from automatic PDB management, and you don't need health gates to benefit from planned maintenance. Together, they form a complete picture of what a mature AKS upgrade strategy looks like in production.

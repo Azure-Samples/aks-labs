@@ -1,0 +1,97 @@
+---
+title: "Step 4: Add a Workload Compatibility Health Gate"
+sidebar_label: "4. Workload Health Gates"
+sidebar_position: 5
+description: Build a CI gate that catches application-level Kubernetes version coupling bugs that platform-level safeguards can't see.
+---
+
+# Step 4: Add a Workload Compatibility Health Gate
+
+:::info Why this matters
+**The problem:** The platform-level protections from Steps 1-3 keep the cluster itself safe, but AKS has no way to know that *your* application silently depends on a specific Kubernetes minor version — for example, a hardcoded version check a developer added for internal certification testing that nobody updated after the last upgrade. This is a blind spot unique to each workload, and only the team that owns it can define and catch it.
+
+**How this lab solves it:** This step builds a lightweight, workload-owned health gate pattern. The app declares the Kubernetes minor version it's certified against (via a ConfigMap), and your CI pipeline compares that declaration against the live cluster version before promoting or approving further rollout.
+
+This is conceptually similar to how AKS already protects the platform layer with **[automatic blocking on deprecated Kubernetes API usage](https://learn.microsoft.com/azure/aks/stop-cluster-upgrade-api-breaking-changes)** — except here you're encoding your own application's compatibility contract instead of relying on a Kubernetes-API-level check. For more on why workload-level guardrails matter alongside platform-level ones, see **[AKS production upgrade strategies](https://learn.microsoft.com/azure/aks/aks-production-upgrade-strategies)**.
+:::
+
+Use a workload-declared compatibility value and a CI gate to block promotion when cluster version drifts.
+
+## 4.1 Deploy workload + compatibility contract
+
+```bash
+kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: version-locked-app-compat
+  namespace: upgrade-lab
+data:
+  expectedK8sMinor: "33"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: version-locked-app
+  namespace: upgrade-lab
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: version-locked-app
+  template:
+    metadata:
+      labels:
+        app: version-locked-app
+    spec:
+      containers:
+      - name: web
+        image: nginx:1.25.5
+        ports:
+        - containerPort: 80
+EOF
+```
+
+## 4.2 Add workload health gate to workflow
+
+```yaml
+  workload-health-gate:
+    runs-on: ubuntu-latest
+    needs: precheck-and-upgrade
+    steps:
+      - name: Azure Login
+        uses: Azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Validate workload compatibility gate
+        uses: Azure/cli@v2
+        with:
+          inlineScript: |
+            az aks get-credentials \
+              --resource-group "${{ github.event.inputs.resourceGroup }}" \
+              --name "${{ github.event.inputs.clusterName }}" \
+              --overwrite-existing
+
+            EXPECTED=$(kubectl get configmap version-locked-app-compat -n upgrade-lab -o jsonpath='{.data.expectedK8sMinor}')
+            CURRENT=$(kubectl version -o json | jq -r '.serverVersion.minor' | tr -d '+')
+
+            if [ "${EXPECTED}" != "${CURRENT}" ]; then
+              echo "Health gate failed: expected minor ${EXPECTED}, found ${CURRENT}"
+              exit 1
+            fi
+
+            AVAILABLE=$(kubectl get deploy version-locked-app -n upgrade-lab -o jsonpath='{.status.availableReplicas}')
+            if [ -z "${AVAILABLE}" ] || [ "${AVAILABLE}" -lt 1 ]; then
+              echo "Health gate failed: no available replicas."
+              exit 1
+            fi
+
+            echo "Health gate passed."
+```
+
+This models the real issue: the app team forgot to update the certified Kubernetes minor version before the cluster was promoted to a newer one.
+
+---
+
+Next: [Step 5 — Fleet orchestration](./fleet-orchestration)

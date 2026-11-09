@@ -1,0 +1,138 @@
+---
+title: "Step 2: Reproduce a PDB-Driven Upgrade Failure"
+sidebar_label: "2. PDB Upgrade Failure"
+sidebar_position: 3
+description: Reproduce the most common real-world cause of a stuck AKS upgrade — a restrictive Pod Disruption Budget — and automate the trigger with GitHub Actions.
+---
+
+# Step 2: Reproduce a PDB-Driven Upgrade Failure
+
+:::info Why this matters
+**The problem:** Even with auto-upgrade configured from [Step 1](./baseline-upgrade-automation), an upgrade can still get stuck or cause an outage if the workloads underneath aren't resilient to pod eviction. The single most common real-world cause is a **[Pod Disruption Budget (PDB)](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)** that leaves AKS no room to evict pods during a node drain.
+
+A PDB tells Kubernetes the minimum number (or percentage) of pods in a set that must stay available during *voluntary* disruptions like drains. A `minAvailable` set equal to the replica count — as configured below — means zero pods can ever be evicted, which blocks the node drain that every AKS upgrade depends on.
+
+**How AKS helps:**
+
+- **[AKS upgrade pre-flight validations](https://learn.microsoft.com/azure/aks/upgrade-options#validations-used-in-the-upgrade-process)** run automatically as part of every upgrade and check for exactly this kind of misconfigured PDB, along with deprecated API usage, quota, and subnet capacity issues — giving you an early warning before nodes ever get cordoned.
+- **[How AKS cluster upgrades work](https://learn.microsoft.com/azure/aks/upgrade-conceptual#restrictive-pod-disruption-budget-pdb-behavior)** explains the resulting "quarantined node" behavior: AKS cordons and isolates the blocked node, continues upgrading everything else, and leaves you to manually resolve the PDB conflict.
+
+The GitHub Actions workflow below wires an explicit precheck step into your pipeline so this class of failure surfaces in CI output, not in a 2am page.
+:::
+
+## 2.1 Deploy test workload and restrictive PDB
+
+```bash
+kubectl create namespace upgrade-lab
+
+kubectl apply -f - <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdb-blocked-api
+  namespace: upgrade-lab
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pdb-blocked-api
+  template:
+    metadata:
+      labels:
+        app: pdb-blocked-api
+    spec:
+      containers:
+      - name: web
+        image: nginx:1.25.5
+        ports:
+        - containerPort: 80
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdb-blocked-api
+  namespace: upgrade-lab
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: pdb-blocked-api
+EOF
+```
+
+Verify PDB is blocking disruption:
+
+```bash
+kubectl get pdb -n upgrade-lab
+```
+
+`ALLOWED DISRUPTIONS` should be `0`.
+
+## 2.2 Create GitHub Action to run prechecks + upgrade
+
+```yaml
+name: aks-upgrade-lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      resourceGroup:
+        description: "AKS resource group"
+        required: true
+      clusterName:
+        description: "AKS cluster name"
+        required: true
+      kubernetesVersion:
+        description: "Target AKS Kubernetes version (for example: 1.37.1)"
+        required: true
+
+jobs:
+  precheck-and-upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure Login
+        uses: Azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Prechecks
+        uses: Azure/cli@v2
+        with:
+          inlineScript: |
+            az aks get-credentials \
+              --resource-group "${{ github.event.inputs.resourceGroup }}" \
+              --name "${{ github.event.inputs.clusterName }}" \
+              --overwrite-existing
+
+            kubectl get pdb -A
+            az aks get-upgrades \
+              --resource-group "${{ github.event.inputs.resourceGroup }}" \
+              --name "${{ github.event.inputs.clusterName }}" \
+              -o table
+
+      - name: Upgrade
+        uses: Azure/cli@v2
+        with:
+          inlineScript: |
+            az aks upgrade \
+              --resource-group "${{ github.event.inputs.resourceGroup }}" \
+              --name "${{ github.event.inputs.clusterName }}" \
+              --kubernetes-version "${{ github.event.inputs.kubernetesVersion }}" \
+              --yes
+```
+
+## 2.3 Trigger upgrade and observe block
+
+Run the upgrade (manual or GitHub Action), then inspect events:
+
+```bash
+kubectl get events -A --sort-by=.lastTimestamp | grep -Ei "drain|eviction|pdb|cordon"
+```
+
+You should see warnings like:
+
+`Eviction blocked by Too Many Requests (usually a pdb)`
+
+---
+
+Next: [Step 3 — Enable automatic PDB management](./automatic-pdb-management)

@@ -1,0 +1,51 @@
+---
+title: Ultimate AKS Upgrade Lab
+sidebar_label: Overview
+sidebar_position: 1
+description: Build an end-to-end AKS upgrade lab from single-cluster automation and prechecks to workload and fleet-level upgrade orchestration.
+---
+
+# Ultimate AKS Upgrade Lab
+
+This lab is designed for KubeCon demos where you want to show a full AKS upgrade maturity journey — from basic platform automation all the way up to guarded, multi-cluster rollout. Each page in this lab focuses on one feature, the specific real-world problem it solves, and a link to the official product documentation. This is a hands-on flow, not a full feature reference.
+
+## What you'll build
+
+1. **[Baseline upgrade automation](./baseline-upgrade-automation)** — an AKS Standard cluster with Kubernetes and node OS auto-upgrade channels, controlled by planned maintenance windows.
+2. **[Reproduce a PDB-driven upgrade failure](./pdb-upgrade-failure)** — a restrictive Pod Disruption Budget that blocks a real node drain, triggered through a GitHub Actions pipeline.
+3. **[Automatic PDB management](./automatic-pdb-management)** — an AKS extension that fixes the failure from step 2 at the platform level.
+4. **[Workload compatibility health gates](./workload-health-gates)** — a CI gate that catches application-level Kubernetes version coupling bugs that platform safeguards can't see.
+5. **[Fleet orchestration](./fleet-orchestration)** — joining a Fleet and running a staged, gated upgrade across multiple clusters.
+
+By the end, you'll have a stable, protected single cluster *and* a repeatable pattern for safely upgrading many clusters at once.
+
+---
+
+## Prerequisites
+
+- Azure subscription with permission to create AKS and Fleet resources.
+- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.73+.
+- [kubectl](https://kubernetes.io/docs/tasks/tools/).
+- [jq](https://jqlang.org/) for JSON parsing in health checks.
+- A GitHub repo for workflow examples.
+
+Install/update required extensions:
+
+```bash
+az extension add --name aks-preview
+az extension add --name fleet
+az extension add --name k8s-extension
+
+az extension update --name aks-preview
+az extension update --name fleet
+az extension update --name k8s-extension
+```
+
+Sign in:
+
+```bash
+az login --use-device-code
+az account show -o table
+```
+
+Continue to [Step 1: Baseline upgrade automation](./baseline-upgrade-automation) to get started.

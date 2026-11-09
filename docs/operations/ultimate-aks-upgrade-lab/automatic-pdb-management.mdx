@@ -1,0 +1,55 @@
+---
+title: "Step 3: Enable Automatic PDB Management"
+sidebar_label: "3. Automatic PDB Management"
+sidebar_position: 4
+description: Use the AKS automatic Pod Disruption Budget management extension to fix PDB-blocked upgrades at the platform level.
+---
+
+# Step 3: Enable Automatic PDB Management
+
+:::info Why this matters
+**The problem:** Asking every application team across a cluster (or organization) to correctly author PDBs — and keep replica counts high enough to satisfy them — doesn't scale. Gaps usually show up only at the worst possible time: during the next upgrade, which is exactly the failure you reproduced in [Step 2](./pdb-upgrade-failure).
+
+**How AKS solves it:** **[Automatic Pod Disruption Budget management](https://learn.microsoft.com/azure/aks/automatic-pod-disruption-budget-management)** is an AKS cluster extension that removes this class of problem at the platform level, with no changes required to the application itself. It does two things:
+
+1. **Creates PDBs automatically** for any Deployment that doesn't already have one, so unprotected workloads stop being silently exposed to simultaneous pod eviction during upgrades.
+2. **Temporarily surges replicas** when it detects a PDB is blocking a cordoned node's drain — satisfying the disruption budget just long enough for eviction to proceed — then scales back down once the drain completes.
+
+This directly resolves the failure from Step 2 without requiring anyone to manually loosen a PDB or force-bypass protections. It's the platform-level answer to "how do we stop PDB misconfiguration from blocking every upgrade."
+:::
+
+## 3.1 Install the extension (preview)
+
+```bash
+az k8s-extension create \
+  --cluster-name ${AKS_NAME} \
+  --cluster-type managedClusters \
+  --extension-type microsoft.evictionautoscaler \
+  --name eviction-autoscaler \
+  --resource-group ${RG_NAME} \
+  --release-train stable \
+  --configuration-settings controllerConfig.pdb.create=true controllerConfig.namespaces.actionedNamespaces="{upgrade-lab}" \
+  --auto-upgrade-mode patch
+```
+
+> **Important:** Do **not** include `kube-system` in `actionedNamespaces`. The extension fails validation if AKS-owned namespaces are included.
+
+## 3.2 Verify
+
+```bash
+az k8s-extension show \
+  --cluster-name ${AKS_NAME} \
+  --cluster-type managedClusters \
+  --name eviction-autoscaler \
+  --resource-group ${RG_NAME} \
+  --query "{state:provisioningState,version:currentVersion}" -o yaml
+```
+
+If your Step 2 upgrade is still blocked, this gives you two demo paths:
+
+1. **Manual recovery path:** relax the PDB (`minAvailable: 1`) to let the current upgrade finish.
+2. **Automated recovery path:** keep the restrictive PDB and show the extension's behavior on the next upgrade cycle.
+
+---
+
+Next: [Step 4 — Add a workload compatibility health gate](./workload-health-gates)
