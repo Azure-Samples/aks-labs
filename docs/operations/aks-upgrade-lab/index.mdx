@@ -1,0 +1,64 @@
+---
+title: AKS Upgrade Lab
+sidebar_label: Overview
+sidebar_position: 1
+description: Build an end-to-end AKS upgrade lab from single-cluster automation and prechecks to workload and fleet-level upgrade orchestration.
+---
+
+# AKS Upgrade Lab
+
+Build a repeatable AKS upgrade workflow, from scheduled platform updates to workload-aware upgrades orchestrated by Azure Kubernetes Fleet Manager. Each step explains what a safeguard does, why you need it, and how to interpret the result before proceeding. This is a hands-on lab, not a full feature reference.
+
+## What you'll build
+
+1. **[Baseline upgrade automation](./baseline-upgrade-automation)** - configure Kubernetes and node OS auto-upgrade channels and reusable shared planned maintenance windows.
+2. **[Find blockers with Upgrade Insights](./pdb-upgrade-failure)** - assess an upgrade without starting it and trace a PDB blocker back to the workload.
+3. **[Automatic PDB management](./automatic-pdb-management)** - enable proactive PDB creation and watch the manager add temporary replicas to unblock a drain.
+4. **[Upgrade health gates](./workload-health-gates)** - connect workload health to AKS's per-node upgrade decisions.
+5. **[Fleet orchestration](./fleet-orchestration)** - drive the upgrade through a Fleet Update Run, with explicit preflight and post-upgrade approvals.
+
+The required path uses one disposable cluster to keep cost and setup manageable. Fleet stages and update groups provide the pattern you can extend to more members. Allow roughly 2-3 hours, plus preview registration, provisioning, and maintenance-window waits.
+
+GitHub Actions isn't required. Fleet drives the actual upgrade; you run Upgrade Insights before approving it. Fleet doesn't currently expose a documented native action that generates and evaluates Upgrade Insights for you. Fully unattended preflight needs an external integration, such as [Event Grid and an Azure Function](https://learn.microsoft.com/azure/kubernetes-fleet/howto-configure-events-for-gates), but that is outside this lab.
+
+---
+
+## Prerequisites
+
+- Azure subscription with permission to create AKS, Fleet, shared maintenance windows, and cluster extensions, register preview features, and generate/read Upgrade Insights.
+- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.85.0 or later.
+- [kubectl](https://kubernetes.io/docs/tasks/tools/).
+- [jq](https://jqlang.org/) for inspecting update runs.
+- Kubernetes permissions to deploy workloads, drain lab nodes, and create and patch health-gate custom resources.
+- A region and VM SKU supporting the preview features and with capacity for three nodes and temporary surge capacity. Confirm regional availability in the linked feature documentation.
+- A disposable AKS Standard cluster with managed identity and VMSS node pools, created in Step 1. Upgrade health gates don't support AKS Automatic during preview; Automatic remains the recommended starting point for supported production scenarios.
+
+Install/update required extensions:
+
+```bash
+az extension add --upgrade --name aks-preview --allow-preview true
+az extension add --upgrade --name fleet
+az extension add --upgrade --name k8s-extension
+az version
+az extension list --query "[].{name:name,version:version}" -o table
+```
+
+Use `aks-preview` 22.0.0b16 or later and `fleet` 1.6.0 or later. 
+
+Confirm the Upgrade Insights commands are available in your installed extension before starting:
+
+```bash
+az aks upgrade-insights create --help
+az aks nodepool upgrade-insights create --help
+```
+
+All three capabilities are preview features. Review the [AKS preview support policy](https://learn.microsoft.com/azure/aks/support-policies#preview-features-or-feature-flags). Azure resources incur charges; delete the dedicated lab resource group when finished.
+
+Sign in:
+
+```bash
+az login --use-device-code
+az account show -o table
+```
+
+Continue to [Step 1: Baseline upgrade automation](./baseline-upgrade-automation) to get started.

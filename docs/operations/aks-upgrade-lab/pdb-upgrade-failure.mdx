@@ -1,0 +1,132 @@
+---
+title: "Step 2: Find Blockers with Upgrade Insights"
+sidebar_label: "2. Upgrade Insights"
+sidebar_position: 3
+description: Assess upgrade readiness without starting an upgrade and use a PDB finding to plan automatic remediation.
+---
+
+# Step 2: Find blockers with Upgrade Insights
+
+Don't start an upgrade just to discover whether it will fail. [Upgrade Insights](https://learn.microsoft.com/azure/aks/upgrade-insights) evaluates readiness against a target version without changing the cluster version. Its findings point you to affected resources and recommended actions, rather than leaving you to infer the blocker from a failed drain.
+
+We'll use a small workload fixture with a restrictive PDB to make one finding repeatable. Creating the blocker isn't the objective: identifying it, understanding the availability requirement, and choosing automatic PDB management instead of weakening that requirement are what matter. Allow about 20 minutes.
+
+## 2.1 Choose a real upgrade target
+
+Register `AKSUpgradeInsightsPreview`. Wait for `Registered` before refreshing the provider:
+
+```bash
+az feature register --namespace Microsoft.ContainerService --name AKSUpgradeInsightsPreview
+az feature show --namespace Microsoft.ContainerService --name AKSUpgradeInsightsPreview \
+  --query properties.state -o tsv
+```
+
+```bash
+az provider register --namespace Microsoft.ContainerService
+az aks get-upgrades --resource-group ${RG_NAME} --name ${AKS_NAME} -o table
+```
+
+Choose a supported version ahead of your current version from that output. Don't copy a fixed version from another lab: available targets depend on your region and current version.
+
+```bash
+read -r -p "Supported target Kubernetes version: " TARGET_VERSION
+export TARGET_VERSION
+```
+
+Keep this target for the remaining steps. If an automatic update changes the cluster before the exercise, choose a new valid target and regenerate the assessment.
+
+## 2.2 Load the sample workload
+
+The fixture has two replicas and requires both to be available. That protects availability, but initially leaves no allowance for voluntary eviction. Give the Deployment a pod surge allowance so the PDB Manager can later add capacity without relaxing the budget. This is different from AKS's node-pool surge setting.
+
+```bash
+kubectl create namespace upgrade-lab
+kubectl apply -f - <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdb-blocked-api
+  namespace: upgrade-lab
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: pdb-blocked-api
+  template:
+    metadata:
+      labels:
+        app: pdb-blocked-api
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: pdb-blocked-api
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: web
+        image: nginx:1.28.0
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 128Mi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdb-blocked-api
+  namespace: upgrade-lab
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: pdb-blocked-api
+EOF
+kubectl rollout status deployment/pdb-blocked-api -n upgrade-lab --timeout=180s
+```
+
+## 2.3 Ask Upgrade Insights to identify the blocker
+
+Run the combined evaluation so you inspect both the control plane and every agent pool:
+
+```bash
+az aks upgrade-insights create \
+  --resource-group ${RG_NAME} \
+  --name ${AKS_NAME} \
+  --upgrade-type ControlPlaneAndAgentPools \
+  --target-kubernetes-ver "${TARGET_VERSION}"
+```
+
+Read the report before inspecting Kubernetes directly. Which scope failed? Which PDB or affected workload does the finding identify? Does it recommend a change to the workload, capacity, or budget? There might also be unrelated findings, such as quota or subnet capacity, that must be resolved separately.
+
+Now correlate the reported resource with Kubernetes:
+
+```bash
+kubectl get pdb -n upgrade-lab
+kubectl describe pdb pdb-blocked-api -n upgrade-lab
+kubectl get deployment,pods -n upgrade-lab -o wide
+```
+
+With two ready replicas and `minAvailable: 2`, expect `ALLOWED DISRUPTIONS` to be `0`. If Insights doesn't report the expected blocker, don't declare the exercise successful based on that column alone. Confirm the target, scope, regional preview availability, and that every pool was evaluated. An HTTP-successful assessment request isn't the same as a ready cluster, and `NOT EVALUATED` isn't a pass.
+
+We haven't started an upgrade, drained a node, or created a failed cluster state. Keep the PDB's availability requirement intact. Next, enable the PDB Manager and observe how temporary replica capacity can satisfy that requirement during a drain.
+
+---
+
+Next: [Step 3 - Enable automatic PDB management](./automatic-pdb-management)

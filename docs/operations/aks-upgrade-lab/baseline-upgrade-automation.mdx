@@ -1,0 +1,159 @@
+---
+title: "Step 1: Baseline Upgrade Automation"
+sidebar_label: "1. Baseline Upgrade Automation"
+sidebar_position: 2
+description: Configure AKS auto-upgrade channels and planned maintenance windows so upgrades happen automatically, on your schedule.
+---
+
+# Step 1: Baseline Upgrade Automation
+
+AKS clusters that never get upgraded have a way of becoming a liability without anyone noticing. Once a cluster drifts far enough behind, it falls out of the [supported Kubernetes version window](https://learn.microsoft.com/azure/aks/supported-kubernetes-versions), loses official support, and accumulates unpatched CVEs in both the control plane and the node operating system. The instinct a lot of teams have, understandably, is to avoid automating upgrades altogether — an upgrade that fires at the wrong moment can disrupt production traffic just as easily as neglect can.
+
+This step builds the piece that resolves that tension: automation you control. AKS exposes two independent auto-upgrade channels — one for the Kubernetes version, one for the node operating system image — and a planned maintenance system that lets you decide exactly when each of those channels is allowed to act. By the end of this step you'll have a cluster that upgrades itself, on a schedule you chose, not one AKS chose for you.
+
+## 1.1 Set up your working environment
+
+Before creating anything, set a few environment variables you'll reuse throughout the rest of this lab. `$RANDOM` keeps your resource names unique if you run this lab more than once in the same subscription.
+
+```bash
+RAND=$RANDOM
+export LOCATION=eastus
+export RG_NAME=rg-aks-upgrade-lab-$RAND
+export AKS_NAME=aks-upgrade-lab-$RAND
+
+az group create --name ${RG_NAME} --location ${LOCATION}
+```
+
+## 1.2 Create the cluster with both auto-upgrade channels enabled
+
+For the purposes of this lab, we'll use **AKS Standard** so that we can see each individual setting being configured and understand what it controls. **We recommend AKS Automatic** for users who want AKS to configure and manage these operational defaults for them. The explicit setup here is a learning exercise, not a recommendation to manage everything yourself. Upgrade health gates also currently require Standard and VMSS node pools during preview.
+
+Two flags in the command below are doing the real work:
+
+`--auto-upgrade-channel stable` subscribes the cluster to [Kubernetes version auto-upgrades](https://learn.microsoft.com/azure/aks/auto-upgrade-cluster), targeting the latest supported patch on minor version *N-1* — one minor version behind the newest release. That's a deliberate trade: you give up being on the absolute latest release in exchange for a version that's had more time to prove itself in the field. AKS also offers `patch` (same minor version only), `rapid` (always the newest minor version), and a legacy `node-image` channel, if your risk tolerance differs.
+
+`--node-os-upgrade-channel SecurityPatch` is a separate decision, and it's easy to assume it's the same thing as the channel above — it isn't. [Node OS patches](https://learn.microsoft.com/azure/aks/auto-upgrade-node-os-image) (security fixes, kernel updates) ship on a much faster cadence than Kubernetes versions do, so AKS decouples the two lifecycles entirely.
+
+We're configuring `SecurityPatch` specifically, and it's worth understanding why instead of just copying the flag. The alternative, `NodeImage`, rebuilds and ships an entirely new, fully-tested node image on a roughly two-week cadence following Azure's safe deployment practices — thorough, but slow relative to how quickly a security patch actually becomes available upstream. `SecurityPatch` instead applies AKS-tested, security-only patches to the existing VHD as soon as they're ready, and where possible applies them *live*, without draining or rebooting the node at all. AKS only falls back to a full reimage when a specific patch genuinely requires one, such as certain kernel security packages — and even then, that reimage still honors the maintenance window and surge settings you configure in the next section.
+
+The trade-off is real, not just theoretical, so weigh it rather than taking it on faith: `SecurityPatch` carries security fixes only, while `NodeImage` bundles in general bug fixes too, and `SecurityPatch` incurs a small extra cost for hosting the patched VHDs in your node resource group. If your workloads run on GPU-enabled Azure Linux nodes, Flatcar Container Linux, or Azure Linux with OS Guard, `SecurityPatch` isn't supported there — use `NodeImage` instead. For most Standard clusters, though, getting security fixes onto nodes faster and with less disruption is worth that trade-off, which is why it's [Microsoft's recommended channel](https://learn.microsoft.com/azure/aks/auto-upgrade-node-os-image#what-to-choose---securitypatch-channel-or-nodeimage-channel) for exactly this reason, and why we're configuring it here.
+
+Choose an initial supported version with a newer supported upgrade target available in your region. Creating at the newest version can leave nothing to upgrade during the exercise. Review the regional list before entering your choice; Step 2 will confirm the actual upgrade path from the created cluster.
+
+```bash
+az aks get-versions --location ${LOCATION} -o table
+read -r -p "Initial supported Kubernetes version with a newer upgrade target: " INITIAL_VERSION
+export INITIAL_VERSION
+```
+
+```bash
+az aks create \
+  --resource-group ${RG_NAME} \
+  --name ${AKS_NAME} \
+  --tier standard \
+  --enable-managed-identity \
+  --vm-set-type VirtualMachineScaleSets \
+  --kubernetes-version "${INITIAL_VERSION}" \
+  --node-count 3 \
+  --node-vm-size Standard_D2s_v3 \
+  --generate-ssh-keys \
+  --auto-upgrade-channel stable \
+  --node-os-upgrade-channel SecurityPatch
+```
+
+> Some subscriptions restrict which VM SKUs you can deploy by default. If this command fails with a SKU allow-list error, change `--node-vm-size` to a size your subscription allows.
+
+Connect `kubectl` to the new cluster so the rest of this lab can target it directly:
+
+```bash
+az aks get-credentials --resource-group ${RG_NAME} --name ${AKS_NAME} --overwrite-existing
+kubectl config current-context
+```
+
+## 1.3 Decide when those upgrades are allowed to run
+
+Turning on the two channels above only decided *that* upgrades will happen — it says nothing about *when*. That's the job of [planned maintenance](https://learn.microsoft.com/azure/aks/planned-maintenance), and it's arguably the more important of the two decisions: an upgrade channel with no maintenance window attached can, in theory, start at any time.
+
+AKS supports three maintenance configurations, and they can all coexist on the same cluster because each one governs a different class of change:
+
+- **`default`** governs AKS's own weekly platform releases — updates to control plane components and system add-ons that AKS ships on its own cadence, independent of your chosen upgrade channels.
+- **`aksManagedAutoUpgradeSchedule`** governs the Kubernetes version channel you just configured.
+- **`aksManagedNodeOSUpgradeSchedule`** governs the node OS channel.
+
+For Kubernetes and node OS updates, use [shared planned maintenance (preview)](https://learn.microsoft.com/azure/aks/planned-maintenance#use-a-shared-maintenance-window-preview). Instead of copying a schedule onto every cluster, create a regional maintenance-window resource and link each cluster to it. Later, the same window can govern other Fleet members in the same region.
+
+First register the preview. Wait until the feature reports `Registered`, then refresh the resource provider registration:
+
+```bash
+az feature register --namespace Microsoft.ContainerService --name AKSSharedMaintenanceWindowPreview
+az feature show --namespace Microsoft.ContainerService --name AKSSharedMaintenanceWindowPreview \
+  --query properties.state -o tsv
+```
+
+```bash
+az provider register --namespace Microsoft.ContainerService
+```
+
+We'll keep separate reusable windows so Kubernetes and node OS changes don't intentionally start together. The example uses Saturday for Kubernetes and Wednesday for node OS updates, both 02:00-06:00 UTC. **For a hands-on run today, choose a four-hour window that includes your intended exercise time.** A Fleet Update Run started outside the applicable window waits; it doesn't override your schedule. Use UTC deliberately rather than confusing it with your local time.
+
+```bash
+az aks maintenancewindow create \
+  --resource-group ${RG_NAME} \
+  --name shared-kubernetes \
+  --location ${LOCATION} \
+  --schedule-type Weekly \
+  --day-of-week Saturday \
+  --interval-weeks 1 \
+  --duration 4 \
+  --utc-offset=+00:00 \
+  --start-time 02:00
+
+az aks maintenancewindow create \
+  --resource-group ${RG_NAME} \
+  --name shared-nodeos \
+  --location ${LOCATION} \
+  --schedule-type Weekly \
+  --day-of-week Wednesday \
+  --interval-weeks 1 \
+  --duration 4 \
+  --utc-offset=+00:00 \
+  --start-time 02:00
+
+export K8S_WINDOW_ID=$(az aks maintenancewindow show \
+  --resource-group ${RG_NAME} --name shared-kubernetes --query id -o tsv)
+export NODEOS_WINDOW_ID=$(az aks maintenancewindow show \
+  --resource-group ${RG_NAME} --name shared-nodeos --query id -o tsv)
+
+az aks maintenanceconfiguration add \
+  --resource-group ${RG_NAME} --cluster-name ${AKS_NAME} \
+  --name aksManagedAutoUpgradeSchedule \
+  --maintenance-window-id "${K8S_WINDOW_ID}"
+
+az aks maintenanceconfiguration add \
+  --resource-group ${RG_NAME} --cluster-name ${AKS_NAME} \
+  --name aksManagedNodeOSUpgradeSchedule \
+  --maintenance-window-id "${NODEOS_WINDOW_ID}"
+```
+
+The link contains the shared resource ID, not another inline copy of its schedule. Don't combine `--maintenance-window-id` with inline schedule flags or a configuration file. Updating a shared window changes the effective schedule for every linked cluster, so review its consumers before editing it. The separate `default` configuration for AKS platform releases isn't part of these two shared upgrade windows.
+
+Confirm both the channels and the links took effect. Look for each `maintenanceWindowId`, then inspect the referenced resource to find the actual schedule:
+
+```bash
+az aks show \
+  --resource-group ${RG_NAME} \
+  --name ${AKS_NAME} \
+  --query "autoUpgradeProfile" -o yaml
+
+az aks maintenanceconfiguration list \
+  --resource-group ${RG_NAME} \
+  --cluster-name ${AKS_NAME} -o yaml
+
+az aks maintenancewindow list --resource-group ${RG_NAME} -o yaml
+```
+
+The channels now select automatic updates and the shared windows constrain their start times. A window isn't a readiness check or a guarantee that an update finishes within that window. In Step 5, Fleet adds deliberate upgrade orchestration and respects the applicable member maintenance configuration.
+
+---
+
+Next: [Step 2 - Find upgrade blockers with Upgrade Insights](./pdb-upgrade-failure)
