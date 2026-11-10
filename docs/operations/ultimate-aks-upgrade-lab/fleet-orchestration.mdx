@@ -2,23 +2,22 @@
 title: "Step 5: Fleet Orchestration"
 sidebar_label: "5. Fleet Orchestration"
 sidebar_position: 6
-description: Join a Fleet and run a staged, gated Kubernetes upgrade across multiple AKS clusters.
+description: Drive an upgrade with a Fleet Update Run, separate Upgrade Insights preflight, and explicit approval checkpoints.
 ---
 
-# Step 5: Fleet Orchestration
+# Step 5: Drive the upgrade with Fleet
 
-Up to this point, everything in this lab has operated on one cluster. That's a reasonable place to stop if you only run one cluster — but most organizations don't. Spin up a handful of clusters across regions, business units, or environments, and the problem stops being "did this upgrade succeed" and becomes "did it succeed everywhere, in the right order, without anyone babysitting twenty separate `az aks upgrade` commands." [Azure Kubernetes Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/) exists to answer that question.
+[Azure Kubernetes Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/) controls update sequencing across member clusters. We'll use it as the upgrade driver, without a GitHub repository, Actions workflow, or stored Azure credential secret. Allow 30-60 minutes plus maintenance-window waits.
 
-Fleet's model maps cleanly onto ideas you've already used in this lab. A cluster joins a Fleet as a *member*. Members are organized into *groups* — by region, environment, or whatever makes sense for your organization. An *update strategy* defines the order those groups upgrade in, as a series of *stages*. The part that matters most for this lab is that a stage can have an *approval gate* attached to it, meaning the rollout literally stops and waits until something — a person, or a pipeline like the one you built in Step 4 — explicitly says it's safe to continue.
+The required exercise has one member and one stage so you can focus on the controls. It demonstrates the orchestration pattern, not a multi-cluster rollout. To extend it, add separately prepared disposable clusters to later groups and stages, link their shared maintenance windows, and assess each member before its stage starts.
 
-One detail worth calling out before you start: joining Fleet does **not** override the planned maintenance windows you set in Step 1. Fleet controls sequencing and approval *across* clusters; each cluster's own maintenance window still controls the *timing* of when it personally is allowed to be touched. If you kick off an update run outside a member's maintenance window, that member simply sits in a `Pending` state with a message telling you when its next window opens — you'll see this for yourself in 5.3.
+## 5.1 Create a Fleet and join the lab cluster
 
-## 5.1 Join your cluster to a Fleet
-
-Create the Fleet resource, then join the AKS cluster you've been using as a Fleet member, placing it in an update group named `group-a`. Groups are how you'd eventually control which clusters move together in a real multi-cluster environment — with a single cluster, the group mostly exists so the strategy in the next step has something concrete to target.
+A member's update group determines where it appears in the strategy. Joining Fleet doesn't copy workload policies or install the PDB Manager on other members; configure those independently.
 
 ```bash
 export FLEET_NAME=fleet-upgrade-lab-$RAND
+export RUN_NAME=run-k8s-upgrade-1
 
 az fleet create \
   --resource-group ${RG_NAME} \
@@ -26,29 +25,32 @@ az fleet create \
   --location ${LOCATION}
 
 AKS_ID=$(az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} --query id -o tsv)
-
 az fleet member create \
   --resource-group ${RG_NAME} \
   --fleet-name ${FLEET_NAME} \
   --name ${AKS_NAME} \
-  --member-cluster-id ${AKS_ID} \
+  --member-cluster-id "${AKS_ID}" \
   --update-group group-a
 ```
 
-## 5.2 Define an update strategy with an approval gate
+## 5.2 Define separate preflight and post-upgrade approvals
 
-An update strategy is a reusable template, so you're not hand-writing the rollout sequence every time you upgrade. The one below is intentionally minimal — a single stage containing the one group you just created — but notice the `afterGates` entry of type `Approval`. That single field is what turns this from "Fleet blindly upgrades everything in order" into "Fleet upgrades this group, then waits for an explicit signal before considering the stage complete." In 5.4 you'll wire that signal to the same health check you built in Step 4.
-
-Create `fleet-stages.json`:
+Create `fleet-stages.json` with the following content. The before-stage approval is where you review Upgrade Insights. The after-stage approval is where you confirm the member and application are healthy after the upgrade. Neither approval runs checks itself.
 
 ```json
 {
   "stages": [
     {
       "name": "stage-preprod",
+      "beforeGates": [
+        {
+          "displayName": "upgrade-insights-reviewed",
+          "type": "Approval"
+        }
+      ],
       "afterGates": [
         {
-          "displayName": "workload-health-gate",
+          "displayName": "workload-health-reviewed",
           "type": "Approval"
         }
       ],
@@ -68,93 +70,122 @@ az fleet updatestrategy create \
   --fleet-name ${FLEET_NAME} \
   --name upgrade-strategy-lab \
   --stages fleet-stages.json
-```
-
-## 5.3 Create and start an update run, then read what it tells you
-
-An update run is the actual execution of a strategy against real clusters, targeting a specific Kubernetes version. Create one referencing the strategy above, then start it:
-
-```bash
-export TARGET_VERSION=<supported-target-version>
 
 az fleet updaterun create \
   --resource-group ${RG_NAME} \
   --fleet-name ${FLEET_NAME} \
-  --name run-k8s-upgrade-1 \
+  --name ${RUN_NAME} \
   --upgrade-type Full \
-  --kubernetes-version ${TARGET_VERSION} \
+  --kubernetes-version "${TARGET_VERSION}" \
   --node-image-selection Latest \
   --update-strategy-name upgrade-strategy-lab
 
 az fleet updaterun start \
   --resource-group ${RG_NAME} \
   --fleet-name ${FLEET_NAME} \
-  --name run-k8s-upgrade-1
+  --name ${RUN_NAME}
 ```
 
-Don't just glance at this next output — read it. The `status` block tells you exactly where the run is and why:
+Wait for `upgrade-insights-reviewed` to become `Pending`. Starting this run doesn't authorize its member upgrade until that approval is granted. Approvals require a stage-based strategy; they aren't supported in one-by-one update sequences.
+
+## 5.3 Generate fresh Insights before approving
+
+Fleet doesn't expose a documented built-in Upgrade Insights action. Use the same target as the run and review all scopes. Because this run also selects the latest node image, include a node-image assessment of each pool.
+
+```bash
+az aks upgrade-insights create \
+  --resource-group ${RG_NAME} --name ${AKS_NAME} \
+  --upgrade-type ControlPlaneAndAgentPools \
+  --target-kubernetes-ver "${TARGET_VERSION}"
+
+az aks nodepool list --resource-group ${RG_NAME} --cluster-name ${AKS_NAME} -o table
+```
+
+For each pool listed, run the following; omitting the target node image asks Insights to assess the latest available image:
+
+```bash
+read -r -p "Node pool name to assess: " POOL_NAME
+az aks nodepool upgrade-insights create \
+  --resource-group ${RG_NAME} --cluster-name ${AKS_NAME} \
+  --name "${POOL_NAME}" --upgrade-type NodeImage
+```
+
+Don't approve if any required scope is failed, incomplete, or not evaluated. If a PDB finding persists, return to Step 3 rather than assuming installation of its manager clears static readiness checks. Generate new results after remediation. An assessment is a snapshot: cluster changes or a newer selected image can invalidate it.
+
+Read gates from **this update run**, not the first pending gate returned across the whole Fleet:
 
 ```bash
 az fleet updaterun show \
-  --resource-group ${RG_NAME} \
-  --fleet-name ${FLEET_NAME} \
-  --name run-k8s-upgrade-1 -o json | jq '.status'
+  --resource-group ${RG_NAME} --fleet-name ${FLEET_NAME} --name ${RUN_NAME} \
+  -o json | jq '.status.stages[] | (.beforeGates // []) + (.afterGates // []) | .[]'
 ```
 
-If your cluster's maintenance window from Step 1 isn't currently open, you'll see the member sitting in a `Pending` state with a message like `member maintenance window is unavailable for update. next window opens at: ...` — this is Fleet correctly deferring to the maintenance window you configured, not a bug. If the window is open, you'll instead see the stage progress toward its `afterGates` entry, where it will pause and wait.
+Find the `Pending` before-stage gate whose display name is `upgrade-insights-reviewed`. Copy the last component of its `gateId`, after the final slash. Open Step 4's health-request watch terminal **before** approving:
 
-## 5.4 Approve the gate only after your health check passes
-
-This job is the other half of the pattern: it looks up whatever approval gate is currently pending on your Fleet and approves it. The important detail is the `needs: workload-health-gate` line — this job only runs because the health check from Step 4 succeeded first. If that upstream job fails, this one never runs, and the stage stays paused indefinitely rather than rolling forward onto a cluster you haven't actually verified is healthy.
-
-```yaml
-  approve-fleet-gate:
-    runs-on: ubuntu-latest
-    needs: workload-health-gate
-    steps:
-      - name: Azure Login
-        uses: Azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Approve pending Fleet gate
-        uses: Azure/cli@v2
-        with:
-          inlineScript: |
-            GATE_ID=$(az fleet gate list \
-              --resource-group "${{ vars.RG_NAME }}" \
-              --fleet-name "${{ vars.FLEET_NAME }}" \
-              --gate-type Approval \
-              --state Pending \
-              --query "[0].name" -o tsv)
-
-            if [ -z "${GATE_ID}" ]; then
-              echo "No pending approval gate found."
-              exit 1
-            fi
-
-            az fleet gate approve \
-              --resource-group "${{ vars.RG_NAME }}" \
-              --fleet-name "${{ vars.FLEET_NAME }}" \
-              --name "${GATE_ID}"
+```bash
+read -r -p "This run's pending preflight approval gate name: " GATE_NAME
+az fleet gate approve \
+  --resource-group ${RG_NAME} --fleet-name ${FLEET_NAME} --name "${GATE_NAME}"
 ```
 
----
+This manual checkpoint avoids CI setup while making the decision visible in Fleet. For unattended operation, [Event Grid can notify an Azure Function, Logic App, or webhook](https://learn.microsoft.com/azure/kubernetes-fleet/howto-configure-events-for-gates). That integration would need to call Insights, wait for complete results, evaluate them, and approve only the matching run gate. It isn't a native preflight capability and isn't required here.
+
+## 5.4 Observe maintenance and node health gates
+
+```bash
+az fleet updaterun show \
+  --resource-group ${RG_NAME} --fleet-name ${FLEET_NAME} --name ${RUN_NAME} \
+  -o json | jq '.status'
+```
+
+[Fleet honors member maintenance windows](https://learn.microsoft.com/azure/kubernetes-fleet/concepts-update-orchestration#planned-maintenance-windows), including the effective schedules linked through Step 1's shared windows. A member can wait outside its applicable window even after approval. Inspect the reported reason and schedule rather than bypassing the window to make the lab advance.
+
+When the upgrade runs, answer each current node-scoped `HealthCheckRequest` using Step 4's smoke tests and response example. The Fleet approval doesn't replace those responses. If a health signal is unhealthy or times out, inspect both the member failure and the Kubernetes gate resources; don't approve the post-upgrade gate as a workaround.
+
+For future multi-cluster exercises, automate the node-level provider before scaling out. Manually responding within five minutes on many clusters isn't a workable operational model.
+
+## 5.5 Review the result and approve completion
+
+Wait until the member update succeeds and `workload-health-reviewed` becomes `Pending`. Inspect node versions and workload health again:
+
+```bash
+kubectl get nodes -o wide
+kubectl rollout status deployment/pdb-blocked-api -n upgrade-lab --timeout=180s
+kubectl get deployment,pods,pdb -n upgrade-lab -o wide
+
+az fleet updaterun show \
+  --resource-group ${RG_NAME} --fleet-name ${FLEET_NAME} --name ${RUN_NAME} \
+  -o json | jq '.status.stages[] | (.beforeGates // []) + (.afterGates // []) | .[]'
+```
+
+Repeat the HTTP smoke test from Step 4. Only after these checks pass, copy the exact pending after-stage gate's identifier and approve it:
+
+```bash
+read -r -p "This run's pending workload-health approval gate name: " GATE_NAME
+az fleet gate approve \
+  --resource-group ${RG_NAME} --fleet-name ${FLEET_NAME} --name "${GATE_NAME}"
+
+az fleet updaterun show \
+  --resource-group ${RG_NAME} --fleet-name ${FLEET_NAME} --name ${RUN_NAME} \
+  -o json | jq '.status'
+```
+
+Confirm the run completed successfully. With additional stages, completion of one stage allows later stages to begin, subject to their own approvals and maintenance windows.
 
 ## Cleanup
+
+If retaining the cluster, remove the manual health-provider policy after all upgrades finish so a future unattended upgrade doesn't wait for a person who isn't watching:
+
+```bash
+kubectl delete upgradegatepolicy lab-workload-health
+```
+
+Otherwise delete only the dedicated resource group created for this exercise. It contains the Fleet, member cluster, and shared maintenance resources; deleting it removes everything in that group and stops the associated charges:
 
 ```bash
 az group delete --name ${RG_NAME} --yes --no-wait
 ```
 
-## Summary
+## What you've learned
 
-Over the course of this lab, you layered five independent upgrade safeguards on top of each other:
-
-1. **Platform automation** — Kubernetes and node OS auto-upgrade channels, controlled by planned maintenance.
-2. **Visibility into a real failure mode** — a restrictive PDB blocking a node drain, driven through CI.
-3. **Platform-level remediation** — automatic PDB management removing that failure mode entirely.
-4. **Workload-level protection** — a compatibility health gate catching application version-coupling bugs platform safeguards can't see.
-5. **Fleet-scale orchestration** — the same safe-upgrade model applied across many clusters, with staged rollout and approval gates.
-
-Each layer solves a problem the one before it couldn't, and each is independently useful on its own — you don't need Fleet to benefit from automatic PDB management, and you don't need health gates to benefit from planned maintenance. Together, they form a complete picture of what a mature AKS upgrade strategy looks like in production.
+Shared maintenance controls upgrade timing, Insights identifies preflight blockers, the PDB Manager can preserve availability during drains, AKS health gates react during node upgrades, and Fleet sequences the rollout. These are complementary controls, not interchangeable checks. You exercised the flow without GitHub Actions.

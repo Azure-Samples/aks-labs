@@ -1,95 +1,165 @@
 ---
-title: "Step 4: Add a Workload Compatibility Health Gate"
-sidebar_label: "4. Workload Health Gates"
+title: "Step 4: Add an AKS Upgrade Health Gate"
+sidebar_label: "4. Upgrade Health Gates"
 sidebar_position: 5
-description: Build a CI gate that catches application-level Kubernetes version coupling bugs that platform-level safeguards can't see.
+description: Use AKS upgrade health gates to evaluate workload health during node upgrades, before proceeding to remaining nodes.
 ---
 
-# Step 4: Add a Workload Compatibility Health Gate
+# Step 4: Add an AKS upgrade health gate
 
-Steps 1 through 3 protected the platform. None of them can protect you from a problem only the application team can see: logic inside the workload itself that quietly assumes something about the Kubernetes version it's running on. A common real-world pattern is a certification or compliance check — someone writes code that says "only run if the cluster is on a Kubernetes version my team has already validated," ships it, and nobody remembers to update that check the next time the cluster gets upgraded. From AKS's point of view, nothing went wrong: the upgrade succeeded, the node drained cleanly, the pod rescheduled without incident. From the application's point of view, it just broke.
+Readiness is a prediction before an upgrade. Workload health is evidence collected while it happens. A PDB can protect replica availability and still miss an application returning errors or exceeding its latency budget.
 
-This step builds a minimal version of that failure, and the gate that would have caught it. The pattern is intentionally simple: the application declares, in a ConfigMap, the Kubernetes minor version its current build was certified against. A CI job compares that declaration to the cluster's *live* version before anything downstream — a deploy, a promotion, a Fleet approval — is allowed to treat the cluster as healthy. If the two disagree, the pipeline fails loudly instead of letting a silent mismatch ship. It's the workload-owned equivalent of how AKS already [blocks cluster upgrades when it detects deprecated Kubernetes API usage](https://learn.microsoft.com/azure/aks/stop-cluster-upgrade-api-breaking-changes) — except here you're encoding your own application's compatibility contract rather than relying on a Kubernetes-API-level check. See [AKS production upgrade strategies](https://learn.microsoft.com/azure/aks/aks-production-upgrade-strategies) for more on why workload-level guardrails like this one matter alongside platform-level ones.
+[AKS upgrade health gates (preview)](https://learn.microsoft.com/azure/aks/upgrade-health-gates) connect those health signals to the node upgrade process itself. This isn't a CI job that runs after the entire cluster has upgraded. AKS asks a health provider for a verdict during the upgrade and stops if the verdict is unhealthy or times out. Allow about 20 minutes for setup, then keep this page open during Step 5.
 
-## 4.1 Declare the workload's supported Kubernetes version
+## 4.1 Understand the two levels of protection
 
-Deploy a ConfigMap holding the minor version this application was last certified against, alongside a small Deployment representing the application itself. In a real pipeline, `expectedK8sMinor` is something a developer updates deliberately as part of their own release process — the point of this exercise is to notice how easy it is to forget that step, and what happens when you do.
+Fleet approval gates control when a stage or group can proceed. AKS health gates control progress within a member's node upgrade. Upgrade Insights is a separate preflight assessment, not either kind of gate.
+
+```mermaid
+flowchart LR
+  I["Generate Upgrade Insights"] --> R["Review and remediate blockers"]
+  R --> F["Approve Fleet stage"]
+  F --> U["Fleet starts member upgrade"]
+  U --> N["AKS upgrades a node"]
+  N --> H{"Workload health verdict"}
+  H -->|Healthy| NEXT["Continue to remaining nodes"]
+  H -->|Unhealthy or timeout| STOP["Stop upgrade; investigate"]
+  NEXT --> POST["Fleet post-upgrade approval"]
+```
+
+The contract between AKS and the health provider uses four custom resources:
+
+```mermaid
+sequenceDiagram
+  participant F as Fleet Update Run
+  participant A as AKS upgrade
+  participant K as Kubernetes resources
+  participant P as Health provider
+  F->>A: Start member upgrade
+  A->>K: Record UpgradeOperation
+  A->>A: Upgrade matching node
+  A->>K: Create HealthCheckRequest
+  P->>K: Read request
+  P->>P: Evaluate workload and node health
+  P->>K: Write HealthSignal
+  K-->>A: Provider verdict
+  alt Healthy
+    A->>A: Continue upgrade
+  else Unhealthy or node timeout
+    A-->>F: Member upgrade fails
+  end
+```
+
+`UpgradeGatePolicy` selects the scope and provider. Every matching provider must answer **node-scoped** requests. Cluster and pool signals can act as additional circuit breakers but don't replace the per-node response.
+
+## 4.2 Enable the preview and apply a policy
+
+Use the Standard VMSS cluster from Step 1. Register the preview and wait for `Registered`:
+
+```bash
+az feature register --namespace Microsoft.ContainerService --name EnableUpgradeGatePreview
+az feature show --namespace Microsoft.ContainerService --name EnableUpgradeGatePreview \
+  --query properties.state -o tsv
+```
+
+```bash
+az provider register --namespace Microsoft.ContainerService
+az aks update --resource-group ${RG_NAME} --name ${AKS_NAME} --enable-upgrade-gate
+az aks show --resource-group ${RG_NAME} --name ${AKS_NAME} \
+  --query upgradeSettings.upgradeGateSettings -o yaml
+kubectl get crd upgradegatepolicies.upgrade.aks.io upgradeoperations.upgrade.aks.io \
+  healthcheckrequests.health.aks.io healthsignals.health.aks.io
+```
+
+Enabling the setting alone doesn't gate a pool: a matching policy is also required. Apply a cluster-scoped policy so you don't accidentally target a nonexistent node-pool name:
 
 ```bash
 kubectl apply -f - <<'EOF'
-apiVersion: v1
-kind: ConfigMap
+apiVersion: upgrade.aks.io/v1alpha1
+kind: UpgradeGatePolicy
 metadata:
-  name: version-locked-app-compat
-  namespace: upgrade-lab
-data:
-  expectedK8sMinor: "33"
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: version-locked-app
-  namespace: upgrade-lab
+  name: lab-workload-health
 spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: version-locked-app
-  template:
-    metadata:
-      labels:
-        app: version-locked-app
-    spec:
-      containers:
-      - name: web
-        image: nginx:1.25.5
-        ports:
-        - containerPort: 80
+  provider: lab-health
+  rules:
+  - target:
+      scope: Cluster
+    nodeTimeout: 5m
 EOF
+kubectl get upgradegatepolicy lab-workload-health -o yaml
 ```
 
-## 4.2 Add the comparison as an explicit CI gate
+The five-minute timeout gives you time to examine a request manually. It is the preview maximum, not a recommended latency budget for production. The supported failure action is `Abort`. Policies are snapshotted when an upgrade starts; editing one afterward doesn't change that operation.
 
-Add this job to the workflow from Step 2, running after the upgrade completes. Walk through what it actually checks before you run it: it reads the declared expected version out of the ConfigMap, reads the live server version straight from the cluster via `kubectl version`, and fails the job the moment the two disagree — before anything downstream is allowed to treat this cluster as healthy. It also confirms the Deployment has available replicas, because a version match on a crashed workload isn't actually a healthy workload.
+We're deliberately acting as the health provider in this exercise. Don't leave this policy unattended: an unanswered node request stops the upgrade. A real deployment needs a controller or monitoring integration that answers requests automatically. The Microsoft-managed on-demand monitor, if enabled separately, has its own one-minute timeout; our five-minute policy doesn't extend it.
 
-```yaml
-  workload-health-gate:
-    runs-on: ubuntu-latest
-    needs: precheck-and-upgrade
-    steps:
-      - name: Azure Login
-        uses: Azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+## 4.3 Prepare a verdict based on observed health
 
-      - name: Validate workload compatibility gate
-        uses: Azure/cli@v2
-        with:
-          inlineScript: |
-            az aks get-credentials \
-              --resource-group "${{ github.event.inputs.resourceGroup }}" \
-              --name "${{ github.event.inputs.clusterName }}" \
-              --overwrite-existing
+Don't start a separate `az aks upgrade`. In Step 5, Fleet will start the upgrade after you review Insights and approve its before-stage gate. Before granting that approval, open a second terminal and watch:
 
-            EXPECTED=$(kubectl get configmap version-locked-app-compat -n upgrade-lab -o jsonpath='{.data.expectedK8sMinor}')
-            CURRENT=$(kubectl version -o json | jq -r '.serverVersion.minor' | tr -d '+')
-
-            if [ "${EXPECTED}" != "${CURRENT}" ]; then
-              echo "Health gate failed: expected minor ${EXPECTED}, found ${CURRENT}"
-              exit 1
-            fi
-
-            AVAILABLE=$(kubectl get deploy version-locked-app -n upgrade-lab -o jsonpath='{.status.availableReplicas}')
-            if [ -z "${AVAILABLE}" ] || [ "${AVAILABLE}" -lt 1 ]; then
-              echo "Health gate failed: no available replicas."
-              exit 1
-            fi
-
-            echo "Health gate passed."
+```bash
+kubectl get upgradeoperation,healthcheckrequest,healthsignal --watch
 ```
 
-Try it yourself: once Step 1's cluster has moved to a Kubernetes minor version newer than the `33` hardcoded in the ConfigMap above, run this job and watch it fail with a clear `Version mismatch` message instead of silently approving a broken state. That failure message is the whole point — it's the difference between an app team finding out from a dashboard versus finding out from a customer.
+When a request appears, inspect it and select a **node-scoped** request from the current operation, not a stale request or an optional cluster/pool request:
+
+```bash
+kubectl get healthcheckrequest
+read -r -p "Current node-scoped health check request name: " HCR_NAME
+kubectl get healthcheckrequest "${HCR_NAME}" -o yaml
+kubectl get nodes -o wide
+kubectl get deployment,pods,pdb -n upgrade-lab -o wide
+kubectl rollout status deployment/pdb-blocked-api -n upgrade-lab --timeout=60s
+```
+
+Check the requested node's readiness and the workload's available replicas and readiness. For this sample nginx workload, test HTTP through a port-forward in another terminal:
+
+```bash
+kubectl port-forward -n upgrade-lab deployment/pdb-blocked-api 8080:80
+```
+
+```bash
+curl --fail --show-error http://127.0.0.1:8080/
+```
+
+Stop the port-forward with Ctrl+C afterward. This is a deliberately small smoke test, not proof of application-wide availability. Real providers should evaluate the application's own service endpoints, error rates, latency, and compatibility tests.
+
+Only when the checks pass, create the response associated with this exact request:
+
+```bash
+HCR_UID=$(kubectl get healthcheckrequest "${HCR_NAME}" -o jsonpath='{.metadata.uid}')
+kubectl apply -f - <<EOF
+apiVersion: health.aks.io/v1alpha1
+kind: HealthSignal
+metadata:
+  name: ${HCR_NAME}-lab-health
+  labels:
+    health.aks.io/provider: lab-health
+  ownerReferences:
+  - apiVersion: health.aks.io/v1alpha1
+    kind: HealthCheckRequest
+    name: ${HCR_NAME}
+    uid: ${HCR_UID}
+    controller: true
+    blockOwnerDeletion: true
+spec:
+  type: NodeHealth
+EOF
+kubectl patch healthsignal "${HCR_NAME}-lab-health" \
+  --subresource=status --type=merge \
+  -p "{\"status\":{\"conditions\":[{\"type\":\"Ready\",\"status\":\"True\",\"reason\":\"SmokeTestPassed\",\"message\":\"Lab node and workload checks passed\",\"lastTransitionTime\":\"$(date -u +%FT%TZ)\"}]}}"
+```
+
+The provider label and owner reference are essential: AKS ignores an unmatched signal. Repeat for **each new node request** while Fleet runs. A single `True` response isn't permission to skip the rest.
+
+## 4.4 Understand the stop path
+
+If a smoke test fails, don't publish `True`. A provider should report `False` with the actual failure reason, or AKS will stop when no valid verdict arrives within `nodeTimeout`. For an optional controlled failure on this disposable cluster, create the same request-linked signal but patch its condition to `False` with reason `LabSimulatedFailure` instead of publishing a healthy condition. Label this as a simulation, not a detected application defect.
+
+A stopped upgrade doesn't roll back nodes already upgraded, and a control-plane-only upgrade isn't gated. Inspect `kubectl get nodes` rather than assuming the node pool's target version means every node reached it. Correct the health issue before retrying; new operations require new responses. In the Fleet flow, inspect the failed member and use the run's supported retry controls rather than bypassing orchestration with an unrelated cluster upgrade.
+
+Both enablement and the policy are AKS settings, independent of the client that requests the upgrade. The public docs describe full-cluster and node-pool upgrade support but don't provide a separate Fleet-specific preview walkthrough. Confirm that the Fleet-triggered member operation actually creates these requests; no requests means this lab has not demonstrated health gating.
 
 ---
 
-Next: [Step 5 — Fleet orchestration](./fleet-orchestration)
+Next: [Step 5 - Drive the upgrade with Fleet](./fleet-orchestration)

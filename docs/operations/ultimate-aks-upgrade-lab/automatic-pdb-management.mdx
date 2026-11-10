@@ -2,16 +2,30 @@
 title: "Step 3: Enable Automatic PDB Management"
 sidebar_label: "3. Automatic PDB Management"
 sidebar_position: 4
-description: Use the AKS automatic Pod Disruption Budget management extension to fix PDB-blocked upgrades at the platform level.
+description: Create workload PDBs automatically and observe temporary replica surging during a drain without weakening the availability budget.
 ---
 
 # Step 3: Enable Automatic PDB Management
 
-You just watched a single PDB block part of an upgrade. Now picture that same failure spread across dozens of teams and hundreds of deployments, most of whom have never thought about PDBs at all — either because they never set one, leaving their workload fully exposed to simultaneous eviction, or because they copied one from another team without fully understanding the implications. Asking every team to get this right, and to keep getting it right as replica counts and scaling behavior change over time, doesn't scale. This step fixes the problem at the platform layer instead of relying on every workload owner to fix it themselves.
+Upgrade Insights identified the PDB risk before an upgrade started. Rather than reducing `minAvailable` or bypassing eviction, we'll use automatic PDB management to preserve the workload's availability requirement and add temporary replica capacity when a drain needs it. Allow about 20 minutes.
 
 [Automatic Pod Disruption Budget management](https://learn.microsoft.com/azure/aks/automatic-pod-disruption-budget-management) is an AKS cluster extension — not a change to any application. It watches the cluster for two situations and resolves both without anyone touching application code: Deployments with no PDB at all get one created automatically, sized to their current replica count; and when an existing PDB is actually blocking eviction during a drain, the extension temporarily adds just enough replicas to satisfy the budget, lets the drain proceed, then scales back down once it's done. It's still in preview, so treat what follows as something to evaluate rather than something to roll out everywhere unreviewed.
 
 ## 3.1 Install the extension
+
+Use the [documented Kubernetes extension installation](https://learn.microsoft.com/azure/aks/automatic-pod-disruption-budget-management). This isn't the Upgrade Insights CLI feature in PR #10553, and no released `aks-preview` PDB Manager shortcut version is assumed here. The installation uses `k8s-extension`, requires managed identity, and supports Deployments, not StatefulSets.
+
+Register Kubernetes extensions if not already registered. Wait for `Registered` before refreshing the provider:
+
+```bash
+az feature register --namespace Microsoft.KubernetesConfiguration --name Extensions
+az feature show --namespace Microsoft.KubernetesConfiguration --name Extensions \
+  --query properties.state -o tsv
+```
+
+```bash
+az provider register --namespace Microsoft.KubernetesConfiguration
+```
 
 Install it scoped to the `upgrade-lab` namespace from Step 2, with automatic PDB creation turned on. The `controllerConfig.pdb.create=true` setting is what enables the proactive half of the extension's behavior — without it, the extension will still rescue you from an *existing* blocking PDB, but it won't create missing ones on your behalf.
 
@@ -24,10 +38,10 @@ az k8s-extension create \
   --resource-group ${RG_NAME} \
   --release-train stable \
   --configuration-settings controllerConfig.pdb.create=true controllerConfig.namespaces.actionedNamespaces="{upgrade-lab}" \
-  --auto-upgrade-mode patch
+  --auto-upgrade-minor-version true
 ```
 
-> Do **not** include `kube-system` in `actionedNamespaces`. AKS already manages PDBs for its own system components, and the extension fails validation if an AKS-owned namespace is included in that list.
+Keep the explicit customer namespace list scoped to `upgrade-lab`. Namespace defaults differ between published extension versions and current upstream charts; inspect the installed version rather than copying an upstream default list into a managed extension.
 
 Confirm the extension finished installing before continuing — `provisioningState` should read `Succeeded`:
 
@@ -40,17 +54,36 @@ az k8s-extension show \
   --query "{state:provisioningState,version:currentVersion}" -o yaml
 ```
 
-## 3.2 Watch it intervene
+## 3.2 Observe proactive PDB creation
 
-Rather than just taking the extension's word for it, force the exact situation it's designed to handle and watch the cluster respond. Find whichever node is currently running your `pdb-blocked-api` pods, cordon it, and drain it — the same operation an AKS upgrade performs on every node it touches.
+The existing fixture PDB is user-owned; the manager shouldn't silently take it over or create a duplicate. First inspect it, then remove only that lab PDB while no upgrade or drain is running. This controlled handoff demonstrates the missing-PDB case, not a way to bypass protection during maintenance.
+
+```bash
+kubectl get pdb pdb-blocked-api -n upgrade-lab -o yaml
+kubectl delete pdb pdb-blocked-api -n upgrade-lab
+kubectl wait --for=create poddisruptionbudget/pdb-blocked-api -n upgrade-lab --timeout=120s
+kubectl get pdb pdb-blocked-api -n upgrade-lab -o yaml
+```
+
+Look for the `ownedBy: EvictionAutoScaler` annotation and Deployment owner reference on the replacement. With no HPA or KEDA scaling floor, its `minAvailable` should reflect the two Deployment replicas. If no replacement appears, stop and inspect extension status, controller events, namespace configuration, and the Deployment's explicit `maxUnavailable: 0`; don't proceed to a drain without a PDB.
+
+## 3.3 Watch the manager intervene during a drain
+
+Open a second terminal connected to this lab cluster before draining:
+
+```bash
+kubectl get deployment,pods,pdb -n upgrade-lab --watch
+```
+
+In the original terminal, find a node running one of the sample pods and cordon and drain it. Only use this disposable cluster: a node drain affects every workload on the node. The fixture spreads its pods across nodes and the three-node cluster leaves another node for the temporary replica.
 
 ```bash
 NODE=$(kubectl get pods -n upgrade-lab -l app=pdb-blocked-api -o jsonpath='{.items[0].spec.nodeName}')
-kubectl cordon ${NODE}
-kubectl drain ${NODE} --ignore-daemonsets --delete-emptydir-data --force --timeout=300s
+kubectl cordon "${NODE}"
+kubectl drain "${NODE}" --ignore-daemonsets --delete-emptydir-data --timeout=300s
 ```
 
-Without the extension running, this would be where you got stuck — `kubectl drain` would hang, or time out, against the same restrictive PDB from Step 2. Instead, look at what actually happened:
+Watch for a third replica becoming ready, an allowed disruption, and the original pod being evicted. The manager adds replicas within the Deployment's surge allowance; it doesn't weaken `minAvailable`. Cordon can trigger this before drain starts, so use the watch rather than relying on a snapshot afterward.
 
 ```bash
 kubectl get pods -n upgrade-lab -l app=pdb-blocked-api -o wide
@@ -58,14 +91,38 @@ kubectl get pdb -n upgrade-lab
 kubectl get evictionautoscalers -A
 ```
 
-You should see a third `pdb-blocked-api` pod briefly scheduled onto a different node — the extension surging the replica count just enough to satisfy `minAvailable: 2` while the original pod on the cordoned node gets evicted — and an `EvictionAutoScaler` resource the extension created to track this PDB. Once the drain finishes, the extension scales the deployment back down to its original replica count on its own; no manual cleanup required.
+The manager tracks the intervention with an `EvictionAutoScaler` resource and restores the original replica count after drain activity and its cooldown. If the drain fails, don't use force eviction or delete the PDB: inspect pod scheduling, available capacity, readiness, and extension events. Uncordon the node even if the drain timed out.
 
 Uncordon the node when you're done so the cluster returns to its normal schedulable state:
 
 ```bash
 kubectl uncordon ${NODE}
+kubectl rollout status deployment/pdb-blocked-api -n upgrade-lab --timeout=180s
 ```
+
+## 3.4 Regenerate the readiness assessment
+
+```bash
+az aks upgrade-insights create \
+  --resource-group ${RG_NAME} --name ${AKS_NAME} \
+  --upgrade-type ControlPlaneAndAgentPools \
+  --target-kubernetes-ver "${TARGET_VERSION}"
+```
+
+Compare this fresh report with Step 2. A steady-state PDB with two replicas and `minAvailable: 2` can still show zero allowed disruptions: the manager responds dynamically when a node is cordoned. Don't assume the dry-run must become green just because the extension is installed. If Insights still reports the PDB blocker, resolve it and re-evaluate before approving Fleet.
+
+For this fixture, one explicit alternative is a workload-owner-defined budget with spare replicas. Hand the sample PDB back to the workload owner before scaling, so automatic reconciliation won't raise its minimum to the new replica count. This keeps `minAvailable: 2` and illustrates the difference between dynamic drain rescue and static preflight headroom:
+
+```bash
+kubectl patch pdb pdb-blocked-api -n upgrade-lab --type=merge \
+  -p '{"metadata":{"annotations":{"ownedBy":null},"ownerReferences":[]},"spec":{"minAvailable":2}}'
+kubectl scale deployment/pdb-blocked-api -n upgrade-lab --replicas=3
+kubectl rollout status deployment/pdb-blocked-api -n upgrade-lab --timeout=180s
+kubectl get pdb pdb-blocked-api -n upgrade-lab
+```
+
+Expect one allowed disruption once all three pods are ready. Regenerate Insights using the command above and review every scope. The extension remains installed for drain handling and other eligible Deployments. In a real application, agree on the availability floor and scaling policy with its owner; don't change PDB ownership as an unattended fleet-wide fix.
 
 ---
 
-Next: [Step 4 — Add a workload compatibility health gate](./workload-health-gates)
+Next: [Step 4 - Add an AKS upgrade health gate](./workload-health-gates)
